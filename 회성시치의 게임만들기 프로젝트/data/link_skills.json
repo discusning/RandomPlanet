@@ -1,0 +1,157 @@
+{
+  "description": "링크스킬 - 캐릭터 생성 시 1개 랜덤 배정, 15레벨 이상으로 링크 슬롯에 배치 시 공격대에 활성화. 동일 링크스킬은 링크 2슬롯에서 중첩 불가.",
+  "character": "배경의 아군이 꾸준히 대주는 지원 (상시 오라·경제·안전망·상황 버프 위주)",
+  "note": "기획서 표 제목은 '링크스킬 100종'이나 실제 부록 B 목록을 세어보면 110개임 - 원본 확인 필요",
+  "categories": {
+    "stat_support": {
+      "name": "A. 스탯 지원",
+      "skills": [
+        { "id": "blessing_of_strength", "name": "힘의 가호", "effect": "공격력 +6%" },
+        { "id": "blessing_of_wisdom", "name": "지혜의 가호", "effect": "스킬 데미지 +6%" },
+        { "id": "blessing_of_agility", "name": "민첩의 가호", "effect": "공격 속도 +5%" },
+        { "id": "blessing_of_luck", "name": "행운의 가호", "effect": "크리 확률 +4%" },
+        { "id": "blessing_of_solidity", "name": "견고함의 가호", "effect": "방어력 +8%" },
+        { "id": "blessing_of_vitality", "name": "활력의 가호", "effect": "최대 체력 +8%" },
+        { "id": "blessing_of_sharpness", "name": "예리함의 가호", "effect": "크리 데미지 +12%" },
+        { "id": "blessing_of_accuracy", "name": "명중의 가호", "effect": "명중 +8%" },
+        { "id": "total_fire", "name": "총화", "effect": "전 스탯 +3%" },
+        { "id": "balance_formation", "name": "균형의 진", "effect": "가장 낮은 스탯 1종 +10%" },
+        { "id": "bias_formation", "name": "편향의 진", "effect": "가장 높은 스탯 1종 +8%" },
+        { "id": "engraving", "name": "각인", "effect": "매 판 첫 스탯 구슬 효과 2배" }
+      ]
+    },
+    "economy_growth_support": {
+      "name": "B. 경제·성장 지원",
+      "skills": [
+        { "id": "mentors_guidance", "name": "스승의 인도", "effect": "경험치 +12%" },
+        { "id": "trade_support", "name": "상단 지원", "effect": "드랍률 +15%" },
+        { "id": "mining_support", "name": "채굴 지원", "effect": "스탯 구슬 획득량 +12%" },
+        { "id": "sponsorship", "name": "후원", "effect": "클리어 시 영구 재화 +20%" },
+        { "id": "advisor", "name": "조언자", "effect": "15레벨 이하 경험치 +20%" },
+        { "id": "supply_drop", "name": "물자 보급", "effect": "회복 아이템 드랍 확률 ↑" },
+        { "id": "pass", "name": "통행증", "effect": "게이트 입장권 획득 확률 ↑" },
+        { "id": "savings", "name": "저축", "effect": "연속 처치 유지 시 스탯 구슬 획득 +10%" },
+        { "id": "absorb_support", "name": "흡수 지원", "effect": "흡수 범위 +25%" },
+        { "id": "compound_investment", "name": "복리 투자", "effect": "판이 길어질수록 재화 획득 소폭 증가" },
+        { "id": "apprentice_support", "name": "견습 지원", "effect": "스킬·이능 재추첨권 소량 제공" },
+        { "id": "legacy_inheritance", "name": "유산 계승", "effect": "링크 캐릭터 레벨이 높을수록 경험치 보너스 증가" }
+      ]
+    },
+    "survival_safety_net": {
+      "name": "C. 생존·안전망",
+      "skills": [
+        { "id": "guardian_prayer", "name": "수호 기도", "effect": "25초마다 받는 치명타 1회 무효" },
+        { "id": "barrier_support", "name": "방벽 지원", "effect": "20초마다 소형 방어막" },
+        { "id": "emergency_support", "name": "응급 지원", "effect": "체력 20% 이하 시 회복량 +40%" },
+        { "id": "last_bond", "name": "최후의 인연", "effect": "런당 1회, 사망 시 HP 10%로 재기" },
+        { "id": "buffer", "name": "완충", "effect": "받는 피해 −6%" },
+        { "id": "dot_resist_support", "name": "도트 저항 지원", "effect": "도트 피해 −20%" },
+        { "id": "boss_prep", "name": "보스 대비", "effect": "보스 피해 −10%" },
+        { "id": "safety_secure", "name": "안전 확보", "effect": "입장 후 첫 피격 무효" },
+        { "id": "knockback_support", "name": "넉백 지원", "effect": "넉백·경직 저항 ↑" },
+        { "id": "regen_support", "name": "재생 지원", "effect": "비전투 시 회복 속도 ↑" },
+        { "id": "danger_signal", "name": "위기 신호", "effect": "체력 급감 시 0.5초 무적" },
+        { "id": "rear_cover", "name": "후위 엄호", "effect": "후방에서 오는 피해 −15%" }
+      ]
+    },
+    "crit_firepower_support": {
+      "name": "D. 크리·화력 지원",
+      "skills": [
+        { "id": "aim_support", "name": "조준 지원", "effect": "크리 데미지 +15%" },
+        { "id": "target_designation", "name": "표적 지정", "effect": "표식 대상에게 파티 피해 +10%" },
+        { "id": "opening_support", "name": "개전 지원", "effect": "입장 후 10초간 데미지 +15%" },
+        { "id": "finisher_support", "name": "마무리 지원", "effect": "체력 25% 이하 적 처치 피해 +15%" },
+        { "id": "combo_support", "name": "연격 지원", "effect": "연속 처치 시 데미지 소폭 누적" },
+        { "id": "aoe_support", "name": "광역 지원", "effect": "다수 적 상대 시 데미지 +8%" },
+        { "id": "single_support", "name": "단일 지원", "effect": "단일 적 상대 시 데미지 +10%" },
+        { "id": "penetration_support", "name": "관통 지원", "effect": "방어력 관통 소폭" },
+        { "id": "weakpoint_expose", "name": "약점 노출", "effect": "파티 명중 시 낮은 확률로 방어력 감소" },
+        { "id": "firepower_focus", "name": "화력 집중", "effect": "정지 시 데미지 +10%" }
+      ]
+    },
+    "skill_mp_support": {
+      "name": "E. 스킬·MP 지원",
+      "skills": [
+        { "id": "mana_circulation", "name": "마력 순환", "effect": "MP 소모 −12%" },
+        { "id": "cooldown_support", "name": "냉각 지원", "effect": "스킬 쿨다운 −8%" },
+        { "id": "chant_assist", "name": "영창 보조", "effect": "낮은 확률로 스킬 무료 시전" },
+        { "id": "mana_supply", "name": "마나 공급", "effect": "처치 시 MP 회복" },
+        { "id": "range_support", "name": "확장 지원", "effect": "스킬 범위 +12%" },
+        { "id": "chain_support", "name": "연계 지원", "effect": "스킬 후 다음 스킬 쿨 −15%" },
+        { "id": "residual_support", "name": "잔류 지원", "effect": "스킬 장판 지속 +30%" },
+        { "id": "recast_support", "name": "재시전 지원", "effect": "낮은 확률로 스킬 2연발" },
+        { "id": "meditation_support", "name": "명상 지원", "effect": "최대 MP +12%" },
+        { "id": "focus_assist", "name": "집중 보조", "effect": "스킬 데미지 +8%" }
+      ]
+    },
+    "mobility_speed_support": {
+      "name": "F. 기동·속도 지원",
+      "skills": [
+        { "id": "footwork_support", "name": "발걸음 지원", "effect": "이동 속도 +10%" },
+        { "id": "quick_attack_support", "name": "속공 지원", "effect": "공격 속도 +6%" },
+        { "id": "chase_support", "name": "추격 지원", "effect": "처치 시 짧게 이속 +10%" },
+        { "id": "evasion_support", "name": "회피 지원", "effect": "회피 +5%" },
+        { "id": "dash_cooldown_support", "name": "순보 지원", "effect": "대시 쿨다운 −20%" },
+        { "id": "lightness", "name": "경쾌함", "effect": "비전투 이속 대폭" },
+        { "id": "reflex_support", "name": "반사 지원", "effect": "피격 직전 회피 확률 소폭" },
+        { "id": "accel_share", "name": "가속 공유", "effect": "콤보 유지 시 공속 누적" }
+      ]
+    },
+    "link_synergy": {
+      "name": "G. 링크 시너지 (메타·링크 고유)",
+      "skills": [
+        { "id": "bond_price", "name": "연결의 대가", "effect": "다른 슬롯 링크스킬 효율 +15%" },
+        { "id": "resonant_bond", "name": "공명의 유대", "effect": "다른 슬롯 링크스킬 효율 +10%" },
+        { "id": "unity", "name": "결속", "effect": "링크 2슬롯 모두 활성 시 전 스탯 +6%" },
+        { "id": "isolation_power", "name": "고립의 힘", "effect": "링크 1슬롯만 활성 시 전 스탯 +12%" },
+        { "id": "amplifier", "name": "증폭기", "effect": "스탯 계열 링크스킬 효과 +20%" },
+        { "id": "tuning", "name": "조율", "effect": "판마다 활성 링크스킬 중 1개 무작위 2배" },
+        { "id": "deepened_bond", "name": "인연 심화", "effect": "링크 캐릭터가 20레벨 이상이면 해당 링크 효과 +25%" },
+        { "id": "bond_record", "name": "유대의 기록", "effect": "누적 판수가 늘수록 링크 효과 소폭 성장" }
+      ]
+    },
+    "conditional_support": {
+      "name": "H. 조건부·상황 지원",
+      "skills": [
+        { "id": "crisis_support", "name": "위기의 지원", "effect": "체력 30% 이하일 때 데미지 +12%" },
+        { "id": "leisure_support", "name": "여유의 지원", "effect": "체력 80% 이상일 때 이속·공속 +8%" },
+        { "id": "first_blood_support", "name": "첫 피 지원", "effect": "사냥터 첫 처치 시 짧은 전 스탯 버프" },
+        { "id": "endgame_support", "name": "막판 지원", "effect": "사냥터 후반 데미지 +12%" },
+        { "id": "boss_fight_support", "name": "보스전 지원", "effect": "보스전에서 데미지 +12%" },
+        { "id": "gate_support", "name": "게이트 지원", "effect": "몬스터 게이트에서 스탯 구슬 +20%" },
+        { "id": "high_difficulty_support", "name": "고난도 지원", "effect": "상급 이상 난이도에서 보상 +15%" },
+        { "id": "low_hp_awakening", "name": "저체력 각성", "effect": "체력 15% 이하 시 크리 확률 +20%" },
+        { "id": "winning_streak_support", "name": "연승 지원", "effect": "무피격 시간에 비례 데미지 소폭" },
+        { "id": "early_support", "name": "초반 지원", "effect": "10레벨 이하일 때 전 스탯 +10%" }
+      ]
+    },
+    "utility_special_support": {
+      "name": "I. 유틸·특수 지원",
+      "skills": [
+        { "id": "auto_absorb", "name": "흡수 자동화", "effect": "드랍 자동 흡수" },
+        { "id": "appraiser", "name": "감정가", "effect": "획득 스탯 구슬 종류 미리 표시 (편의)" },
+        { "id": "foresight", "name": "예지", "effect": "다음 웨이브·보스 정보 표시 (편의)" },
+        { "id": "scout", "name": "정찰", "effect": "중간 보스 등장 예고" },
+        { "id": "repair_support", "name": "재정비 지원", "effect": "방어막 재생성 쿨 −20%" },
+        { "id": "mark_share", "name": "표식 공유", "effect": "파티가 표식 능력 획득" },
+        { "id": "dot_support", "name": "도트 지원", "effect": "파티 평타에 약한 출혈 부여" },
+        { "id": "slow_support", "name": "둔화 지원", "effect": "파티 타격 시 낮은 확률 둔화" }
+      ]
+    },
+    "unique_support": {
+      "name": "J. 고유·이색 지원",
+      "skills": [
+        { "id": "counter_support", "name": "반격 지원", "effect": "피격 직후 다음 공격 데미지 +12%" },
+        { "id": "return_support", "name": "되돌림 지원", "effect": "회피 성공 시 짧은 데미지 증가" },
+        { "id": "reflect_support", "name": "반사 지원", "effect": "근접 피격 시 소량 반사" },
+        { "id": "burst_support", "name": "폭심 지원", "effect": "크리 시 낮은 확률 소형 폭발" },
+        { "id": "lifesteal_support", "name": "흡혈 지원", "effect": "가하는 피해의 2% 흡혈" },
+        { "id": "currency_burst", "name": "재화 폭죽", "effect": "처치 시 낮은 확률로 재화 소량 즉시" },
+        { "id": "lucky_roulette", "name": "행운 룰렛", "effect": "10초마다 랜덤 소형 버프 (전부 긍정)" },
+        { "id": "meta_support", "name": "이능 지원", "effect": "이능 선택지에 낮은 확률로 상위 옵션" },
+        { "id": "revival_prep", "name": "부활 대비", "effect": "부활 시 무적 시간 +2초" },
+        { "id": "bond_climax", "name": "유대의 절정", "effect": "링크 2슬롯 모두 20레벨 이상이면 전 스탯 +8%" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "description": "패시브 스킬 100종 - 전직(1·2·3·4차) 시 액티브 3택 1과 별개로 패시브도 3택 1 지급. 최대 4개 보유.",
+  "character": "본인이 조작하며 터뜨리는 전투 기믹 (온-크리/온-킬/반격/도트 등 트리거형 위주)",
+  "categories": {
+    "fire_power": {
+      "name": "A. 화력 (공격력·평타·스킬)",
+      "skills": [
+        { "id": "destructive_instinct", "name": "파괴 본능", "effect": "공격력 +8%" },
+        { "id": "smash", "name": "강타", "effect": "평타 데미지 +12%" },
+        { "id": "spell_amplify", "name": "주문 증폭", "effect": "스킬 데미지 +12%" },
+        { "id": "giants_strength", "name": "거인의 힘", "effect": "최대 체력에 비례해 공격력 소폭 증가" },
+        { "id": "explosive_growth", "name": "폭발적 성장", "effect": "레벨당 공격력 +1% 추가 누적" },
+        { "id": "weakness_read", "name": "약점 간파", "effect": "적을 처음 맞힐 때 데미지 +20%" },
+        { "id": "combo_strike", "name": "연격", "effect": "같은 적 연속 타격 시 타격마다 +3% (최대 +15%)" },
+        { "id": "overcharge", "name": "과충전", "effect": "스킬 사용 직후 3초간 평타 +15%" },
+        { "id": "shatter", "name": "파쇄", "effect": "방어력 관통 소폭" },
+        { "id": "burst_expand", "name": "폭심 확장", "effect": "스킬 최대 데미지 구간 범위 확대" }
+      ]
+    },
+    "critical": {
+      "name": "B. 크리티컬",
+      "skills": [
+        { "id": "vital_aim", "name": "급소 노리기", "effect": "크리 확률 +8%" },
+        { "id": "crit_boost", "name": "치명타 강화", "effect": "크리 데미지 +20%" },
+        { "id": "lucky_blade", "name": "행운의 칼날", "effect": "크리 시 5% 확률로 즉시 재행동" },
+        { "id": "chain_crit", "name": "연쇄 치명", "effect": "크리 시 다음 타격 크리 확정" },
+        { "id": "precision", "name": "정밀", "effect": "명중 +10%, 회피 불가 대상 데미지 +10%" },
+        { "id": "crit_absorb", "name": "치명 흡수", "effect": "크리 시 체력 소폭 회복" },
+        { "id": "burst_crit", "name": "폭심", "effect": "크리 시 주변 소형 폭발" },
+        { "id": "cold_aim", "name": "냉정한 조준", "effect": "3초 비피격 시 크리 확률 +15%" },
+        { "id": "butcher", "name": "도살자", "effect": "크리로 처치 시 3초간 크리 데미지 +15%" },
+        { "id": "one_point", "name": "일점", "effect": "크리 확률 감소 대신 크리 데미지 대폭 증가" }
+      ]
+    },
+    "status_debuff": {
+      "name": "C. 상태이상·디버프",
+      "skills": [
+        { "id": "bleed", "name": "출혈", "effect": "평타에 출혈(도트) 부여" },
+        { "id": "burn", "name": "화상", "effect": "스킬에 화상(도트) 부여" },
+        { "id": "freeze", "name": "빙결", "effect": "낮은 확률로 적 빙결(이동 정지)" },
+        { "id": "shock", "name": "감전", "effect": "크리 시 주변에 연쇄 감전" },
+        { "id": "poison", "name": "중독", "effect": "지속 피해 + 회복 감소 디버프" },
+        { "id": "weaken", "name": "약화", "effect": "타격한 적 방어력 감소" },
+        { "id": "slow", "name": "둔화", "effect": "타격 시 적 이동 속도 감소" },
+        { "id": "fear", "name": "공포", "effect": "처치 시 주변 적 잠깐 도주" },
+        { "id": "mark", "name": "표식", "effect": "표식된 적에게 주는 피해 증가" },
+        { "id": "rupture", "name": "파열", "effect": "도트 다중 중첩 시 폭발" }
+      ]
+    },
+    "speed_mobility": {
+      "name": "D. 속도·기동",
+      "skills": [
+        { "id": "swift", "name": "쾌속", "effect": "공격 속도 +8%" },
+        { "id": "gale", "name": "질풍", "effect": "이동 속도 +12%" },
+        { "id": "accel_circuit", "name": "가속 회로", "effect": "처치 시 2초간 이속·공속 +10%" },
+        { "id": "evasive_maneuver", "name": "회피 기동", "effect": "회피 시 짧은 무적 프레임" },
+        { "id": "dash", "name": "대시", "effect": "짧은 순간이동 회피 (내부 쿨다운)" },
+        { "id": "momentum", "name": "관성", "effect": "이동 중 공격력 소폭 증가" },
+        { "id": "agile_reflex", "name": "민첩한 반사", "effect": "피격 직전 회피 확률 소폭" },
+        { "id": "wind_step", "name": "바람 걸음", "effect": "비전투 이동 속도 대폭" },
+        { "id": "chain_step", "name": "연속 스텝", "effect": "대시 후 3초간 공속 +12%" },
+        { "id": "immovable", "name": "부동", "effect": "넉백·경직 저항" }
+      ]
+    },
+    "defense_survival": {
+      "name": "E. 방어·생존",
+      "skills": [
+        { "id": "iron_wall", "name": "철벽", "effect": "방어력 +12%" },
+        { "id": "toughness", "name": "강인함", "effect": "최대 체력 +12%" },
+        { "id": "barrier_gen", "name": "보호막 생성", "effect": "15초마다 소형 방어막" },
+        { "id": "thorn_armor", "name": "가시 갑옷", "effect": "근접 피격 시 반사 피해" },
+        { "id": "last_stand", "name": "최후의 저항", "effect": "체력 20% 이하일 때 받는 피해 −25%" },
+        { "id": "unbreakable", "name": "불굴", "effect": "치명적 피해를 1회 1로 버팀 (긴 쿨다운)" },
+        { "id": "endurance", "name": "인내", "effect": "받는 도트 피해 감소" },
+        { "id": "mitigation", "name": "경감", "effect": "보스 피해 −10%" },
+        { "id": "barrier_mastery", "name": "방벽 숙련", "effect": "방어막 흡수량 +30%" },
+        { "id": "recompose", "name": "재정비", "effect": "방어막이 깨지면 잠깐 이속 증가" }
+      ]
+    },
+    "healing_lifesteal": {
+      "name": "F. 회복·흡혈",
+      "skills": [
+        { "id": "absorb", "name": "흡수", "effect": "가하는 피해의 4% 흡혈" },
+        { "id": "regen", "name": "재생", "effect": "초당 소량 체력 회복" },
+        { "id": "combat_heal", "name": "전투 회복", "effect": "처치 시 체력 회복" },
+        { "id": "first_aid", "name": "응급 처치", "effect": "체력 30% 이하일 때 회복량 +50%" },
+        { "id": "life_convert", "name": "생명 전환", "effect": "초과 회복이 방어막으로 전환" },
+        { "id": "mana_leech", "name": "흡정", "effect": "스킬 명중 시 MP 소량 회복" },
+        { "id": "feast", "name": "만찬", "effect": "회복 아이템 효과 +30%" },
+        { "id": "dew", "name": "이슬", "effect": "비전투 시 빠른 회복" },
+        { "id": "blood_price", "name": "피의 대가", "effect": "체력이 낮을수록 스킬 데미지 증가" },
+        { "id": "homeostasis", "name": "항상성", "effect": "체력 50% 기준으로 스탯 소폭 재조정" }
+      ]
+    },
+    "mp_skill": {
+      "name": "G. MP·스킬 운용",
+      "skills": [
+        { "id": "meditation", "name": "명상", "effect": "최대 MP +15%" },
+        { "id": "thrift", "name": "절약", "effect": "MP 소모 −15%" },
+        { "id": "quick_cast", "name": "신속 시전", "effect": "스킬 쿨다운 −10%" },
+        { "id": "linkage", "name": "연계", "effect": "스킬 사용 후 다음 스킬 쿨다운 −20%" },
+        { "id": "no_chant", "name": "무영창", "effect": "낮은 확률로 스킬 즉시 쿨 리셋" },
+        { "id": "mana_cycle", "name": "마나 순환", "effect": "처치 시 MP 회복" },
+        { "id": "double_cast", "name": "이중 시전", "effect": "낮은 확률로 스킬 2연발" },
+        { "id": "focus_cast", "name": "집중 시전", "effect": "정지 상태 시 스킬 데미지 +12%" },
+        { "id": "residual_mana", "name": "잔류 마력", "effect": "스킬 종료 후 장판/잔류 효과" },
+        { "id": "expand", "name": "확장", "effect": "스킬 범위 +15%" }
+      ]
+    },
+    "counter": {
+      "name": "H. 반격·카운터",
+      "skills": [
+        { "id": "counter_stance", "name": "반격 태세", "effect": "피격 직후 다음 공격 데미지 +20%" },
+        { "id": "counter", "name": "카운터", "effect": "회피 성공 시 즉시 반격타 발동" },
+        { "id": "riposte", "name": "되받아치기", "effect": "방어막이 파괴되는 순간 주변에 소형 반격 피해" },
+        { "id": "patient_strike", "name": "인내의 일격", "effect": "무피격 유지 시간에 비례해 다음 타격 데미지 증가" },
+        { "id": "counter_instinct", "name": "역공 본능", "effect": "체력 30% 이하일 때 반격 확률 +15%" },
+        { "id": "parry", "name": "파훼", "effect": "적 공격을 정통으로 맞으면 낮은 확률로 스턴 반격" },
+        { "id": "shadow_step", "name": "그림자 스텝", "effect": "피격 직전 짧게 무적 후 배후로 이동, 다음 공격 크리 확정" },
+        { "id": "fury_rebound", "name": "분노의 반동", "effect": "피격 누적 시 3회마다 강한 반격타 1회" },
+        { "id": "cold_response", "name": "냉정한 응수", "effect": "원거리 피격 시 짧은 데미지 감소 + 되돌림 피해" },
+        { "id": "last_counter", "name": "최후의 반격", "effect": "사망 판정 직전 1회, 주변에 강력한 반격 피해 후 생존" }
+      ]
+    },
+    "economy_growth": {
+      "name": "I. 경제·성장·드랍",
+      "skills": [
+        { "id": "gatherer", "name": "채집가", "effect": "스탯 구슬 획득량 +12%" },
+        { "id": "magnetism", "name": "자성", "effect": "흡수 범위 +30%" },
+        { "id": "learning", "name": "학습", "effect": "경험치 +12%" },
+        { "id": "bonanza", "name": "노다지", "effect": "드랍률 +15%" },
+        { "id": "compound", "name": "복리", "effect": "처치 누적 시 스탯 구슬 가치 증가" },
+        { "id": "thriftiness", "name": "절약 정신", "effect": "회복 아이템 소모 시 낮은 확률 미소모" },
+        { "id": "recycle", "name": "재활용", "effect": "게이트 입장권 낮은 확률 미소모" },
+        { "id": "growth_boost", "name": "성장 촉진", "effect": "15레벨 이하 경험치 +25%" },
+        { "id": "late_bloomer", "name": "늦깎이", "effect": "16레벨 이상 경험치 +20%" },
+        { "id": "legacy", "name": "유산", "effect": "클리어 시 영구 재화 +15%" }
+      ]
+    },
+    "utility_trigger": {
+      "name": "J. 유틸·트리거",
+      "skills": [
+        { "id": "battle_start", "name": "전투 개시", "effect": "입장 후 10초간 전 스탯 +10%" },
+        { "id": "final_spurt", "name": "막판 스퍼트", "effect": "사냥터 후반 데미지 +15%" },
+        { "id": "danger_sense", "name": "위기 감지", "effect": "체력 급감 시 짧은 무적" },
+        { "id": "combo_master", "name": "콤보 마스터", "effect": "무피격 시간에 비례해 데미지 증가" },
+        { "id": "aoe_mastery", "name": "광역 숙련", "effect": "다수 적 상대 시 데미지 +10%" },
+        { "id": "single_mastery", "name": "단일 숙련", "effect": "단일 적 상대 시 데미지 +12%" },
+        { "id": "boss_specialty", "name": "보스 특화", "effect": "보스에게 주는 피해 +15%" },
+        { "id": "kill_chain", "name": "처치 연쇄", "effect": "짧은 시간 내 다중 처치 시 폭발적 버프" },
+        { "id": "awakening", "name": "각성", "effect": "이능 획득 시 3초간 전 스탯 대폭" },
+        { "id": "reroll_mastery", "name": "재추첨 숙련", "effect": "스킬·이능 재추첨 시 상위 확률 소폭 증가" }
+      ]
+    }
+  }
+}
