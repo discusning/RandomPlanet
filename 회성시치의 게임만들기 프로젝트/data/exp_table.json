@@ -1,0 +1,50 @@
+{
+  "maxLevel": 21,
+  "note": "이 테이블은 기획서 8-3 기준값으로, 원문에 구 타깃 플레이타임(10~20분) 기준이며 신규 타깃(1시간)에 맞춰 전면 재조정이 필요하다고 명시됨. 재조정 전까지는 임시값으로 취급할 것.",
+  "abilitySlots": [3, 6, 9, 12, 15, 18, 21],
+  "jobChangeLevels": [1, 5, 13, 18],
+  "levels": [
+    { "level": 1,  "expToNext": 1000,  "cumulativeExp": 0,      "event": "1차 전직 (생성 시)" },
+    { "level": 2,  "expToNext": 180,   "cumulativeExp": 1000,   "event": null },
+    { "level": 3,  "expToNext": 300,   "cumulativeExp": 1180,   "event": "이능 #1" },
+    { "level": 4,  "expToNext": 460,   "cumulativeExp": 1480,   "event": null },
+    { "level": 5,  "expToNext": 680,   "cumulativeExp": 1940,   "event": "2차 전직 + 퀘스트 보스" },
+    { "level": 6,  "expToNext": 950,   "cumulativeExp": 2620,   "event": "이능 #2" },
+    { "level": 7,  "expToNext": 1280,  "cumulativeExp": 3570,   "event": null },
+    { "level": 8,  "expToNext": 1680,  "cumulativeExp": 4850,   "event": null },
+    { "level": 9,  "expToNext": 2150,  "cumulativeExp": 6530,   "event": "이능 #3" },
+    { "level": 10, "expToNext": 2700,  "cumulativeExp": 8680,   "event": null },
+    { "level": 11, "expToNext": 3350,  "cumulativeExp": 11380,  "event": null },
+    { "level": 12, "expToNext": 4100,  "cumulativeExp": 14730,  "event": "이능 #4" },
+    { "level": 13, "expToNext": 5000,  "cumulativeExp": 18830,  "event": "3차 전직 + 퀘스트 보스 + 랜덤 특성" },
+    { "level": 14, "expToNext": 6100,  "cumulativeExp": 23830,  "event": null },
+    { "level": 15, "expToNext": 10400, "cumulativeExp": 29930,  "event": "이능 #5 · EXP 급증 시작" },
+    { "level": 16, "expToNext": 18000, "cumulativeExp": 40330,  "event": "해금 조건 필요" },
+    { "level": 17, "expToNext": 31000, "cumulativeExp": 58330,  "event": "해금 조건 필요" },
+    { "level": 18, "expToNext": 55000, "cumulativeExp": 89330,  "event": "해금 조건 필요 · 4차 전직 + 퀘스트 보스 + 이능 #6" },
+    { "level": 19, "expToNext": 99000, "cumulativeExp": 144330, "event": "해금 조건 필요" },
+    { "level": 20, "expToNext": 188000,"cumulativeExp": 243330, "event": "해금 조건 필요" },
+    { "level": 21, "expToNext": null,  "cumulativeExp": 431330, "event": "해금 조건 필요 · 이능 #7 (만렙)" }
+  ],
+  "unlockConditions": {
+    "note": "16~21레벨 해금 조건 구체값은 기획서상 미정. 예시만 제시됨.",
+    "examples": {
+      "16": "몬스터 게이트 3회 클리어",
+      "18": "마왕 발록 처치"
+    },
+    "scope": "계정 귀속 - 한 번 달성하면 이후 모든 캐릭터에 적용. EXP 요구량은 캐릭터마다 별도 파밍 필요."
+  },
+  "difficultyScale": {
+    "hunting_ground": {
+      "low":  { "monsterStatMult": 1.0,  "rewardMult": 1.0 },
+      "mid":  { "monsterStatMult": 1.5,  "rewardMult": 1.4 },
+      "high": { "monsterStatMult": 2.25, "rewardMult": 2.0 },
+      "top":  { "monsterStatMult": 3.4,  "rewardMult": 2.8 }
+    },
+    "monster_gate": {
+      "monsterStatMultOfHuntingGround": 3.0,
+      "monsterCountMultOfHuntingGround": 2.0,
+      "rewardNote": "스탯 구슬 대폭 상승 (수치 미정)"
+    }
+  }
+}

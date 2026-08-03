@@ -1,0 +1,11 @@
+@Component
+script PlayerInputBinding extends Component
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- Binds the melee attack key. PlayerAttack.mlua only reacts to a PlayerActionEvent
+        -- named "Attack" — without this binding no key ever fires that event.
+        self.Entity.PlayerControllerComponent:SetActionKey(KeyboardKey.LeftControl, "Attack")
+    end
+
+end

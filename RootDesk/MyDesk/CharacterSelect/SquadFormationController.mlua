@@ -1,0 +1,196 @@
+@Component
+script SquadFormationController extends Component
+    property Entity playableText = "46d32b78-0832-430d-8ea2-320202be0bdf"
+    property Entity link1Text = "8842b218-783b-43a3-a191-7abe830e2127"
+    property Entity link2Text = "c93224a3-ba3b-4eda-9785-53789fc9b635"
+    property Entity candidate1 = "d2126987-c28e-46fe-b628-246cabfb2104"
+    property Entity candidate2 = "9bcf36ad-ecc7-405e-8666-0395eaf1d33d"
+    property Entity candidate3 = "9dea87a3-32b7-4d9e-8f06-fea9e4692014"
+    property Entity candidate4 = "db8ea6ab-5d14-4503-b5a3-1de3384d3462"
+    property Entity candidate5 = "03101f9f-3de9-484b-bac6-6141fd31125c"
+    property Entity btnEnter = "062d9219-c686-4f0a-aea2-361b96c7723d"
+    property Entity btnBack = "916b44e0-545d-4f1f-a6a9-acf81925ba8a"
+
+    -- Selected-candidate highlight vs the neutral tan the candidate rows are built with (see the
+    -- SquadFormationGroup.ui build script) - matches this project's established gold/parchment palette.
+    method Color _SelectedColor()
+        return Color(0.85, 0.65, 0.18, 1)
+    end
+
+    method Color _NeutralColor()
+        return Color(0.86, 0.75, 0.52, 1)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- Hidden by default (same toggle pattern as CharacterCardController - this script sits on
+        -- the group root, so self.Entity.Enable gates the whole popup).
+        self._T.handlers = {}
+        self._T.candidateButtons = { self.candidate1, self.candidate2, self.candidate3, self.candidate4, self.candidate5 }
+
+        local hConfirm = self.btnEnter:ConnectEvent(ButtonClickEvent, self.OnConfirmClicked)
+        table.insert(self._T.handlers, { entity = self.btnEnter, eventHandler = hConfirm })
+        local hBack = self.btnBack:ConnectEvent(ButtonClickEvent, self.OnBackClicked)
+        table.insert(self._T.handlers, { entity = self.btnBack, eventHandler = hBack })
+
+        local h1 = self.candidate1:ConnectEvent(ButtonClickEvent, self.OnCandidate1Clicked)
+        table.insert(self._T.handlers, { entity = self.candidate1, eventHandler = h1 })
+        local h2 = self.candidate2:ConnectEvent(ButtonClickEvent, self.OnCandidate2Clicked)
+        table.insert(self._T.handlers, { entity = self.candidate2, eventHandler = h2 })
+        local h3 = self.candidate3:ConnectEvent(ButtonClickEvent, self.OnCandidate3Clicked)
+        table.insert(self._T.handlers, { entity = self.candidate3, eventHandler = h3 })
+        local h4 = self.candidate4:ConnectEvent(ButtonClickEvent, self.OnCandidate4Clicked)
+        table.insert(self._T.handlers, { entity = self.candidate4, eventHandler = h4 })
+        local h5 = self.candidate5:ConnectEvent(ButtonClickEvent, self.OnCandidate5Clicked)
+        table.insert(self._T.handlers, { entity = self.candidate5, eventHandler = h5 })
+
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show(integer playableIdx, table playableData, table candidates, table existingLinks)
+        -- playableData: { level, trait, str, dex, intel, luk, look }.
+        -- candidates: array of { index, level, trait } for the other occupied slots (excludes playableIdx),
+        -- built by LobbyStageController:OpenSquadFormation().
+        -- existingLinks: previously confirmed link indices (CharacterRosterLogic:GetSquadLinks()) -
+        -- restored here so reopening the popup doesn't look like a prior confirm was never saved.
+        -- Filtered to indices still present among the current candidates (a linked character may have
+        -- been deleted since, or is no longer a valid candidate) - carrying a stale index forward would
+        -- silently re-save a link to a character that no longer exists.
+        self._T.playableLook = playableData.look
+        self._T.candidates = candidates
+        self._T.selectedLinks = {}
+        if existingLinks ~= nil then
+            for _, idx in ipairs(existingLinks) do
+                for _, c in ipairs(candidates) do
+                    if c.index == idx then
+                        table.insert(self._T.selectedLinks, idx)
+                    end
+                end
+            end
+        end
+
+        self.playableText.TextGUIRendererComponent.Text = "플레이어블: Lv." .. playableData.level .. " (" .. playableData.trait .. ")"
+
+        for i, btn in ipairs(self._T.candidateButtons) do
+            local c = candidates[i]
+            if c == nil then
+                btn.Enable = false
+            else
+                btn.Enable = true
+                local label = "Lv." .. c.level .. " " .. c.trait
+                if c.level < 15 then
+                    label = label .. " [패시브 15레벨 필요]"
+                end
+                btn.TextGUIRendererComponent.Text = label
+                local isSelected = false
+                for _, idx in ipairs(self._T.selectedLinks) do
+                    if idx == c.index then
+                        isSelected = true
+                    end
+                end
+                btn.SpriteGUIRendererComponent.Color = isSelected and self:_SelectedColor() or self:_NeutralColor()
+            end
+        end
+
+        self:RefreshLinkTexts()
+        self.Entity.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshLinkTexts()
+        local labels = { "링크 1: 비어있음", "링크 2: 비어있음" }
+        for slot, candidateIdx in ipairs(self._T.selectedLinks) do
+            for _, c in ipairs(self._T.candidates) do
+                if c.index == candidateIdx then
+                    labels[slot] = "링크 " .. slot .. ": Lv." .. c.level .. " (" .. c.trait .. ")"
+                end
+            end
+        end
+        self.link1Text.TextGUIRendererComponent.Text = labels[1]
+        self.link2Text.TextGUIRendererComponent.Text = labels[2]
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCandidateClicked(integer slotIndex)
+        -- slotIndex is the candidate ROW position (1..5 in the popup), not the character-select
+        -- standee index - resolved to the standee index via self._T.candidates[slotIndex].
+        local c = self._T.candidates[slotIndex]
+        if c == nil then
+            return
+        end
+
+        local alreadySelected = nil
+        for pos, candidateIdx in ipairs(self._T.selectedLinks) do
+            if candidateIdx == c.index then
+                alreadySelected = pos
+            end
+        end
+
+        if alreadySelected ~= nil then
+            table.remove(self._T.selectedLinks, alreadySelected)
+        elseif #self._T.selectedLinks < 2 then
+            table.insert(self._T.selectedLinks, c.index)
+        else
+            log("SquadFormation: 링크는 최대 2명까지만 선택할 수 있습니다")
+            return
+        end
+
+        local btn = self._T.candidateButtons[slotIndex]
+        local isSelected = alreadySelected == nil
+        btn.SpriteGUIRendererComponent.Color = isSelected and self:_SelectedColor() or self:_NeutralColor()
+        self:RefreshLinkTexts()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCandidate1Clicked()
+        self:OnCandidateClicked(1)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCandidate2Clicked()
+        self:OnCandidateClicked(2)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCandidate3Clicked()
+        self:OnCandidateClicked(3)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCandidate4Clicked()
+        self:OnCandidateClicked(4)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCandidate5Clicked()
+        self:OnCandidateClicked(5)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnBackClicked()
+        self:Hide()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnConfirmClicked()
+        -- Saves the squad choice and closes the popup - no teleport. The player is already in the
+        -- village lobby by the time this NPC popup is open (see LobbyStageController.OpenSquadFormation).
+        -- Routed through CharacterRosterLogic (not a map-scoped component) since this popup can be
+        -- opened from any map - see CharacterRosterLogic's comment for why.
+        _CharacterRosterLogic:ConfirmSquad(self._T.selectedLinks)
+        self:Hide()
+    end
+end

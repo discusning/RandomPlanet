@@ -1,0 +1,261 @@
+@Logic
+script EquipmentLogic extends Logic
+
+    property string ItemsDataSetName = "EquipmentItems"
+    property string ScrollsDataSetName = "EquipmentScrolls"
+
+    method void OnBeginPlay()
+        -- Unannotated (not ClientOnly) so both the client process's instance AND the server
+        -- process's instance load their own local catalog cache - ApplyEquipmentToAvatar needs
+        -- the catalog on whichever side calls it (client for standees, server for the real
+        -- player's CostumeManagerComponent, matching CharacterRosterLogic.ApplyLookToPlayer's
+        -- ServerOnly pattern).
+        self._T.itemCatalog = {}
+        self._T.scrollCatalog = {}
+        self:LoadCatalogs()
+    end
+
+    method void LoadCatalogs()
+        -- Reads the two equipment UserDataSets into in-memory lookup tables, keyed by id.
+        local items = _DataService:GetTable(self.ItemsDataSetName)
+        for _, row in ipairs(items:GetAllRow()) do
+            local id = row:GetItem("id")
+            self._T.itemCatalog[id] = {
+                id = id,
+                name = row:GetItem("name"),
+                slot = row:GetItem("slot"),
+                ruid = row:GetItem("ruid"),
+                bonusStr = tonumber(row:GetItem("bonusStr")) or 0,
+                bonusDex = tonumber(row:GetItem("bonusDex")) or 0,
+                bonusInt = tonumber(row:GetItem("bonusInt")) or 0,
+                bonusLuk = tonumber(row:GetItem("bonusLuk")) or 0,
+                maxUpgradeSlots = tonumber(row:GetItem("maxUpgradeSlots")) or 0,
+            }
+        end
+
+        local scrolls = _DataService:GetTable(self.ScrollsDataSetName)
+        for _, row in ipairs(scrolls:GetAllRow()) do
+            local id = row:GetItem("id")
+            self._T.scrollCatalog[id] = {
+                id = id,
+                name = row:GetItem("name"),
+                stat = row:GetItem("stat"),
+                amount = tonumber(row:GetItem("amount")) or 0,
+                successRate = tonumber(row:GetItem("successRate")) or 0,
+            }
+        end
+        log("EquipmentLogic: catalogs loaded, items=" .. #self:ListItemTemplates() .. " scrolls=" .. #self:ListScrollTemplates())
+    end
+
+    method table GetSlotList()
+        -- The 8 basic equip slots (old-MapleStory earliest set), each mapped 1:1 to a real
+        -- CostumeManagerComponent category in ApplyEquipmentToAvatar - see msw-avatar.
+        return { "weapon", "cap", "coat", "pants", "shoes", "glove", "shield", "earaccessory" }
+    end
+
+    method table GetItemTemplate(string itemId)
+        return self._T.itemCatalog[itemId]
+    end
+
+    method table GetScrollTemplate(string scrollId)
+        return self._T.scrollCatalog[scrollId]
+    end
+
+    method table ListItemTemplates()
+        local out = {}
+        for _, slot in ipairs(self:GetSlotList()) do
+            for _, tpl in pairs(self._T.itemCatalog) do
+                if tpl.slot == slot then
+                    table.insert(out, tpl)
+                end
+            end
+        end
+        return out
+    end
+
+    method table ListScrollTemplates()
+        local out = {}
+        for _, tpl in pairs(self._T.scrollCatalog) do
+            table.insert(out, tpl)
+        end
+        return out
+    end
+
+    @ExecSpace("ClientOnly")
+    method void GrantStarterKit(table characterData)
+        -- One of every catalog item (unequipped) + 2 of every scroll. This is the only item
+        -- source for now - there's no shop/loot/drop-table system yet (Phase 3+ territory per
+        -- the GDD), so granting the full catalog at creation is what makes the equip/scroll
+        -- flow testable end-to-end without building that infrastructure early.
+        characterData.inventory = characterData.inventory or {}
+        for _, tpl in ipairs(self:ListItemTemplates()) do
+            table.insert(characterData.inventory, { itemId = tpl.id, upgradesUsed = 0, bonusStr = 0, bonusDex = 0, bonusInt = 0, bonusLuk = 0 })
+        end
+        for _, tpl in ipairs(self:ListScrollTemplates()) do
+            table.insert(characterData.inventory, { scrollId = tpl.id })
+            table.insert(characterData.inventory, { scrollId = tpl.id })
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer GetEffectiveStat(table characterData, string stat)
+        -- Base rolled stat (str/dex/int/luk) + every equipped item's template bonus + any bonus
+        -- added to that specific item instance by successful scrolls.
+        -- The roster's base INT field is named "intel" (CharacterSelectStageController.CreateCharacter),
+        -- not "int" - the "int" identifier below is only the effective-stat key shared with
+        -- tpl.bonusInt/inst.bonusInt, so it must be remapped for the base-value lookup specifically.
+        local baseField = stat
+        if stat == "int" then
+            baseField = "intel"
+        end
+        local total = characterData[baseField] or 0
+        local equipment = characterData.equipment
+        if equipment == nil then
+            return total
+        end
+        for _, inst in pairs(equipment) do
+            local tpl = self._T.itemCatalog[inst.itemId]
+            if tpl ~= nil then
+                if stat == "str" then
+                    total = total + tpl.bonusStr + (inst.bonusStr or 0)
+                elseif stat == "dex" then
+                    total = total + tpl.bonusDex + (inst.bonusDex or 0)
+                elseif stat == "int" then
+                    total = total + tpl.bonusInt + (inst.bonusInt or 0)
+                elseif stat == "luk" then
+                    total = total + tpl.bonusLuk + (inst.bonusLuk or 0)
+                end
+            end
+        end
+        return total
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean EquipItem(table characterData, integer inventoryIndex)
+        -- Moves inventory[inventoryIndex] (a gear item, identified by having .itemId) into its
+        -- matching equip slot, swapping whatever was equipped there back into the inventory.
+        -- Returns false (no-op) for a missing index or a scroll instance (.scrollId, not .itemId).
+        local inv = characterData.inventory
+        if inv == nil or inv[inventoryIndex] == nil then
+            return false
+        end
+        local inst = inv[inventoryIndex]
+        if inst.itemId == nil then
+            return false
+        end
+        local tpl = self._T.itemCatalog[inst.itemId]
+        if tpl == nil then
+            return false
+        end
+        characterData.equipment = characterData.equipment or {}
+        local previous = characterData.equipment[tpl.slot]
+        table.remove(inv, inventoryIndex)
+        characterData.equipment[tpl.slot] = inst
+        if previous ~= nil then
+            table.insert(inv, previous)
+        end
+        return true
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean UnequipSlot(table characterData, string slot)
+        -- Moves the item currently in `slot` back into the inventory and clears the slot.
+        if characterData.equipment == nil or characterData.equipment[slot] == nil then
+            return false
+        end
+        characterData.inventory = characterData.inventory or {}
+        table.insert(characterData.inventory, characterData.equipment[slot])
+        characterData.equipment[slot] = nil
+        return true
+    end
+
+    @ExecSpace("ClientOnly")
+    method table ApplyScroll(table characterData, integer scrollInventoryIndex, string targetSlot)
+        -- Consumes inventory[scrollInventoryIndex] (must be a scroll, i.e. have .scrollId) against
+        -- the item currently equipped in targetSlot. Returns { success, message } for the UI to
+        -- display. Matches classic MapleStory scrolling: the upgrade slot is consumed on both
+        -- success AND failure, but failure never destroys the item (a deliberate MVP
+        -- simplification - see Archive/As-built.md).
+        local inv = characterData.inventory
+        if inv == nil or inv[scrollInventoryIndex] == nil then
+            return { success = false, message = "주문서를 찾을 수 없습니다" }
+        end
+        local scrollInst = inv[scrollInventoryIndex]
+        if scrollInst.scrollId == nil then
+            return { success = false, message = "주문서가 아닙니다" }
+        end
+        local scrollTpl = self._T.scrollCatalog[scrollInst.scrollId]
+        if scrollTpl == nil then
+            return { success = false, message = "알 수 없는 주문서입니다" }
+        end
+        if characterData.equipment == nil or characterData.equipment[targetSlot] == nil then
+            return { success = false, message = "장착된 장비가 없습니다" }
+        end
+        local targetInst = characterData.equipment[targetSlot]
+        local targetTpl = self._T.itemCatalog[targetInst.itemId]
+        if targetTpl == nil then
+            return { success = false, message = "알 수 없는 장비입니다" }
+        end
+        if targetInst.upgradesUsed >= targetTpl.maxUpgradeSlots then
+            return { success = false, message = "강화 횟수를 모두 사용했습니다" }
+        end
+
+        table.remove(inv, scrollInventoryIndex)
+        targetInst.upgradesUsed = targetInst.upgradesUsed + 1
+
+        local roll = _UtilLogic:RandomIntegerRange(1, 100)
+        if roll <= scrollTpl.successRate then
+            if scrollTpl.stat == "str" then
+                targetInst.bonusStr = (targetInst.bonusStr or 0) + scrollTpl.amount
+            elseif scrollTpl.stat == "dex" then
+                targetInst.bonusDex = (targetInst.bonusDex or 0) + scrollTpl.amount
+            elseif scrollTpl.stat == "int" then
+                targetInst.bonusInt = (targetInst.bonusInt or 0) + scrollTpl.amount
+            elseif scrollTpl.stat == "luk" then
+                targetInst.bonusLuk = (targetInst.bonusLuk or 0) + scrollTpl.amount
+            end
+            return { success = true, message = scrollTpl.name .. " 강화 성공!" }
+        end
+        return { success = false, message = scrollTpl.name .. " 강화 실패..." }
+    end
+
+    method void ApplyEquipmentToAvatar(Entity costumeEntity, table equipment)
+        -- Sets every equip slot's item RUID (or "" to unequip) onto costumeEntity's
+        -- CostumeManagerComponent. `equipment` may be nil (nothing equipped yet - e.g. right
+        -- after character creation). No ExecSpace annotation - runs on whichever side the caller
+        -- is on: ClientOnly callers apply this to a standee's AvatarBody child (display-only),
+        -- ServerOnly callers (CharacterRosterLogic.ApplyLookToPlayer) apply it to the real
+        -- player entity's own CostumeManagerComponent, matching that method's existing pattern
+        -- for body/hair/face.
+        if not isvalid(costumeEntity) then
+            return
+        end
+        local costume = costumeEntity.CostumeManagerComponent
+        if not isvalid(costume) then
+            return
+        end
+        local slotToCategory = {
+            weapon = MapleAvatarItemCategory.OneHandedWeapon,
+            cap = MapleAvatarItemCategory.Cap,
+            coat = MapleAvatarItemCategory.Coat,
+            pants = MapleAvatarItemCategory.Pants,
+            shoes = MapleAvatarItemCategory.Shoes,
+            glove = MapleAvatarItemCategory.Glove,
+            shield = MapleAvatarItemCategory.SubWeapon,
+            earaccessory = MapleAvatarItemCategory.EarAccessory,
+        }
+        equipment = equipment or {}
+        for slot, category in pairs(slotToCategory) do
+            local inst = equipment[slot]
+            local ruid = ""
+            if inst ~= nil then
+                local tpl = self._T.itemCatalog[inst.itemId]
+                if tpl ~= nil then
+                    ruid = tpl.ruid
+                end
+            end
+            costume:SetEquip(category, ruid)
+        end
+    end
+
+end

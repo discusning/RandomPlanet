@@ -1,0 +1,39 @@
+{
+  "description": "생성 시 기본 스탯 총합 20포인트를 4종에 랜덤 분배 (각 최소 1 보장)",
+  "baseTotalPoints": 20,
+  "minPerStat": 1,
+  "stats": {
+    "STR": {
+      "name": "힘",
+      "primary": "물리 공격력 ↑",
+      "secondary": "넉백 저항 ↑",
+      "perPoint": { "physicalAttack": 2 }
+    },
+    "DEX": {
+      "name": "민첩",
+      "primary": "공격 속도 ↑, 명중 ↑",
+      "secondary": "이동 속도 ↑",
+      "perPoint": { "attackSpeedPct": 0.5, "attackSpeedCapPct": 100, "accuracy": 1 }
+    },
+    "INT": {
+      "name": "지능",
+      "primary": "스킬 데미지 ↑, 최대 MP ↑",
+      "secondary": "스킬 쿨다운 감소",
+      "perPoint": { "skillDamagePct": 1.5, "maxMp": 3 }
+    },
+    "LUK": {
+      "name": "행운",
+      "primary": "크리티컬 확률 ↑, 크리티컬 데미지 ↑",
+      "secondary": "회피 소폭 ↑",
+      "perPoint": { "critChancePct": 0.3, "critChanceCapPct": 60, "critDamagePct": 0.5, "evasionPct": 0.2 },
+      "note": "순수 전투 스탯. 드랍률 등 파밍 수치에는 관여하지 않음."
+    }
+  },
+  "damageFormula": {
+    "final": "(공격력 × 스킬 계수) × 크리티컬 배율 − 몬스터 방어력",
+    "physicalSource": "STR",
+    "skillSource": "INT",
+    "critSource": "LUK",
+    "attackSpeedSource": "DEX"
+  }
+}

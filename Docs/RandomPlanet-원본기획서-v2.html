@@ -1,0 +1,1165 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>랜덤 플래닛 — 게임 기획서</title>
+<style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root{
+  --bg:#0E0F14; --surface:#15171F; --surface2:#1C1F2A; --surface3:#222634;
+  --border:#2A2E3C; --border-soft:#21242f;
+  --text:#E7E9F0; --dim:#9AA0B2; --faint:#6B7180;
+  --teal:#2DD4BF; --teal-dim:#1f8b7e;
+  --good:#F5C451; --bad-h:#E0556B; --avg:#67C0C8; --bad:#D08A55; --gamble:#B68CF0;
+  --maxw:1180px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:"Pretendard",system-ui,sans-serif; line-height:1.7;
+  font-size:15.5px; -webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(900px 500px at 78% -8%, rgba(45,212,191,.07), transparent 60%),
+                   radial-gradient(700px 500px at -5% 12%, rgba(182,140,240,.05), transparent 55%);
+}
+a{color:var(--teal); text-decoration:none}
+
+/* ---------- top bar ---------- */
+.topbar{position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:18px;
+  padding:12px 22px; background:rgba(14,15,20,.82); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border-soft);}
+.topbar .brand{font-family:"Black Han Sans"; font-size:18px; letter-spacing:.5px; color:var(--text)}
+.topbar .brand b{color:var(--teal)}
+.topbar .tag{font-family:"JetBrains Mono"; font-size:11px; color:var(--faint); border:1px solid var(--border);
+  padding:2px 8px; border-radius:99px}
+.topbar .spacer{flex:1}
+.toplinks{display:flex; gap:4px; flex-wrap:wrap}
+.toplinks a{font-size:12.5px; color:var(--dim); padding:5px 10px; border-radius:7px}
+.toplinks a:hover{color:var(--text); background:var(--surface2)}
+.toplinks a.on{color:var(--teal); background:rgba(45,212,191,.1)}
+@media(max-width:900px){.toplinks{display:none}}
+
+/* ---------- layout ---------- */
+.wrap{max-width:var(--maxw); margin:0 auto; padding:0 22px}
+.shell{display:grid; grid-template-columns:212px 1fr; gap:46px; align-items:start}
+@media(max-width:900px){.shell{grid-template-columns:1fr}}
+
+/* sticky side TOC */
+.toc{position:sticky; top:78px; font-size:13px; padding-top:8px; max-height:calc(100vh - 100px); overflow-y:auto}
+.toc .lbl{font-family:"JetBrains Mono"; font-size:10.5px; letter-spacing:.18em; color:var(--faint); text-transform:uppercase; margin:0 0 12px 12px}
+.toc ol{list-style:none; margin:0; padding:0; border-left:1px solid var(--border)}
+.toc li a{display:flex; gap:9px; padding:7px 0 7px 14px; color:var(--dim); margin-left:-1px; border-left:2px solid transparent}
+.toc li a:hover{color:var(--text)}
+.toc li a.on{color:var(--text); border-left-color:var(--teal)}
+.toc li a .n{font-family:"JetBrains Mono"; font-size:11px; color:var(--faint); min-width:16px}
+.toc li a.on .n{color:var(--teal)}
+@media(max-width:900px){.toc{display:none}}
+
+/* ---------- hero ---------- */
+.hero{padding:64px 0 30px}
+.eyebrow{font-family:"JetBrains Mono"; font-size:11.5px; letter-spacing:.16em; color:var(--teal); text-transform:uppercase; margin-bottom:18px}
+.hero h1{font-family:"Black Han Sans"; font-weight:400; font-size:clamp(48px,9vw,104px); line-height:.92;
+  margin:0; letter-spacing:.5px;
+  background:linear-gradient(180deg,#fff 0%, #B9D7D2 120%); -webkit-background-clip:text; background-clip:text; color:transparent}
+.hero .studio{font-family:"JetBrains Mono"; font-size:13px; color:var(--faint); margin-top:14px}
+.hero .lead{font-size:clamp(17px,2.4vw,21px); color:var(--text); max-width:640px; margin:22px 0 0; line-height:1.55}
+.hero .lead em{font-style:normal; color:var(--teal)}
+.chips{display:flex; flex-wrap:wrap; gap:9px; margin-top:30px}
+.chip{font-size:12.5px; color:var(--dim); background:var(--surface); border:1px solid var(--border); padding:7px 13px; border-radius:99px}
+.chip b{color:var(--text); font-weight:600}
+
+/* ---------- sections ---------- */
+section{padding:52px 0 8px; scroll-margin-top:74px; border-top:1px solid var(--border-soft)}
+.sec-head{display:flex; align-items:baseline; gap:16px; margin-bottom:8px}
+.sec-head .num{font-family:"JetBrains Mono"; font-size:13px; color:var(--teal); font-weight:600}
+.sec-head h2{font-size:clamp(24px,3.4vw,32px); margin:0; font-weight:800; letter-spacing:-.01em}
+.sec-sub{color:var(--dim); margin:2px 0 26px; max-width:680px}
+h3{font-size:18px; font-weight:700; margin:34px 0 12px; letter-spacing:-.01em}
+h3 .h3n{font-family:"JetBrains Mono"; font-size:13px; color:var(--faint); margin-right:9px}
+h4{font-size:14.5px; font-weight:700; margin:26px 0 8px; color:var(--dim)}
+h4 .h4n{font-family:"JetBrains Mono"; font-size:12px; color:var(--teal); margin-right:8px; border:1px solid rgba(45,212,191,.35); padding:1px 7px; border-radius:99px}
+p{margin:10px 0}
+ul.clean{list-style:none; padding:0; margin:14px 0}
+ul.clean li{position:relative; padding:6px 0 6px 22px; color:var(--text); border-bottom:1px solid var(--border-soft)}
+ul.clean li:last-child{border-bottom:0}
+ul.clean li::before{content:"›"; position:absolute; left:4px; color:var(--teal); font-weight:700}
+ul.clean li b{color:var(--text)}
+ul.clean li ul.sub{list-style:none; margin:8px 0 4px; padding:0}
+ul.clean li ul.sub li{padding:4px 0 4px 18px; font-size:13.5px; color:var(--dim); border-bottom:0}
+ul.clean li ul.sub li::before{content:"·"; color:var(--faint)}
+.note{border-left:3px solid var(--teal-dim); background:rgba(45,212,191,.05); padding:12px 16px; border-radius:0 8px 8px 0; color:var(--dim); margin:18px 0; font-size:14px}
+.note.warn{border-left-color:var(--bad); background:rgba(208,138,85,.06)}
+.note.new{border-left-color:var(--gamble); background:rgba(182,140,240,.06)}
+.note b{color:var(--text)}
+
+/* tables */
+.tbl{width:100%; border-collapse:collapse; margin:16px 0; font-size:14px; overflow:hidden; border-radius:10px; border:1px solid var(--border)}
+.tbl th{background:var(--surface2); text-align:left; padding:11px 14px; font-weight:600; color:var(--dim); font-size:12.5px; letter-spacing:.02em; border-bottom:1px solid var(--border)}
+.tbl td{padding:11px 14px; border-bottom:1px solid var(--border-soft); vertical-align:top}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tbody tr:nth-child(even){background:rgba(255,255,255,.012)}
+.tbl td b, .tbl td strong{color:var(--text)}
+.tbl .k{color:var(--text); font-weight:600; white-space:nowrap}
+.mono{font-family:"JetBrains Mono"; font-variant-numeric:tabular-nums}
+.num{font-family:"JetBrains Mono"; text-align:right; font-variant-numeric:tabular-nums; color:var(--text)}
+.tbl-skill td:first-child{color:var(--text); font-weight:600; white-space:nowrap; width:26%}
+
+/* code/flow panels */
+.flow{font-family:"JetBrains Mono"; font-size:13px; background:#0a0b10; border:1px solid var(--border);
+  border-radius:12px; padding:18px 20px; color:#b9c0d0; white-space:pre; overflow-x:auto; line-height:1.85; margin:16px 0}
+.flow .hi{color:var(--teal)}
+.flow .br{color:var(--good)}
+
+/* ---------- trait pools (signature) ---------- */
+.legend{display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 30px}
+.legend .lg{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--dim); background:var(--surface); border:1px solid var(--border); padding:5px 11px; border-radius:99px}
+.legend .dot{width:9px;height:9px;border-radius:99px}
+
+.pool{border:1px solid var(--border); border-radius:14px; overflow:hidden; margin:20px 0; background:var(--surface)}
+.pool-head{display:flex; align-items:center; gap:16px; padding:16px 20px; border-bottom:1px solid var(--border); position:relative}
+.pool-head::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--c)}
+.pool-head .pname{font-size:18px; font-weight:800; color:var(--c)}
+.pool-head .peng{font-family:"JetBrains Mono"; font-size:11px; color:var(--faint); letter-spacing:.05em}
+.pool-head .pdesc{color:var(--dim); font-size:13px; flex:1; min-width:120px}
+.pool-rate{text-align:right; min-width:120px}
+.pool-rate .rv{font-family:"JetBrains Mono"; font-size:22px; font-weight:600; color:var(--c)}
+.pool-rate .rl{font-size:10.5px; color:var(--faint); letter-spacing:.04em}
+.ratebar{height:4px; background:var(--surface3); border-radius:99px; margin-top:6px; overflow:hidden}
+.ratebar i{display:block; height:100%; background:var(--c); border-radius:99px}
+@media(max-width:560px){.pool-head{flex-wrap:wrap}.pool-rate{text-align:left}}
+
+.tgrid{display:grid; grid-template-columns:1fr 1fr; gap:0}
+@media(max-width:680px){.tgrid{grid-template-columns:1fr}}
+.trait{padding:13px 20px; border-bottom:1px solid var(--border-soft); border-right:1px solid var(--border-soft)}
+.tgrid .trait:nth-child(2n){border-right:0}
+@media(max-width:680px){.trait{border-right:0}}
+.trait .tn{font-weight:700; color:var(--c); font-size:14px; margin-bottom:3px}
+.trait .te{color:var(--dim); font-size:13px; line-height:1.5}
+
+/* exp table extras */
+.tbl tr.lvl-job{background:rgba(45,212,191,.07)}
+.tbl tr.lvl-job td{border-bottom-color:rgba(45,212,191,.18)}
+.tag-job{font-family:"JetBrains Mono"; font-size:10.5px; color:var(--teal); border:1px solid rgba(45,212,191,.35); padding:1px 7px; border-radius:99px; margin-right:6px; white-space:nowrap}
+.tag-esp{font-family:"JetBrains Mono"; font-size:10.5px; color:var(--gamble); border:1px solid rgba(182,140,240,.35); padding:1px 7px; border-radius:99px; margin-right:6px; white-space:nowrap}
+.tag-lock{font-family:"JetBrains Mono"; font-size:10.5px; color:var(--bad); border:1px solid rgba(208,138,85,.3); padding:1px 7px; border-radius:99px; white-space:nowrap}
+
+/* appendix skill index chips */
+.catnav{display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 22px}
+.catnav a{font-family:"JetBrains Mono"; font-size:11.5px; color:var(--dim); background:var(--surface); border:1px solid var(--border); padding:4px 10px; border-radius:8px}
+.catnav a:hover{color:var(--text); background:var(--surface2)}
+
+footer{padding:50px 0 70px; color:var(--faint); font-size:12.5px; text-align:center; border-top:1px solid var(--border-soft); margin-top:40px}
+footer b{color:var(--dim)}
+.reveal{opacity:0; transform:translateY(10px); transition:opacity .6s ease, transform .6s ease}
+.reveal.in{opacity:1; transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1; transform:none; transition:none}}
+</style>
+
+<div class="topbar">
+  <span class="brand">랜덤 <b>플래닛</b></span>
+  <span class="tag">v2 · 콘테스트 제출본</span>
+  <span class="spacer"></span>
+  <nav class="toplinks" id="toplinks">
+    <a href="#overview">개요</a>
+    <a href="#character">캐릭터</a>
+    <a href="#traits">특성</a>
+    <a href="#passive">패시브·링크</a>
+    <a href="#combat">전투</a>
+    <a href="#monsters">몬스터</a>
+    <a href="#balance">밸런싱</a>
+    <a href="#appendix">미결</a>
+  </nav>
+</div>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">메이플스토리 월드 · 글로벌 개발 콘테스트 제출본</div>
+    <h1>랜덤 플래닛</h1>
+    <div class="studio">RANDOM PLANET</div>
+    <p class="lead">캐릭터 자체가 가챠다. <em>매번 랜덤으로 굴려진 캐릭터</em>로 도전하는 로그라이트 액션. 같은 판은 두 번 없다.</p>
+    <div class="chips">
+      <span class="chip"><b>장르</b> 로그라이트 · 핵앤슬래시</span>
+      <span class="chip"><b>1런</b> 약 1시간</span>
+      <span class="chip"><b>모드</b> 싱글(솔로) 전용</span>
+      <span class="chip"><b>특성</b> 5풀 × 20종 = 100</span>
+      <span class="chip"><b>패시브 · 링크</b> 각 100종</span>
+      <span class="chip"><b>엔진</b> mLua · Unity 기반</span>
+      <span class="chip"><b>플랫폼</b> PC · 모바일</span>
+    </div>
+  </header>
+</div>
+
+<div class="wrap">
+  <div class="shell">
+    <!-- TOC -->
+    <aside class="toc">
+      <p class="lbl">목차</p>
+      <ol id="toc">
+        <li><a href="#overview"><span class="n">00</span>게임 개요</a></li>
+        <li><a href="#loop"><span class="n">01</span>핵심 게임 루프</a></li>
+        <li><a href="#character"><span class="n">02</span>캐릭터 시스템</a></li>
+        <li><a href="#traits"><span class="n">·</span>특성 풀 100종</a></li>
+        <li><a href="#passive"><span class="n">·</span>패시브 스킬</a></li>
+        <li><a href="#link"><span class="n">·</span>링크스킬</a></li>
+        <li><a href="#combat"><span class="n">03</span>전투 시스템</a></li>
+        <li><a href="#skills"><span class="n">04</span>스킬 시스템</a></li>
+        <li><a href="#monsters"><span class="n">05</span>몬스터 토벌</a></li>
+        <li><a href="#economy"><span class="n">06</span>재화 · 메타</a></li>
+        <li><a href="#ui"><span class="n">07</span>UI / 화면</a></li>
+        <li><a href="#balance"><span class="n">08</span>밸런싱 기준값</a></li>
+        <li><a href="#records"><span class="n">09</span>기록 · 리더보드</a></li>
+        <li><a href="#appendix"><span class="n">+</span>미결 항목</a></li>
+        <li><a href="#appendix-a"><span class="n">A</span>패시브 100종</a></li>
+        <li><a href="#appendix-b"><span class="n">B</span>링크스킬 100종</a></li>
+        <li><a href="#appendix-c"><span class="n">C</span>설계 메모</a></li>
+      </ol>
+    </aside>
+
+    <!-- CONTENT -->
+    <main>
+      <!-- 0 -->
+      <section id="overview" class="reveal">
+        <div class="sec-head"><span class="num">00</span><h2>게임 개요</h2></div>
+        <p class="sec-sub">옛날 직업 스킬·전직·이능·마노·달팽이 같은 메이플 IP 친화 요소를 그대로 살리면서, 랜덤 시스템을 게임의 중심 메커니즘으로 끌어올린 로그라이트.</p>
+        <table class="tbl">
+          <tr><td class="k">가제</td><td>랜덤 플래닛 (RANDOM PLANET)</td></tr>
+          <tr><td class="k">장르</td><td>로그라이트 액션 / 핵 앤 슬래시</td></tr>
+          <tr><td class="k">한 줄 소개</td><td>캐릭터 자체가 가챠다 — 매번 랜덤으로 굴려진 캐릭터로 도전하는 로그라이트</td></tr>
+          <tr><td class="k">핵심 재미</td><td>스탯·특성·스킬이 전부 랜덤 → 같은 판이 없음. 강캐를 뽑고 빌드를 완성해가는 재미</td></tr>
+          <tr><td class="k">타깃 플레이타임</td><td>1런 약 1시간</td></tr>
+          <tr><td class="k">플레이 모드</td><td>싱글 플레이(솔로) 전용</td></tr>
+          <tr><td class="k">메타 목표</td><td>더 강한 보스를 순차 클리어 / 계정 영구 강화 누적</td></tr>
+          <tr><td class="k">플랫폼</td><td>메이플스토리 월드 (글로벌 개발 콘테스트)</td></tr>
+          <tr><td class="k">개발 환경</td><td>mLua 스크립팅 + Unity 기반 / PC·모바일 크로스플랫폼</td></tr>
+          <tr><td class="k">사용 가능 리소스</td><td>메이플스토리 5차 전직 이전 에셋 전체 (2024년 7월 약관 개정)</td></tr>
+        </table>
+        <div class="note"><b>콘테스트 어필 포인트</b> — 메이플 IP 친화 요소(옛날 직업 스킬·전직·이능·마노·달팽이)를 그대로 살리면서, 랜덤 시스템을 게임의 중심 메커니즘으로 끌어올린 로그라이트. 메이플스토리 5차 이전 에셋·보스를 적극 활용해 IP 친숙도를 극대화한다.</div>
+      </section>
+
+      <!-- 1 -->
+      <section id="loop" class="reveal">
+        <div class="sec-head"><span class="num">01</span><h2>핵심 게임 루프</h2></div>
+
+        <h3><span class="h3n">1-1</span>메타 루프 (로비)</h3>
+        <ul class="clean">
+          <li><b>캐릭터 생성</b> — 하루 최대 6개, 스탯·특성 전부 랜덤</li>
+          <li><b>보관</b> — 캐릭터 선택창(최대 6칸)에서 관리</li>
+          <li><b>공격대 편성</b> — 플레이어블 1 + 링크 2</li>
+          <li><b>입장</b> — 토벌 전장 / 몬스터 게이트 선택</li>
+          <li><b>정산</b> — 클리어 보상으로 영구 재화 획득 → 계정 강화 → 1번으로 회귀</li>
+        </ul>
+        <div class="note">캐릭터가 전부 소진되고 당일 생성권도 없으면 다음 날 생성권 회복까지 대기.</div>
+
+        <h3><span class="h3n">1-2</span>인게임 루프 (전장)</h3>
+        <div class="flow">스폰
+ <span class="hi">→</span> 좌우 포털에서 몬스터 웨이브 등장
+ <span class="hi">→</span> 처치 시 스탯 구슬 / 경험치 드랍
+ <span class="hi">→</span> 레벨업
+ <span class="hi">→</span> <span class="br">[5·13·18레벨]</span> 2·3·4차 전직 + 전직 퀘스트 보스 클리어
+ <span class="hi">→</span> <span class="br">[3레벨 단위]</span> 이능 선택
+ <span class="hi">→</span> 중간 보스 난입 (막대한 경험치)
+ <span class="hi">→</span> 사냥터 클리어  <span class="br">또는</span>  캐릭터 사망 → ENDING</div>
+      </section>
+
+      <!-- 2 -->
+      <section id="character" class="reveal">
+        <div class="sec-head"><span class="num">02</span><h2>캐릭터 시스템</h2></div>
+
+        <h3><span class="h3n">2-1</span>캐릭터 생성 및 공격대</h3>
+        <ul class="clean">
+          <li>캐릭터 선택창 최대 <b>6칸</b> — 모든 슬롯이 플레이어블 속성을 가짐</li>
+          <li>그 중 1개를 선택해 직접 조작 (플레이어블 캐릭터)</li>
+          <li>나머지 중 최대 2개를 링크로 지정 → 공격대 총 3명 구성</li>
+          <li>링크 캐릭터는 <b>15레벨 이상</b>일 때 배정된 링크스킬을 공격대에 제공 (2-8 참조)</li>
+          <li>공격대에 플레이어블 1개만 있어도 도전 가능</li>
+          <li>캐릭터 생성은 하루 최대 6개 (매일 초기화)</li>
+          <li>캐릭터 사망 → 해당 캐릭터 1개만 <b>영구 삭제</b> (링크 캐릭터는 생존)</li>
+          <li>모든 캐릭터 소진 + 당일 생성권 없음 → 다음 날 대기</li>
+        </ul>
+        <div class="note warn"><b>주의</b> — 일일 생성 한도(6개)가 보관함 슬롯 수(6칸)와 동일해짐. 하루치를 전부 생성하면 보관함이 가득 찬다. 노후 캐릭터 정리(링크 전환·방출) 동선을 함께 설계할 필요 있음 (부록 참조).</div>
+
+        <h3><span class="h3n">2-2</span>랜덤 스탯</h3>
+        <p>생성 시 힘 / 민첩 / 지능 / 행운 4종에 전부 랜덤 분배.</p>
+        <table class="tbl">
+          <thead><tr><th>스탯</th><th>주 효과</th><th>부 효과</th></tr></thead>
+          <tbody>
+            <tr><td class="k">힘 (STR)</td><td>물리 공격력 ↑</td><td>넉백 저항 ↑</td></tr>
+            <tr><td class="k">민첩 (DEX)</td><td>공격 속도 ↑, 명중 ↑</td><td>이동 속도 ↑</td></tr>
+            <tr><td class="k">지능 (INT)</td><td>스킬 데미지 ↑, 최대 MP ↑</td><td>스킬 쿨다운 감소</td></tr>
+            <tr><td class="k">행운 (LUK)</td><td>크리티컬 확률 ↑, 크리티컬 데미지 ↑</td><td>회피 소폭 ↑</td></tr>
+          </tbody>
+        </table>
+        <div class="note">행운(LUK)은 순수 전투 스탯. 드랍률 등 파밍 수치에는 관여하지 않음.</div>
+
+        <h3><span class="h3n">2-3</span>특성 (Trait)</h3>
+        <p>생성 시 Hidden(good/bad) / average / bad / Gamble 풀에서 랜덤 지정. 3차 전직(13레벨) 시 추가로 1회 더 추첨.</p>
+        <div class="note">풀 선택 확률은 8-2 참조 (average 50% / bad 18% / Hidden-good 15% / Gamble 12% / Hidden-bad 5%). 풀이 정해지면 그 안에서 <b>균등 추첨</b>하므로, 각 풀 20종이면 풀 내 단일 특성 출현 확률은 1/20(5%)로 고르게 깔린다.</div>
+
+        <div class="legend">
+          <span class="lg"><span class="dot" style="background:var(--good)"></span>Hidden-good · 강특성</span>
+          <span class="lg"><span class="dot" style="background:var(--bad-h)"></span>Hidden-bad · 고위험 고보상</span>
+          <span class="lg"><span class="dot" style="background:var(--avg)"></span>average · 무난</span>
+          <span class="lg"><span class="dot" style="background:var(--bad)"></span>bad · 핸디캡</span>
+          <span class="lg"><span class="dot" style="background:var(--gamble)"></span>Gamble · 도박</span>
+        </div>
+
+        <!-- Hidden-good -->
+        <div class="pool" style="--c:var(--good)">
+          <div class="pool-head">
+            <div><div class="pname">Hidden — good</div><div class="peng">LEGENDARY POOL</div></div>
+            <div class="pdesc">build-defining 강특성 풀. 잘 뽑으면 빌드의 핵심이 된다.</div>
+            <div class="pool-rate"><div class="rv">15%</div><div class="rl">풀 출현 확률</div><div class="ratebar"><i style="width:30%"></i></div></div>
+          </div>
+          <div class="tgrid">
+            <div class="trait"><div class="tn">상인</div><div class="te">아이템 드랍률 2배</div></div>
+            <div class="trait"><div class="tn">버서크</div><div class="te">초당 -3% 체력 / 체력 낮을수록 공격력 ↑ / 타격 시 흡혈 / 회복 아이템 적용 불가</div></div>
+            <div class="trait"><div class="tn">링크 마스터</div><div class="te">링크 패시브 효율 +20%</div></div>
+            <div class="trait"><div class="tn">시간여행자</div><div class="te">경험치 추가 획득</div></div>
+            <div class="trait"><div class="tn">부활자</div><div class="te">사망 시 1회 부활</div></div>
+            <div class="trait"><div class="tn">먹보</div><div class="te">회복 아이템 회복량 증가</div></div>
+            <div class="trait"><div class="tn">분신(도플갱어)</div><div class="te">일정 시간마다 분신 소환, 분신이 같은 스킬로 함께 공격</div></div>
+            <div class="trait"><div class="tn">메아리</div><div class="te">스킬 사용 시 일정 확률로 같은 스킬 1회 자동 재시전</div></div>
+            <div class="trait"><div class="tn">자석술사</div><div class="te">드랍 자동 흡수 + 흡수 범위 ↑, 범위 내 처치 시 추가 스탯 구슬</div></div>
+            <div class="trait"><div class="tn">마노</div><div class="te">달팽이 던지기 타수 12</div></div>
+            <div class="trait"><div class="tn">마나실드</div><div class="te">n초마다 방어막 1회 생성</div></div>
+            <div class="trait"><div class="tn">큐브마스터</div><div class="te">스킬 선택 시 제시 옵션 1회 재추첨 가능</div></div>
+            <div class="trait"><div class="tn">연성술사</div><div class="te">스탯 구슬 획득 시 25% 확률로 동일 구슬 1개 복제</div></div>
+            <div class="trait"><div class="tn">처형자</div><div class="te">체력 15% 이하 적 처치 확률 ↑, 처치 시 3초간 공격력 +15%</div></div>
+            <div class="trait"><div class="tn">가속</div><div class="te">적 처치마다 공격 속도 +2% 누적 (최대 +40%, 피격 시 초기화)</div></div>
+            <div class="trait"><div class="tn">흡혈귀</div><div class="te">가하는 모든 피해의 5%를 체력으로 회복</div></div>
+            <div class="trait"><div class="tn">저격수</div><div class="te">크리티컬 데미지 +50%</div></div>
+            <div class="trait"><div class="tn">재생력</div><div class="te">3초간 피격당하지 않으면 초당 체력 회복</div></div>
+            <div class="trait"><div class="tn">수호자</div><div class="te">12초마다 받는 치명타 1회를 무효화</div></div>
+            <div class="trait"><div class="tn">천부적 재능</div><div class="te">이능 선택 시 선택지 1개 추가 (3종 → 4종)</div></div>
+          </div>
+        </div>
+
+        <!-- Hidden-bad -->
+        <div class="pool" style="--c:var(--bad-h)">
+          <div class="pool-head">
+            <div><div class="pname">Hidden — bad</div><div class="peng">CURSED POOL</div></div>
+            <div class="pdesc">저주처럼 보이지만 숨은 보상이 큰 고위험·고보상 풀. 강한 제약 + 강한 대가가 한 쌍.</div>
+            <div class="pool-rate"><div class="rv">5%</div><div class="rl">풀 출현 확률</div><div class="ratebar"><i style="width:10%"></i></div></div>
+          </div>
+          <div class="tgrid">
+            <div class="trait"><div class="tn">봉인된 자</div><div class="te">전직을 1차까지만 가능 / 대신 시작 스탯 대폭 보너스</div></div>
+            <div class="trait"><div class="tn">불운</div><div class="te">드랍률 0 / 단 처치 경험치 2배</div></div>
+            <div class="trait"><div class="tn">유리대포</div><div class="te">최대 체력 −50% / 대신 모든 데미지 +50%</div></div>
+            <div class="trait"><div class="tn">외길</div><div class="te">스킬 슬롯 2개로 제한 / 대신 보유 스킬 데미지 +60%</div></div>
+            <div class="trait"><div class="tn">금욕</div><div class="te">회복 아이템 사용 불가 / 대신 적 처치 시 체력 소폭 회복</div></div>
+            <div class="trait"><div class="tn">고독</div><div class="te">링크 패시브를 받지 못함 / 대신 본인 전 스탯 +30%</div></div>
+            <div class="trait"><div class="tn">빈곤의 서약</div><div class="te">영구 재화 획득 0 / 대신 스탯 구슬 획득량 2배</div></div>
+            <div class="trait"><div class="tn">무모함</div><div class="te">방어력 0 (피해 그대로 수용) / 대신 크리티컬 확률 +30%</div></div>
+            <div class="trait"><div class="tn">시한부</div><div class="te">입장 후 제한 시간 초과 시 즉사 / 대신 경험치·드랍 대폭 증가</div></div>
+            <div class="trait"><div class="tn">침묵의 맹세</div><div class="te">MP 소모 스킬 사용 불가 (평타·쿨다운 스킬만) / 대신 평타 데미지 3배</div></div>
+            <div class="trait"><div class="tn">깨진 그릇</div><div class="te">최대 MP 0 (MP 스킬 봉인) / 대신 스킬 쿨다운 −40%</div></div>
+            <div class="trait"><div class="tn">외눈</div><div class="te">명중률 대폭 감소 / 대신 명중 시 데미지 2배</div></div>
+            <div class="trait"><div class="tn">박애주의자</div><div class="te">본인 데미지 −30% / 대신 링크 패시브 효율 3배</div></div>
+            <div class="trait"><div class="tn">도굴꾼</div><div class="te">보스에게 받는 피해 2배 / 대신 보스 처치 보상 3배</div></div>
+            <div class="trait"><div class="tn">약속된 죽음</div><div class="te">부활·회복 전부 불가 / 대신 전 스탯 +25%</div></div>
+            <div class="trait"><div class="tn">무게추</div><div class="te">이동 속도 대폭 감소 / 대신 받는 피해 −40% + 넉백 면역</div></div>
+            <div class="trait"><div class="tn">봉인구</div><div class="te">4차 전직 불가 (3차까지) / 대신 스킬 데미지 +40%</div></div>
+            <div class="trait"><div class="tn">운명론자</div><div class="te">이능 재추첨·특성 변경 전부 불가 (첫 결과 확정) / 대신 시작 스탯 +40%</div></div>
+            <div class="trait"><div class="tn">고행자</div><div class="te">레벨업 시 스탯 자동 증가 없음 / 대신 시작 스탯 대폭 보너스 + 경험치 1.5배</div></div>
+            <div class="trait"><div class="tn">순교자</div><div class="te">체력이 낮을수록 데미지 급증(버서크 강화판) / 대신 자연 회복 불가 + 체력 상한 −30%</div></div>
+          </div>
+        </div>
+
+        <!-- average -->
+        <div class="pool" style="--c:var(--avg)">
+          <div class="pool-head">
+            <div><div class="pname">average</div><div class="peng">COMMON POOL</div></div>
+            <div class="pdesc">소폭 플러스 위주의 안전 풀. 빌드를 망치지 않는 무난한 보정.</div>
+            <div class="pool-rate"><div class="rv">50%</div><div class="rl">풀 출현 확률</div><div class="ratebar"><i style="width:100%"></i></div></div>
+          </div>
+          <div class="tgrid">
+            <div class="trait"><div class="tn">균형</div><div class="te">모든 스탯 소폭 증가</div></div>
+            <div class="trait"><div class="tn">견습</div><div class="te">경험치 획득 소폭 증가</div></div>
+            <div class="trait"><div class="tn">절약가</div><div class="te">스킬 MP 소모 감소</div></div>
+            <div class="trait"><div class="tn">단단함</div><div class="te">방어력 소폭 증가</div></div>
+            <div class="trait"><div class="tn">강건함</div><div class="te">최대 체력 소폭 증가</div></div>
+            <div class="trait"><div class="tn">날렵함</div><div class="te">이동 속도 소폭 증가</div></div>
+            <div class="trait"><div class="tn">집중</div><div class="te">명중률 소폭 증가</div></div>
+            <div class="trait"><div class="tn">행운아</div><div class="te">크리티컬 확률 소폭 증가</div></div>
+            <div class="trait"><div class="tn">수련생</div><div class="te">스킬 쿨다운 소폭 감소</div></div>
+            <div class="trait"><div class="tn">회복가</div><div class="te">회복 아이템 회복량 소폭 증가</div></div>
+            <div class="trait"><div class="tn">근면</div><div class="te">스탯 구슬 획득량 소폭 증가</div></div>
+            <div class="trait"><div class="tn">민첩한 손</div><div class="te">공격 속도 소폭 증가</div></div>
+            <div class="trait"><div class="tn">끈기</div><div class="te">체력 30% 이하일 때 방어력 소폭 증가</div></div>
+            <div class="trait"><div class="tn">탐험가</div><div class="te">드랍률 소폭 증가</div></div>
+            <div class="trait"><div class="tn">명상가</div><div class="te">최대 MP 소폭 증가</div></div>
+            <div class="trait"><div class="tn">투지</div><div class="te">공격력 소폭 증가</div></div>
+            <div class="trait"><div class="tn">절제</div><div class="te">받는 피해 소폭 감소</div></div>
+            <div class="trait"><div class="tn">친화력</div><div class="te">링크 패시브 효율 소폭 증가</div></div>
+            <div class="trait"><div class="tn">신중함</div><div class="te">첫 피격 1회 피해 무효 (런당 1회)</div></div>
+            <div class="trait"><div class="tn">적응력</div><div class="te">적 처치 누적 시 전 스탯 아주 소폭 증가 (낮은 상한)</div></div>
+          </div>
+        </div>
+
+        <!-- bad -->
+        <div class="pool" style="--c:var(--bad)">
+          <div class="pool-head">
+            <div><div class="pname">bad</div><div class="peng">HANDICAP POOL</div></div>
+            <div class="pdesc">소폭 마이너스 풀. 치명적이진 않지만 빌드에 부담을 주는 핸디캡.</div>
+            <div class="pool-rate"><div class="rv">18%</div><div class="rl">풀 출현 확률</div><div class="ratebar"><i style="width:36%"></i></div></div>
+          </div>
+          <div class="tgrid">
+            <div class="trait"><div class="tn">저주받은</div><div class="te">회복량 30% 감소</div></div>
+            <div class="trait"><div class="tn">둔재</div><div class="te">경험치 획득 감소</div></div>
+            <div class="trait"><div class="tn">약골</div><div class="te">최대 체력 감소</div></div>
+            <div class="trait"><div class="tn">외골수</div><div class="te">링크 패시브 효과 절반만 적용</div></div>
+            <div class="trait"><div class="tn">굼뜸</div><div class="te">이동 속도 감소</div></div>
+            <div class="trait"><div class="tn">둔감</div><div class="te">명중률 감소</div></div>
+            <div class="trait"><div class="tn">유리몸</div><div class="te">방어력 감소</div></div>
+            <div class="trait"><div class="tn">낭비벽</div><div class="te">스킬 MP 소모 증가</div></div>
+            <div class="trait"><div class="tn">느림보</div><div class="te">공격 속도 감소</div></div>
+            <div class="trait"><div class="tn">박복</div><div class="te">크리티컬 확률 감소</div></div>
+            <div class="trait"><div class="tn">빈손</div><div class="te">드랍률 감소</div></div>
+            <div class="trait"><div class="tn">단명</div><div class="te">자연·비전투 회복 불가 (회복 아이템은 가능)</div></div>
+            <div class="trait"><div class="tn">허약</div><div class="te">공격력 소폭 감소</div></div>
+            <div class="trait"><div class="tn">산만함</div><div class="te">스킬 쿨다운 증가</div></div>
+            <div class="trait"><div class="tn">옹졸함</div><div class="te">스탯 구슬 획득량 감소</div></div>
+            <div class="trait"><div class="tn">겁쟁이</div><div class="te">보스전에서 받는 피해 증가</div></div>
+            <div class="trait"><div class="tn">무딘 칼</div><div class="te">크리티컬 데미지 감소</div></div>
+            <div class="trait"><div class="tn">게으름</div><div class="te">스탯 구슬 흡수 범위 감소</div></div>
+            <div class="trait"><div class="tn">변덕</div><div class="te">이능 선택지 3종 중 1종이 무작위로 비활성 (2종만 선택)</div></div>
+            <div class="trait"><div class="tn">저주의 표식</div><div class="te">일정 주기로 짧게 디버프(소폭 능력 저하) 발생</div></div>
+          </div>
+        </div>
+
+        <!-- gamble -->
+        <div class="pool" style="--c:var(--gamble)">
+          <div class="pool-head">
+            <div><div class="pname">Gamble</div><div class="peng">SPECIAL · 도박</div></div>
+            <div class="pdesc">뽑기의 긴장감을 강화하는 고분산 풀. 잘 터지면 OP, 안 터지면 핸디캡.</div>
+            <div class="pool-rate"><div class="rv">12%</div><div class="rl">풀 출현 확률</div><div class="ratebar"><i style="width:24%"></i></div></div>
+          </div>
+          <div class="tgrid">
+            <div class="trait"><div class="tn">올인</div><div class="te">공격력 대폭 ↑ / 방어력 대폭 ↓</div></div>
+            <div class="trait"><div class="tn">양날검</div><div class="te">크리 시 추가 데미지 큼 / 빗나가면 자해 데미지</div></div>
+            <div class="trait"><div class="tn">럭키 세븐</div><div class="te">7초마다 랜덤 버프 또는 디버프 발동</div></div>
+            <div class="trait"><div class="tn">한 방</div><div class="te">최대 체력 1/3로 시작 / 데미지 약 2배</div></div>
+            <div class="trait"><div class="tn">도박꾼</div><div class="te">적 처치 시 50% 확률로 드랍 2배 / 50% 확률로 0</div></div>
+            <div class="trait"><div class="tn">룰렛</div><div class="te">입장 시 전 스탯이 랜덤 재분배 (총량 ±30% 변동)</div></div>
+            <div class="trait"><div class="tn">복불복 상자</div><div class="te">스탯 구슬이 큰 값 또는 0으로 드랍</div></div>
+            <div class="trait"><div class="tn">회전룰렛</div><div class="te">스킬 사용 시 10% 확률로 쿨다운 즉시 초기화 / 10% 확률로 쿨다운 2배</div></div>
+            <div class="trait"><div class="tn">양극화</div><div class="te">크리티컬 확률 대폭 증가 / 단 크리가 아니면 데미지 대폭 감소</div></div>
+            <div class="trait"><div class="tn">폭탄 돌리기</div><div class="te">처치 시 폭발(주변 적 피해) / 가끔 자신도 피해</div></div>
+            <div class="trait"><div class="tn">운명의 동전</div><div class="te">피격 시 50% 확률로 피해 무효 / 50% 확률로 피해 2배</div></div>
+            <div class="trait"><div class="tn">광란의 질주</div><div class="te">공격·이동 속도 대폭 증가 / 단 가끔 조작이 폭주(무작위 이동)</div></div>
+            <div class="trait"><div class="tn">한탕주의</div><div class="te">영구 재화 평소 획득 0 / 클리어 시 일확천금(대량 지급)</div></div>
+            <div class="trait"><div class="tn">시한폭탄</div><div class="te">시간이 갈수록 공격력 누적 증가 / 일정 시간마다 폭발 자해 피해</div></div>
+            <div class="trait"><div class="tn">광부의 곡괭이</div><div class="te">스탯 구슬 획득 시 낮은 확률로 잭팟(대량) / 보통은 소량</div></div>
+            <div class="trait"><div class="tn">미친 과학자</div><div class="te">이능 효과 2배 / 단 효과가 무작위로 결정(선택 불가)</div></div>
+            <div class="trait"><div class="tn">럭키/언럭키 데이</div><div class="te">입장 시 그 런 전체에 행운(전 스탯+) 또는 불운(전 스탯−) 중 하나 부여</div></div>
+            <div class="trait"><div class="tn">카지노</div><div class="te">MP 대신 '칩'으로 스킬 사용, 처치 시 칩 무작위 획득(많거나 적거나)</div></div>
+            <div class="trait"><div class="tn">블러프</div><div class="te">체력 1로 시작 / 회피율 극대화(공격이 자주 빗나감)</div></div>
+            <div class="trait"><div class="tn">양날의 축복</div><div class="te">좋은 특성 1개 + 나쁜 특성 1개를 동시에 무작위 부여</div></div>
+          </div>
+        </div>
+
+        <h3><span class="h3n">2-4</span>레벨</h3>
+        <ul class="clean">
+          <li>최대 레벨 21</li>
+          <li><b>1~15레벨</b>: EXP 파밍만으로 자유롭게 레벨업</li>
+          <li><b>16~21레벨</b>: 레벨별 해금 조건 충족 + EXP 급증
+            <ul class="sub">
+              <li>해금 조건 예시: "16레벨 — 몬스터 게이트 3회 클리어", "18레벨 — 마왕 발록 처치"</li>
+              <li>각 레벨의 구체적 해금 조건은 별도 설계 예정</li>
+              <li>해금 조건은 <b>계정 귀속</b> — 한 번 달성하면 이후 모든 캐릭터에 적용</li>
+              <li>EXP 요구량은 여전히 캐릭터마다 파밍 필요 (해금이 레벨업을 보장하지 않음)</li>
+            </ul>
+          </li>
+          <li>21레벨 콘텐츠: 미정</li>
+        </ul>
+
+        <h3><span class="h3n">2-5</span>전직 및 이능</h3>
+        <p>전직은 총 4차. 각 전직 시 메이플 옛날 직업 스킬 3개 제시 → 1개 선택.</p>
+        <table class="tbl">
+          <thead><tr><th>전직</th><th>조건</th><th>부가 효과</th></tr></thead>
+          <tbody>
+            <tr><td class="k">1차</td><td>1레벨 (캐릭터 생성 시)</td><td>—</td></tr>
+            <tr><td class="k">2차</td><td>5레벨 + 전직 퀘스트 보스 클리어</td><td>—</td></tr>
+            <tr><td class="k">3차</td><td>13레벨 + 전직 퀘스트 보스 클리어</td><td>랜덤 특성 1회 추가 지급</td></tr>
+            <tr><td class="k">4차</td><td>18레벨 + 전직 퀘스트 보스 클리어</td><td>—</td></tr>
+          </tbody>
+        </table>
+        <ul class="clean">
+          <li>전직 퀘스트 보스 클리어: <b>캐릭터 귀속</b> — 캐릭터마다 직접 처치</li>
+          <li>보스 클리어 타임 기록: <b>계정 귀속</b> — 리더보드 반영</li>
+          <li>이능은 3레벨 단위(3·6·9·12·15·18·21)로 총 7회 제공</li>
+        </ul>
+        <p style="color:var(--dim);font-size:14px">이능 발동 시 아래 3종 중 랜덤 제시 → 1개 선택:</p>
+        <table class="tbl">
+          <tr><td class="k">스탯 재분배</td><td>보유 스탯 총량 유지한 채 4종에 재분배</td></tr>
+          <tr><td class="k">추가 스탯 제공</td><td>특정 스탯에 고정량 추가</td></tr>
+          <tr><td class="k">특성 변경</td><td>현재 특성을 새 랜덤 특성으로 교체</td></tr>
+        </table>
+
+        <h3><span class="h3n">2-6</span>링크 캐릭터 패시브</h3>
+        <ul class="clean">
+          <li>링크 캐릭터는 <b>15레벨 이상</b>일 때 본인에게 배정된 <b>링크스킬</b>(2-8 참조)을 공격대에 제공</li>
+          <li>15레벨 미만은 링크 효과 없음</li>
+          <li>링크 슬롯 2칸 → 서로 다른 링크스킬 최대 2개 중첩 (<b>동일 링크스킬은 중첩 불가</b>)</li>
+          <li>링크 마스터 특성 보유 시 링크 패시브 효율 +20% / 박애주의자 보유 시 3배 / 친화력 보유 시 소폭 증가</li>
+          <li>외골수 특성 보유 시 링크 패시브 효율 절반 / 고독 특성 보유 시 링크 효과를 받지 못함</li>
+          <li>링크로 쓰던 캐릭터도 언제든지 플레이어블로 전환 가능</li>
+          <li>미배치 슬롯은 부캐 육성 또는 링크 풀 비축 용도로 자유 활용</li>
+        </ul>
+        <h4><span class="h4n">FLOW</span>링크 캐릭터 육성 흐름</h4>
+        <div class="flow">새 캐릭터 생성 (링크스킬 1개 랜덤 배정)
+    <span class="hi">↓</span>
+플레이어블로 직접 플레이 → 15레벨 달성
+    <span class="hi">↓</span>
+링크 슬롯에 배치 → 배정된 링크스킬 활성화</div>
+        <div class="note">특성(정체성) · 패시브 스킬(본인 전투 기믹) · 링크스킬(아군 지원)은 서로 독립된 3개의 100종 풀이다. 특성이 좋아서 링크로 쓰는 게 아니라, <b>링크스킬 자체가 생성 시 별도로 랜덤 배정</b>된다.</div>
+      </section>
+
+      <!-- 2-7 passive -->
+      <section id="passive" class="reveal">
+        <div class="sec-head"><span class="num">2-7</span><h2>패시브 스킬</h2></div>
+        <p class="sec-sub">패시브 스킬은 특성과 무관하게 <b>전직 시 획득</b>하는 상시 발동 스킬이다. 각 전직(1·2·3·4차)에서 액티브 스킬 3택 1과 <b>별개로</b> 패시브 스킬도 3택 1을 제공 → 4차 전직까지 최대 패시브 4개 보유. 큐브마스터 특성/재추첨권으로 재추첨 가능.</p>
+        <div class="note">성격: <b>본인이 조작하며 터뜨리는 전투 기믹</b> — 온-크리, 온-킬, 반격, 도트 등 트리거형 위주. 2-8과 함께 별도 100종 풀이며, 전체 목록은 <a href="#appendix-a">부록 A</a>에 수록.</div>
+      </section>
+
+      <!-- 2-8 link -->
+      <section id="link" class="reveal">
+        <div class="sec-head"><span class="num">2-8</span><h2>링크스킬</h2></div>
+        <p class="sec-sub">링크스킬은 패시브 스킬과 무관한 별도 풀이다. <b>캐릭터 생성 시 1개가 랜덤 배정</b>되며, 그 캐릭터를 15레벨 이상으로 키워 링크 슬롯에 넣으면 배정된 링크스킬이 공격대(플레이어블)에 활성화된다.</p>
+        <div class="note">성격: <b>배경의 아군이 꾸준히 대주는 지원</b> — 오라·경제·안전망·상황 버프 등 상시형 위주. 동일 링크스킬은 링크 2슬롯에서 중첩되지 않는다. 전체 목록은 <a href="#appendix-b">부록 B</a>에 수록.</div>
+      </section>
+
+      <!-- 3 -->
+      <section id="combat" class="reveal">
+        <div class="sec-head"><span class="num">03</span><h2>전투 시스템</h2></div>
+        <h3><span class="h3n">3-1</span>조작</h3>
+        <ul class="clean">
+          <li><b>이동</b> — 방향키 / 가상 조이스틱</li>
+          <li><b>기본 공격</b> — 자동 평타(근처 적 자동 타격) + 수동 보정</li>
+          <li><b>스킬</b> — 쿨다운 기반 버튼 (전직으로 슬롯 확장, 최대 4개)</li>
+        </ul>
+        <h3><span class="h3n">3-2</span>데미지 산출 (개략)</h3>
+        <div class="flow">최종 데미지 = (공격력 × 스킬 계수) × 크리티컬 배율 − 몬스터 방어력
+ · 공격력    : 힘(물리) / 지능(스킬)에서 산출
+ · 크리티컬  : 행운(LUK) 기반 확률·배율
+ · 공격 속도 : 민첩(DEX) 기반 → 초당 타격 횟수에 영향</div>
+        <h3><span class="h3n">3-3</span>생존 자원</h3>
+        <ul class="clean">
+          <li><b>HP</b>: 0이 되면 영구 사망 (부활자 특성 보유 시 1회 부활)</li>
+          <li><b>MP</b>: 스킬 사용 자원 (지능이 최대치, 절약가 특성이 소모 감소)</li>
+          <li><b>회복 아이템</b>: 드랍으로 획득 (먹보 특성이 회복량 증가 / 버서크·금욕은 적용 불가)</li>
+        </ul>
+      </section>
+
+      <!-- 4 -->
+      <section id="skills" class="reveal">
+        <div class="sec-head"><span class="num">04</span><h2>스킬 시스템</h2></div>
+        <p class="sec-sub">각 전직마다 메이플스토리 5차 이전 직업 스킬 3개 제시 → 1개 선택. 스킬 풀은 차수별 분리, 풀 내에서는 전 직업 통합 → 하이브리드 빌드 가능.</p>
+        <table class="tbl">
+          <thead><tr><th>시점</th><th>스킬 풀</th><th>슬롯 합계</th></tr></thead>
+          <tbody>
+            <tr><td class="k">1차 전직 (생성 시)</td><td>전 직업 1차 스킬</td><td class="num">1개</td></tr>
+            <tr><td class="k">2차 전직 (5레벨)</td><td>전 직업 2차 스킬</td><td class="num">2개</td></tr>
+            <tr><td class="k">3차 전직 (13레벨)</td><td>전 직업 3차 스킬</td><td class="num">3개</td></tr>
+            <tr><td class="k">4차 전직 (18레벨)</td><td>전 직업 4차 스킬</td><td class="num">4개</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><b>큐브마스터</b> 특성 보유 시 스킬 선택 제시 시 1회 재추첨 가능. <b>외길</b>(Hidden-bad) 특성 보유 시 스킬 슬롯 최대 2개로 제한. 위 표는 <b>액티브 스킬</b>(조작 스킬) 기준 — 같은 전직 시점에 <b>패시브 스킬</b>도 3택 1로 별도 지급된다 (2-7 참조).</div>
+      </section>
+
+      <!-- 5 -->
+      <section id="monsters" class="reveal">
+        <div class="sec-head"><span class="num">05</span><h2>몬스터 토벌</h2></div>
+        <h3><span class="h3n">5-1</span>토벌 전장</h3>
+        <ul class="clean">
+          <li>몬스터 처치 시 스탯 구슬 드랍 (힘/민첩/지능/행운 랜덤)</li>
+          <li>좌우 포털에서 몬스터 웨이브 소환</li>
+          <li>종종 중간 보스 난입 (막대한 경험치, 일정 확률로 게이트 입장권)</li>
+          <li>전장 클리어 보상으로 낮은 확률로 몬스터 게이트 입장권 지급</li>
+        </ul>
+        <p style="color:var(--dim);font-size:14px">난이도 4단계</p>
+        <table class="tbl">
+          <thead><tr><th>단계</th><th>몬스터 스탯 배율</th><th>보상 배율</th></tr></thead>
+          <tbody>
+            <tr><td class="k">하급</td><td class="mono">×1.0</td><td class="mono">×1.0</td></tr>
+            <tr><td class="k">중급</td><td class="mono">×1.5</td><td class="mono">×1.4</td></tr>
+            <tr><td class="k">상급</td><td class="mono">×2.25</td><td class="mono">×2.0</td></tr>
+            <tr><td class="k">최상급</td><td class="mono">×3.4</td><td class="mono">×2.8</td></tr>
+          </tbody>
+        </table>
+        <h3><span class="h3n">5-2</span>몬스터 게이트 (특수 던전)</h3>
+        <ul class="clean">
+          <li>입장권 소모로 입장</li>
+          <li>스탯 구슬 획득량 토벌 전장 대비 대폭 상승</li>
+          <li>몬스터가 좌·우 양쪽에서 조여옴 / 스탯 약 3배, 수 약 2배</li>
+          <li>종료 지점에 게이트 보스 등장</li>
+          <li>보상: 이능 재선택권, 고급 스탯 구슬</li>
+        </ul>
+        <h3><span class="h3n">5-3</span>보스 레이드 (메인 목표)</h3>
+        <ul class="clean">
+          <li>이 게임의 최종 목표: 더 강한 보스를 순차적으로 클리어</li>
+          <li>보스는 메이플스토리 5차 이전 기존 보스 활용 (에셋 큐레이션)</li>
+          <li>보스 비주얼·애니메이션은 원작 에셋 사용 / 패턴·AI는 mLua로 단순화 구현</li>
+          <li>보스 클리어 시 다음 보스 해금</li>
+          <li>전직 퀘스트 보스 및 레벨 해금 조건 보스도 기존 메이플 보스 풀에서 선정</li>
+        </ul>
+      </section>
+
+      <!-- 6 -->
+      <section id="economy" class="reveal">
+        <div class="sec-head"><span class="num">06</span><h2>재화 · 메타 진행</h2></div>
+        <h3><span class="h3n">6-1</span>재화 및 아이템</h3>
+        <table class="tbl">
+          <thead><tr><th>자원</th><th>획득</th><th>용도</th></tr></thead>
+          <tbody>
+            <tr><td class="k">스탯 구슬</td><td>몬스터·보스 처치</td><td>인게임 즉시 성장 (해당 런 한정)</td></tr>
+            <tr><td class="k">게이트 입장권</td><td>전장·보스에서 낮은 확률</td><td>몬스터 게이트 입장</td></tr>
+            <tr><td class="k">회복 아이템</td><td>드랍</td><td>HP 회복</td></tr>
+            <tr><td class="k">영구 재화</td><td>클리어 정산</td><td>계정 메타 강화</td></tr>
+          </tbody>
+        </table>
+        <div class="note">상인 특성은 드랍 아이템 획득량 2배. 빈곤의 서약·한탕주의 특성은 영구 재화 획득 규칙이 다름 (2-3 참조).</div>
+
+        <h3><span class="h3n">6-2</span>사망 &amp; 메타 진행 (로그라이트 확정)</h3>
+        <ul class="clean">
+          <li>플레이어블 캐릭터 사망 = 영구 삭제. 부활자 특성 보유 시 1회 한정 부활.</li>
+          <li>사망 시 ENDING 연출 → 캐릭터 여정 기록 (도달 레벨/난이도, 처치 수, 생존 시간, 최종 빌드)</li>
+          <li><b>캐릭터는 소멸하지만 계정은 유지</b> — 런에서 정산된 영구 재화는 계정에 귀속</li>
+          <li>링크 캐릭터는 전투에 참여하지 않으므로 사망 대상 아님</li>
+        </ul>
+        <div class="note">계정 영구 강화 예시 — 캐릭터 생성 시 좋은 특성 가중치 소폭 상승 / 시작 스탯 보너스 / 게이트 입장권 보유 한도 증가</div>
+      </section>
+
+      <!-- 7 -->
+      <section id="ui" class="reveal">
+        <div class="sec-head"><span class="num">07</span><h2>UI / 화면 구성</h2></div>
+        <table class="tbl">
+          <thead><tr><th>화면</th><th>주요 요소</th></tr></thead>
+          <tbody>
+            <tr><td class="k">캐릭터 선택창</td><td>6칸 슬롯, 스탯·특성 요약, 일일 생성 횟수 표시</td></tr>
+            <tr><td class="k">캐릭터 생성</td><td>랜덤 결과 스탯·특성 공개 연출</td></tr>
+            <tr><td class="k">공격대 편성</td><td>플레이어블 1 + 링크 2 슬롯, 링크 패시브 미리보기</td></tr>
+            <tr><td class="k">인게임 HUD</td><td>HP/MP 바, 경험치·레벨, 스킬 쿨다운, 현재 스탯</td></tr>
+            <tr><td class="k">이능 선택 팝업</td><td>3종 선택지 카드 (천부적 재능 시 4종 / 변덕 시 2종)</td></tr>
+            <tr><td class="k">스킬 선택 팝업</td><td>3종 스킬 카드, 큐브마스터 재추첨 버튼</td></tr>
+            <tr><td class="k">ENDING 화면</td><td>캐릭터 여정 기록, 명예의 전당 등록</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 8 -->
+      <section id="balance" class="reveal">
+        <div class="sec-head"><span class="num">08</span><h2>밸런싱 기준값</h2></div>
+        <p class="sec-sub">베이스라인 — 플레이테스트 후 조정. 목표: 잘 뽑은 good/Gamble 캐릭터가 최상급에서 아슬아슬하게 21레벨 도달.</p>
+        <div class="note warn"><b>단</b>, 아래 8-3 경험치 테이블은 구 타깃 플레이타임(10~20분) 기준으로 설계됨 — 신 타깃(1시간)에 맞춘 재조정 필요 (부록 참조).</div>
+
+        <h3><span class="h3n">8-1</span>스탯 계수</h3>
+        <p style="color:var(--dim);font-size:14px">생성 시 기본 스탯 총합 20포인트를 4종에 랜덤 분배 (각 최소 1 보장).</p>
+        <table class="tbl">
+          <thead><tr><th>스탯</th><th>1포인트당 효과</th></tr></thead>
+          <tbody>
+            <tr><td class="k">힘</td><td>물리 공격력 +2</td></tr>
+            <tr><td class="k">민첩</td><td>공격 속도 +0.5% (상한 +100%), 명중 +1</td></tr>
+            <tr><td class="k">지능</td><td>스킬 데미지 +1.5%, 최대 MP +3</td></tr>
+            <tr><td class="k">행운</td><td>크리 확률 +0.3% (상한 60%), 크리 데미지 +0.5%, 회피 +0.2%</td></tr>
+          </tbody>
+        </table>
+
+        <h3><span class="h3n">8-2</span>특성 풀 출현 확률</h3>
+        <table class="tbl">
+          <thead><tr><th>풀</th><th>출현 확률</th><th>풀 내 특성 수</th><th>풀 내 단일 출현</th></tr></thead>
+          <tbody>
+            <tr><td class="k" style="color:var(--avg)">average</td><td class="mono">50%</td><td class="num">20종</td><td class="mono">2.5%</td></tr>
+            <tr><td class="k" style="color:var(--bad)">bad</td><td class="mono">18%</td><td class="num">20종</td><td class="mono">0.9%</td></tr>
+            <tr><td class="k" style="color:var(--good)">Hidden-good</td><td class="mono">15%</td><td class="num">20종</td><td class="mono">0.75%</td></tr>
+            <tr><td class="k" style="color:var(--gamble)">Gamble</td><td class="mono">12%</td><td class="num">20종</td><td class="mono">0.6%</td></tr>
+            <tr><td class="k" style="color:var(--bad-h)">Hidden-bad</td><td class="mono">5%</td><td class="num">20종</td><td class="mono">0.25%</td></tr>
+          </tbody>
+        </table>
+        <ul class="clean">
+          <li>풀 선택 후 해당 풀 내에서 균등 추첨 (각 풀 20종 = 풀 내 1/20)</li>
+          <li>3차 전직(13레벨) 추가 특성도 위 표로 1회 추첨</li>
+        </ul>
+        <div class="note"><b>천장(Pity)</b> — 소프트 천장(10회째부터 good 가중치 점증), 하드 천장(20회 내 1회 보장). 보장 발동 시 Hidden-good 풀(20종)에서 균등 추첨.</div>
+
+        <h3><span class="h3n">8-3</span>레벨 밸런스 (1~21 경험치 테이블)</h3>
+        <ul class="clean">
+          <li>1~14레벨: 완만한 증가</li>
+          <li>15~21레벨: 급증 (레벨당 약 1.6~1.9배)</li>
+          <li>만렙(21) 누적 경험치 ≈ 430,000</li>
+        </ul>
+        <table class="tbl">
+          <thead><tr><th>레벨</th><th>다음 레벨까지 EXP</th><th>누적 EXP</th><th>전직 · 이능</th></tr></thead>
+          <tbody>
+            <tr class="lvl-job"><td class="num">1</td><td class="num">1,000</td><td class="num">—</td><td><span class="tag-job">1차 전직 (생성 시)</span></td></tr>
+            <tr><td class="num">2</td><td class="num">180</td><td class="num">1,000</td><td></td></tr>
+            <tr><td class="num">3</td><td class="num">300</td><td class="num">1,180</td><td><span class="tag-esp">이능 #1</span></td></tr>
+            <tr><td class="num">4</td><td class="num">460</td><td class="num">1,480</td><td></td></tr>
+            <tr class="lvl-job"><td class="num">5</td><td class="num">680</td><td class="num">1,940</td><td><span class="tag-job">2차 전직</span> + 퀘스트 보스</td></tr>
+            <tr><td class="num">6</td><td class="num">950</td><td class="num">2,620</td><td><span class="tag-esp">이능 #2</span></td></tr>
+            <tr><td class="num">7</td><td class="num">1,280</td><td class="num">3,570</td><td></td></tr>
+            <tr><td class="num">8</td><td class="num">1,680</td><td class="num">4,850</td><td></td></tr>
+            <tr><td class="num">9</td><td class="num">2,150</td><td class="num">6,530</td><td><span class="tag-esp">이능 #3</span></td></tr>
+            <tr><td class="num">10</td><td class="num">2,700</td><td class="num">8,680</td><td></td></tr>
+            <tr><td class="num">11</td><td class="num">3,350</td><td class="num">11,380</td><td></td></tr>
+            <tr><td class="num">12</td><td class="num">4,100</td><td class="num">14,730</td><td><span class="tag-esp">이능 #4</span></td></tr>
+            <tr class="lvl-job"><td class="num">13</td><td class="num">5,000</td><td class="num">18,830</td><td><span class="tag-job">3차 전직</span> + 퀘스트 보스 + 랜덤 특성</td></tr>
+            <tr><td class="num">14</td><td class="num">6,100</td><td class="num">23,830</td><td></td></tr>
+            <tr><td class="num">15</td><td class="num">10,400</td><td class="num">29,930</td><td><span class="tag-esp">이능 #5</span> · ★EXP 급증 시작</td></tr>
+            <tr><td class="num">16</td><td class="num">18,000</td><td class="num">40,330</td><td><span class="tag-lock">해금 조건 필요</span></td></tr>
+            <tr><td class="num">17</td><td class="num">31,000</td><td class="num">58,330</td><td><span class="tag-lock">해금 조건 필요</span></td></tr>
+            <tr class="lvl-job"><td class="num">18</td><td class="num">55,000</td><td class="num">89,330</td><td><span class="tag-lock">해금 조건 필요</span> · <span class="tag-job">4차 전직</span> + 퀘스트 보스 + 이능 #6</td></tr>
+            <tr><td class="num">19</td><td class="num">99,000</td><td class="num">144,330</td><td><span class="tag-lock">해금 조건 필요</span></td></tr>
+            <tr><td class="num">20</td><td class="num">188,000</td><td class="num">243,330</td><td><span class="tag-lock">해금 조건 필요</span></td></tr>
+            <tr><td class="num">21</td><td class="num">MAX</td><td class="num">431,330</td><td><span class="tag-lock">해금 조건 필요</span> · 이능 #7</td></tr>
+          </tbody>
+        </table>
+        <div class="note">이능: 3레벨 단위(3·6·9·12·15·18·21) 총 7회. 전직: 1·5·13·18레벨.</div>
+
+        <h3><span class="h3n">8-4</span>난이도 · 게이트 스케일</h3>
+        <table class="tbl">
+          <thead><tr><th>구간</th><th>몬스터 스탯 배율</th><th>보상 배율</th></tr></thead>
+          <tbody>
+            <tr><td class="k">하급</td><td class="mono">×1.0</td><td class="mono">×1.0</td></tr>
+            <tr><td class="k">중급</td><td class="mono">×1.5</td><td class="mono">×1.4</td></tr>
+            <tr><td class="k">상급</td><td class="mono">×2.25</td><td class="mono">×2.0</td></tr>
+            <tr><td class="k">최상급</td><td class="mono">×3.4</td><td class="mono">×2.8</td></tr>
+            <tr><td class="k">몬스터 게이트</td><td class="mono">해당 전장 ×3.0 / 몬스터 수 ×2.0</td><td>스탯 구슬 대폭 ↑</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 9 -->
+      <section id="records" class="reveal">
+        <div class="sec-head"><span class="num">09</span><h2>기록 · 리더보드</h2></div>
+        <ul class="clean">
+          <li>싱글 플레이(솔로) 전용 — 멀티플레이 없음</li>
+          <li>ENDING 시 캐릭터 여정이 <b>명예의 전당</b>에 기록</li>
+          <li>리더보드: 최고 도달 난이도 / 최고 도달 레벨 / 최장 생존 시간 / 누적 처치 수 / 보스 클리어 타임</li>
+          <li><b>주간 챌린지</b>: 동일한 랜덤 시드로 같은 조건에서 도전하는 솔로 기록 레이스</li>
+        </ul>
+      </section>
+
+      <!-- appendix: 미결 -->
+      <section id="appendix" class="reveal">
+        <div class="sec-head"><span class="num">+</span><h2>부록. 미결 항목</h2></div>
+        <table class="tbl">
+          <thead><tr><th>항목</th><th>내용</th></tr></thead>
+          <tbody>
+            <tr><td class="k">특성·패시브·링크 효과 수치화</td><td>300종(특성 100 + 패시브 100 + 링크 100)의 계수·확률·쿨다운 등 정확한 수치 미정 (현재 정성적 설명)</td></tr>
+            <tr><td class="k">이능 '특성 변경' 상호작용</td><td>제약형 Hidden-bad(고독·약속된 죽음 등)를 '특성 변경'으로 탈출 가능한지 규칙 명시 필요 (현재 운명론자만 변경 차단)</td></tr>
+            <tr><td class="k">링크스킬 배정 방식 확정</td><td>현재 안은 "생성 시 1개 랜덤 배정" — 레어도 가중치(등급 태깅) 도입 여부 결정 필요</td></tr>
+            <tr><td class="k">패시브 스킬 획득 방식 확정</td><td>현재 안은 "전직 시 액티브 3택과 별개로 패시브 3택 1" — 대안(이능과 번갈아 지급 등)과 비교 검토 필요</td></tr>
+            <tr><td class="k">16~21레벨 해금 조건 구체값</td><td>각 레벨별 조건 별도 설계 예정</td></tr>
+            <tr><td class="k">보스 구성 큐레이션</td><td>전직 퀘스트·레이드·해금 조건에 쓸 보스 선정 예정</td></tr>
+            <tr><td class="k">21레벨 콘텐츠</td><td>만렙 이후 추가 콘텐츠 미정</td></tr>
+            <tr><td class="k">큐브 시스템</td><td>메이플 월드 개발 환경 파악 후 도입 여부 결정 예정</td></tr>
+            <tr><td class="k">밸런스 점검 1순위 (특성)</td><td>Hidden-good의 처형자·흡혈귀·저격수, Gamble의 한탕주의·미친 과학자는 베이스라인에서 강할 수 있어 우선 점검</td></tr>
+            <tr><td class="k">플레이타임 재조정 (신규)</td><td>타깃 플레이타임이 10~20분 → <b>1시간</b>으로 변경됨. 8-3 경험치 테이블·5-1 난이도 배율·8-4 게이트 스케일 모두 구 타깃 기준이라 전면 재산정 필요</td></tr>
+            <tr><td class="k">일일 생성 한도·보관함 충돌 (신규)</td><td>하루 최대 생성(6개)이 보관함 슬롯(6칸)과 동일해짐 — 슬롯이 꽉 찼을 때 처리 흐름(자동 정리·경고·강제 방출 등) 설계 필요</td></tr>
+            <tr><td class="k">밸런스 점검 1순위 (패시브/링크)</td><td>패시브의 흡수·치명타 강화·불굴·처치 연쇄, 링크의 후원(재화+20%)·조준 지원(크리뎀+15%)·최후의 인연은 우선 점검</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- appendix A: passive 100 -->
+      <section id="appendix-a" class="reveal">
+        <div class="sec-head"><span class="num">A</span><h2>부록 A. 패시브 스킬 100종</h2></div>
+        <p class="sec-sub">본인이 조작하며 발동시키는 상시 스킬. 액티브 스킬(전직 직업 스킬)과 달리 버튼이 없고, 일부는 내부 발동 쿨다운을 가진다.</p>
+        <div class="catnav">
+          <a href="#pa-a">A. 화력</a><a href="#pa-b">B. 크리티컬</a><a href="#pa-c">C. 상태이상·디버프</a><a href="#pa-d">D. 속도·기동</a><a href="#pa-e">E. 방어·생존</a>
+          <a href="#pa-f">F. 회복·흡혈</a><a href="#pa-g">G. MP·스킬 운용</a><a href="#pa-h">H. 반격·카운터</a><a href="#pa-i">I. 경제·성장·드랍</a><a href="#pa-j">J. 유틸·트리거</a>
+        </div>
+
+        <h4 id="pa-a"><span class="h4n">A</span>화력 (공격력·평타·스킬)</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>파괴 본능</td><td>공격력 +8%</td></tr>
+            <tr><td>강타</td><td>평타 데미지 +12%</td></tr>
+            <tr><td>주문 증폭</td><td>스킬 데미지 +12%</td></tr>
+            <tr><td>거인의 힘</td><td>최대 체력에 비례해 공격력 소폭 증가</td></tr>
+            <tr><td>폭발적 성장</td><td>레벨당 공격력 +1% 추가 누적</td></tr>
+            <tr><td>약점 간파</td><td>적을 처음 맞힐 때 데미지 +20%</td></tr>
+            <tr><td>연격</td><td>같은 적 연속 타격 시 타격마다 +3% (최대 +15%)</td></tr>
+            <tr><td>과충전</td><td>스킬 사용 직후 3초간 평타 +15%</td></tr>
+            <tr><td>파쇄</td><td>방어력 관통 소폭</td></tr>
+            <tr><td>폭심 확장</td><td>스킬 최대 데미지 구간 범위 확대</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="pa-b"><span class="h4n">B</span>크리티컬</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>급소 노리기</td><td>크리 확률 +8%</td></tr>
+            <tr><td>치명타 강화</td><td>크리 데미지 +20%</td></tr>
+            <tr><td>행운의 칼날</td><td>크리 시 5% 확률로 즉시 재행동</td></tr>
+            <tr><td>연쇄 치명</td><td>크리 시 다음 타격 크리 확정</td></tr>
+            <tr><td>정밀</td><td>명중 +10%, 회피 불가 대상 데미지 +10%</td></tr>
+            <tr><td>치명 흡수</td><td>크리 시 체력 소폭 회복</td></tr>
+            <tr><td>폭심</td><td>크리 시 주변 소형 폭발</td></tr>
+            <tr><td>냉정한 조준</td><td>3초 비피격 시 크리 확률 +15%</td></tr>
+            <tr><td>도살자</td><td>크리로 처치 시 3초간 크리 데미지 +15%</td></tr>
+            <tr><td>일점</td><td>크리 확률 감소 대신 크리 데미지 대폭 증가</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="pa-c"><span class="h4n">C</span>상태이상 · 디버프</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>출혈</td><td>평타에 출혈(도트) 부여</td></tr>
+            <tr><td>화상</td><td>스킬에 화상(도트) 부여</td></tr>
+            <tr><td>빙결</td><td>낮은 확률로 적 빙결(이동 정지)</td></tr>
+            <tr><td>감전</td><td>크리 시 주변에 연쇄 감전</td></tr>
+            <tr><td>중독</td><td>지속 피해 + 회복 감소 디버프</td></tr>
+            <tr><td>약화</td><td>타격한 적 방어력 감소</td></tr>
+            <tr><td>둔화</td><td>타격 시 적 이동 속도 감소</td></tr>
+            <tr><td>공포</td><td>처치 시 주변 적 잠깐 도주</td></tr>
+            <tr><td>표식</td><td>표식된 적에게 주는 피해 증가</td></tr>
+            <tr><td>파열</td><td>도트 다중 중첩 시 폭발</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="pa-d"><span class="h4n">D</span>속도 · 기동</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>쾌속</td><td>공격 속도 +8%</td></tr>
+            <tr><td>질풍</td><td>이동 속도 +12%</td></tr>
+            <tr><td>가속 회로</td><td>처치 시 2초간 이속·공속 +10%</td></tr>
+            <tr><td>회피 기동</td><td>회피 시 짧은 무적 프레임</td></tr>
+            <tr><td>대시</td><td>짧은 순간이동 회피 (내부 쿨다운)</td></tr>
+            <tr><td>관성</td><td>이동 중 공격력 소폭 증가</td></tr>
+            <tr><td>민첩한 반사</td><td>피격 직전 회피 확률 소폭</td></tr>
+            <tr><td>바람 걸음</td><td>비전투 이동 속도 대폭</td></tr>
+            <tr><td>연속 스텝</td><td>대시 후 3초간 공속 +12%</td></tr>
+            <tr><td>부동</td><td>넉백·경직 저항</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="pa-e"><span class="h4n">E</span>방어 · 생존</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>철벽</td><td>방어력 +12%</td></tr>
+            <tr><td>강인함</td><td>최대 체력 +12%</td></tr>
+            <tr><td>보호막 생성</td><td>15초마다 소형 방어막</td></tr>
+            <tr><td>가시 갑옷</td><td>근접 피격 시 반사 피해</td></tr>
+            <tr><td>최후의 저항</td><td>체력 20% 이하일 때 받는 피해 −25%</td></tr>
+            <tr><td>불굴</td><td>치명적 피해를 1회 1로 버팀 (긴 쿨다운)</td></tr>
+            <tr><td>인내</td><td>받는 도트 피해 감소</td></tr>
+            <tr><td>경감</td><td>보스 피해 −10%</td></tr>
+            <tr><td>방벽 숙련</td><td>방어막 흡수량 +30%</td></tr>
+            <tr><td>재정비</td><td>방어막이 깨지면 잠깐 이속 증가</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="pa-f"><span class="h4n">F</span>회복 · 흡혈</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>흡수</td><td>가하는 피해의 4% 흡혈</td></tr>
+            <tr><td>재생</td><td>초당 소량 체력 회복</td></tr>
+            <tr><td>전투 회복</td><td>처치 시 체력 회복</td></tr>
+            <tr><td>응급 처치</td><td>체력 30% 이하일 때 회복량 +50%</td></tr>
+            <tr><td>생명 전환</td><td>초과 회복이 방어막으로 전환</td></tr>
+            <tr><td>흡정</td><td>스킬 명중 시 MP 소량 회복</td></tr>
+            <tr><td>만찬</td><td>회복 아이템 효과 +30%</td></tr>
+            <tr><td>이슬</td><td>비전투 시 빠른 회복</td></tr>
+            <tr><td>피의 대가</td><td>체력이 낮을수록 스킬 데미지 증가</td></tr>
+            <tr><td>항상성</td><td>체력 50% 기준으로 스탯 소폭 재조정</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="pa-g"><span class="h4n">G</span>MP · 스킬 운용</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>명상</td><td>최대 MP +15%</td></tr>
+            <tr><td>절약</td><td>MP 소모 −15%</td></tr>
+            <tr><td>신속 시전</td><td>스킬 쿨다운 −10%</td></tr>
+            <tr><td>연계</td><td>스킬 사용 후 다음 스킬 쿨다운 −20%</td></tr>
+            <tr><td>무영창</td><td>낮은 확률로 스킬 즉시 쿨 리셋</td></tr>
+            <tr><td>마나 순환</td><td>처치 시 MP 회복</td></tr>
+            <tr><td>이중 시전</td><td>낮은 확률로 스킬 2연발</td></tr>
+            <tr><td>집중 시전</td><td>정지 상태 시 스킬 데미지 +12%</td></tr>
+            <tr><td>잔류 마력</td><td>스킬 종료 후 장판/잔류 효과</td></tr>
+            <tr><td>확장</td><td>스킬 범위 +15%</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="pa-h"><span class="h4n">H</span>반격 · 카운터</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>반격 태세</td><td>피격 직후 다음 공격 데미지 +20%</td></tr>
+            <tr><td>카운터</td><td>회피 성공 시 즉시 반격타 발동</td></tr>
+            <tr><td>되받아치기</td><td>방어막이 파괴되는 순간 주변에 소형 반격 피해</td></tr>
+            <tr><td>인내의 일격</td><td>무피격 유지 시간에 비례해 다음 타격 데미지 증가</td></tr>
+            <tr><td>역공 본능</td><td>체력 30% 이하일 때 반격 확률 +15%</td></tr>
+            <tr><td>파훼</td><td>적 공격을 정통으로 맞으면 낮은 확률로 스턴 반격</td></tr>
+            <tr><td>그림자 스텝</td><td>피격 직전 짧게 무적 후 배후로 이동, 다음 공격 크리 확정</td></tr>
+            <tr><td>분노의 반동</td><td>피격 누적 시 3회마다 강한 반격타 1회</td></tr>
+            <tr><td>냉정한 응수</td><td>원거리 피격 시 짧은 데미지 감소 + 되돌림 피해</td></tr>
+            <tr><td>최후의 반격</td><td>사망 판정 직전 1회, 주변에 강력한 반격 피해 후 생존</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="pa-i"><span class="h4n">I</span>경제 · 성장 · 드랍</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>채집가</td><td>스탯 구슬 획득량 +12%</td></tr>
+            <tr><td>자성</td><td>흡수 범위 +30%</td></tr>
+            <tr><td>학습</td><td>경험치 +12%</td></tr>
+            <tr><td>노다지</td><td>드랍률 +15%</td></tr>
+            <tr><td>복리</td><td>처치 누적 시 스탯 구슬 가치 증가</td></tr>
+            <tr><td>절약 정신</td><td>회복 아이템 소모 시 낮은 확률 미소모</td></tr>
+            <tr><td>재활용</td><td>게이트 입장권 낮은 확률 미소모</td></tr>
+            <tr><td>성장 촉진</td><td>15레벨 이하 경험치 +25%</td></tr>
+            <tr><td>늦깎이</td><td>16레벨 이상 경험치 +20%</td></tr>
+            <tr><td>유산</td><td>클리어 시 영구 재화 +15%</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="pa-j"><span class="h4n">J</span>유틸 · 트리거</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>전투 개시</td><td>입장 후 10초간 전 스탯 +10%</td></tr>
+            <tr><td>막판 스퍼트</td><td>사냥터 후반 데미지 +15%</td></tr>
+            <tr><td>위기 감지</td><td>체력 급감 시 짧은 무적</td></tr>
+            <tr><td>콤보 마스터</td><td>무피격 시간에 비례해 데미지 증가</td></tr>
+            <tr><td>광역 숙련</td><td>다수 적 상대 시 데미지 +10%</td></tr>
+            <tr><td>단일 숙련</td><td>단일 적 상대 시 데미지 +12%</td></tr>
+            <tr><td>보스 특화</td><td>보스에게 주는 피해 +15%</td></tr>
+            <tr><td>처치 연쇄</td><td>짧은 시간 내 다중 처치 시 폭발적 버프</td></tr>
+            <tr><td>각성</td><td>이능 획득 시 3초간 전 스탯 대폭</td></tr>
+            <tr><td>재추첨 숙련</td><td>스킬·이능 재추첨 시 상위 확률 소폭 증가</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- appendix B: link 100 -->
+      <section id="appendix-b" class="reveal">
+        <div class="sec-head"><span class="num">B</span><h2>부록 B. 링크스킬 100종</h2></div>
+        <p class="sec-sub">링크 캐릭터(15레벨+)가 공격대에 대주는 지원. 아군이 배경에서 꾸준히 제공하는 성격이라, 발동형 패시브보다 <b>상시 오라·경제·안전망·상황 버프</b> 위주다.</p>
+        <div class="catnav">
+          <a href="#lk-a">A. 스탯 지원</a><a href="#lk-b">B. 경제·성장 지원</a><a href="#lk-c">C. 생존·안전망</a><a href="#lk-d">D. 크리·화력 지원</a><a href="#lk-e">E. 스킬·MP 지원</a>
+          <a href="#lk-f">F. 기동·속도 지원</a><a href="#lk-g">G. 링크 시너지</a><a href="#lk-h">H. 조건부·상황 지원</a><a href="#lk-i">I. 유틸·특수 지원</a><a href="#lk-j">J. 고유·이색 지원</a>
+        </div>
+
+        <h4 id="lk-a"><span class="h4n">A</span>스탯 지원</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>링크스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>힘의 가호</td><td>공격력 +6%</td></tr>
+            <tr><td>지혜의 가호</td><td>스킬 데미지 +6%</td></tr>
+            <tr><td>민첩의 가호</td><td>공격 속도 +5%</td></tr>
+            <tr><td>행운의 가호</td><td>크리 확률 +4%</td></tr>
+            <tr><td>견고함의 가호</td><td>방어력 +8%</td></tr>
+            <tr><td>활력의 가호</td><td>최대 체력 +8%</td></tr>
+            <tr><td>예리함의 가호</td><td>크리 데미지 +12%</td></tr>
+            <tr><td>명중의 가호</td><td>명중 +8%</td></tr>
+            <tr><td>총화</td><td>전 스탯 +3%</td></tr>
+            <tr><td>균형의 진</td><td>가장 낮은 스탯 1종 +10%</td></tr>
+            <tr><td>편향의 진</td><td>가장 높은 스탯 1종 +8%</td></tr>
+            <tr><td>각인</td><td>매 판 첫 스탯 구슬 효과 2배</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="lk-b"><span class="h4n">B</span>경제 · 성장 지원</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>링크스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>스승의 인도</td><td>경험치 +12%</td></tr>
+            <tr><td>상단 지원</td><td>드랍률 +15%</td></tr>
+            <tr><td>채굴 지원</td><td>스탯 구슬 획득량 +12%</td></tr>
+            <tr><td>후원</td><td>클리어 시 영구 재화 +20%</td></tr>
+            <tr><td>조언자</td><td>15레벨 이하 경험치 +20%</td></tr>
+            <tr><td>물자 보급</td><td>회복 아이템 드랍 확률 ↑</td></tr>
+            <tr><td>통행증</td><td>게이트 입장권 획득 확률 ↑</td></tr>
+            <tr><td>저축</td><td>연속 처치 유지 시 스탯 구슬 획득 +10%</td></tr>
+            <tr><td>흡수 지원</td><td>흡수 범위 +25%</td></tr>
+            <tr><td>복리 투자</td><td>판이 길어질수록 재화 획득 소폭 증가</td></tr>
+            <tr><td>견습 지원</td><td>스킬·이능 재추첨권 소량 제공</td></tr>
+            <tr><td>유산 계승</td><td>링크 캐릭터 레벨이 높을수록 경험치 보너스 증가</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="lk-c"><span class="h4n">C</span>생존 · 안전망</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>링크스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>수호 기도</td><td>25초마다 받는 치명타 1회 무효</td></tr>
+            <tr><td>방벽 지원</td><td>20초마다 소형 방어막</td></tr>
+            <tr><td>응급 지원</td><td>체력 20% 이하 시 회복량 +40%</td></tr>
+            <tr><td>최후의 인연</td><td>런당 1회, 사망 시 HP 10%로 재기</td></tr>
+            <tr><td>완충</td><td>받는 피해 −6%</td></tr>
+            <tr><td>도트 저항 지원</td><td>도트 피해 −20%</td></tr>
+            <tr><td>보스 대비</td><td>보스 피해 −10%</td></tr>
+            <tr><td>안전 확보</td><td>입장 후 첫 피격 무효</td></tr>
+            <tr><td>넉백 지원</td><td>넉백·경직 저항 ↑</td></tr>
+            <tr><td>재생 지원</td><td>비전투 시 회복 속도 ↑</td></tr>
+            <tr><td>위기 신호</td><td>체력 급감 시 0.5초 무적</td></tr>
+            <tr><td>후위 엄호</td><td>후방에서 오는 피해 −15%</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="lk-d"><span class="h4n">D</span>크리 · 화력 지원</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>링크스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>조준 지원</td><td>크리 데미지 +15%</td></tr>
+            <tr><td>표적 지정</td><td>표식 대상에게 파티 피해 +10%</td></tr>
+            <tr><td>개전 지원</td><td>입장 후 10초간 데미지 +15%</td></tr>
+            <tr><td>마무리 지원</td><td>체력 25% 이하 적 처치 피해 +15%</td></tr>
+            <tr><td>연격 지원</td><td>연속 처치 시 데미지 소폭 누적</td></tr>
+            <tr><td>광역 지원</td><td>다수 적 상대 시 데미지 +8%</td></tr>
+            <tr><td>단일 지원</td><td>단일 적 상대 시 데미지 +10%</td></tr>
+            <tr><td>관통 지원</td><td>방어력 관통 소폭</td></tr>
+            <tr><td>약점 노출</td><td>파티 명중 시 낮은 확률로 방어력 감소</td></tr>
+            <tr><td>화력 집중</td><td>정지 시 데미지 +10%</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="lk-e"><span class="h4n">E</span>스킬 · MP 지원</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>링크스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>마력 순환</td><td>MP 소모 −12%</td></tr>
+            <tr><td>냉각 지원</td><td>스킬 쿨다운 −8%</td></tr>
+            <tr><td>영창 보조</td><td>낮은 확률로 스킬 무료 시전</td></tr>
+            <tr><td>마나 공급</td><td>처치 시 MP 회복</td></tr>
+            <tr><td>확장 지원</td><td>스킬 범위 +12%</td></tr>
+            <tr><td>연계 지원</td><td>스킬 후 다음 스킬 쿨 −15%</td></tr>
+            <tr><td>잔류 지원</td><td>스킬 장판 지속 +30%</td></tr>
+            <tr><td>재시전 지원</td><td>낮은 확률로 스킬 2연발</td></tr>
+            <tr><td>명상 지원</td><td>최대 MP +12%</td></tr>
+            <tr><td>집중 보조</td><td>스킬 데미지 +8%</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="lk-f"><span class="h4n">F</span>기동 · 속도 지원</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>링크스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>발걸음 지원</td><td>이동 속도 +10%</td></tr>
+            <tr><td>속공 지원</td><td>공격 속도 +6%</td></tr>
+            <tr><td>추격 지원</td><td>처치 시 짧게 이속 +10%</td></tr>
+            <tr><td>회피 지원</td><td>회피 +5%</td></tr>
+            <tr><td>순보 지원</td><td>대시 쿨다운 −20%</td></tr>
+            <tr><td>경쾌함</td><td>비전투 이속 대폭</td></tr>
+            <tr><td>반사 지원</td><td>피격 직전 회피 확률 소폭</td></tr>
+            <tr><td>가속 공유</td><td>콤보 유지 시 공속 누적</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="lk-g"><span class="h4n">G</span>링크 시너지 (메타 · 링크 고유)</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>링크스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>연결의 대가</td><td>다른 슬롯 링크스킬 효율 +15%</td></tr>
+            <tr><td>공명의 유대</td><td>다른 슬롯 링크스킬 효율 +10%</td></tr>
+            <tr><td>결속</td><td>링크 2슬롯 모두 활성 시 전 스탯 +6%</td></tr>
+            <tr><td>고립의 힘</td><td>링크 1슬롯만 활성 시 전 스탯 +12%</td></tr>
+            <tr><td>증폭기</td><td>스탯 계열 링크스킬 효과 +20%</td></tr>
+            <tr><td>조율</td><td>판마다 활성 링크스킬 중 1개 무작위 2배</td></tr>
+            <tr><td>인연 심화</td><td>링크 캐릭터가 20레벨 이상이면 해당 링크 효과 +25%</td></tr>
+            <tr><td>유대의 기록</td><td>누적 판수가 늘수록 링크 효과 소폭 성장</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="lk-h"><span class="h4n">H</span>조건부 · 상황 지원</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>링크스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>위기의 지원</td><td>체력 30% 이하일 때 데미지 +12%</td></tr>
+            <tr><td>여유의 지원</td><td>체력 80% 이상일 때 이속·공속 +8%</td></tr>
+            <tr><td>첫 피 지원</td><td>사냥터 첫 처치 시 짧은 전 스탯 버프</td></tr>
+            <tr><td>막판 지원</td><td>사냥터 후반 데미지 +12%</td></tr>
+            <tr><td>보스전 지원</td><td>보스전에서 데미지 +12%</td></tr>
+            <tr><td>게이트 지원</td><td>몬스터 게이트에서 스탯 구슬 +20%</td></tr>
+            <tr><td>고난도 지원</td><td>상급 이상 난이도에서 보상 +15%</td></tr>
+            <tr><td>저체력 각성</td><td>체력 15% 이하 시 크리 확률 +20%</td></tr>
+            <tr><td>연승 지원</td><td>무피격 시간에 비례 데미지 소폭</td></tr>
+            <tr><td>초반 지원</td><td>10레벨 이하일 때 전 스탯 +10%</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="lk-i"><span class="h4n">I</span>유틸 · 특수 지원</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>링크스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>흡수 자동화</td><td>드랍 자동 흡수</td></tr>
+            <tr><td>감정가</td><td>획득 스탯 구슬 종류 미리 표시 (편의)</td></tr>
+            <tr><td>예지</td><td>다음 웨이브·보스 정보 표시 (편의)</td></tr>
+            <tr><td>정찰</td><td>중간 보스 등장 예고</td></tr>
+            <tr><td>재정비 지원</td><td>방어막 재생성 쿨 −20%</td></tr>
+            <tr><td>표식 공유</td><td>파티가 표식 능력 획득</td></tr>
+            <tr><td>도트 지원</td><td>파티 평타에 약한 출혈 부여</td></tr>
+            <tr><td>둔화 지원</td><td>파티 타격 시 낮은 확률 둔화</td></tr>
+          </tbody>
+        </table>
+
+        <h4 id="lk-j"><span class="h4n">J</span>고유 · 이색 지원</h4>
+        <table class="tbl tbl-skill">
+          <thead><tr><th>링크스킬</th><th>효과</th></tr></thead>
+          <tbody>
+            <tr><td>반격 지원</td><td>피격 직후 다음 공격 데미지 +12%</td></tr>
+            <tr><td>되돌림 지원</td><td>회피 성공 시 짧은 데미지 증가</td></tr>
+            <tr><td>반사 지원</td><td>근접 피격 시 소량 반사</td></tr>
+            <tr><td>폭심 지원</td><td>크리 시 낮은 확률 소형 폭발</td></tr>
+            <tr><td>흡혈 지원</td><td>가하는 피해의 2% 흡혈</td></tr>
+            <tr><td>재화 폭죽</td><td>처치 시 낮은 확률로 재화 소량 즉시</td></tr>
+            <tr><td>행운 룰렛</td><td>10초마다 랜덤 소형 버프 (전부 긍정)</td></tr>
+            <tr><td>이능 지원</td><td>이능 선택지에 낮은 확률로 상위 옵션</td></tr>
+            <tr><td>부활 대비</td><td>부활 시 무적 시간 +2초</td></tr>
+            <tr><td>유대의 절정</td><td>링크 2슬롯 모두 20레벨 이상이면 전 스탯 +8%</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- appendix C -->
+      <section id="appendix-c" class="reveal">
+        <div class="sec-head"><span class="num">C</span><h2>부록 C. 설계 메모 (패시브 · 링크)</h2></div>
+        <ul class="clean">
+          <li><b>레이어 역할 분리</b> — 패시브는 온-크리/온-킬/반격/도트처럼 <b>터뜨리는</b> 기믹, 링크는 오라/경제/안전망처럼 <b>대주는</b> 지원. 같은 크리 계열이라도 패시브 "폭심(크리 시 폭발)" vs 링크 "조준 지원(크리뎀 +15% 상시)"로 성격이 다르다.</li>
+          <li><b>획득 확정 필요(택1)</b> — ① 패시브 스킬을 전직 3택으로 줄지, ② 이능과 번갈아 줄지, ③ 별도 패시브 슬롯을 둘지 — 현재 안은 ①(전직 3택). 링크스킬은 생성 시 랜덤 배정안. 원하는 방식으로 조정 가능.</li>
+          <li><b>수치 검토 1순위(패시브)</b> — 흡수(흡혈)·치명타 강화·불굴(치명타 무효)·처치 연쇄는 베이스라인에서 셀 수 있음.</li>
+          <li><b>수치 검토 1순위(링크)</b> — 후원(재화 +20%)·조준 지원(크리뎀 +15%)·최후의 인연(부활)·유대의 절정은 우선 조정 대상.</li>
+          <li><b>중복/과적 방지</b> — 링크는 동일 링크스킬 미중첩(기존 규칙). 패시브도 완전 동일 효과 2개는 합연산 상한을 둘지 검토.</li>
+          <li><b>레어도 연계(선택)</b> — 특성처럼 패시브·링크에도 등급(common/rare/legendary)을 얹어 전직 3택·링크 배정 시 가중치를 줄 수 있음. 필요하면 100종 각각에 등급 태깅해 드림.</li>
+        </ul>
+      </section>
+
+      <footer>
+        <b>랜덤 플래닛</b> · 메이플스토리 월드 글로벌 개발 콘테스트 제출본 · 기획서 v2
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+// scroll-spy for TOC + top nav
+const ids = ["overview","loop","character","traits","passive","link","combat","skills","monsters","economy","ui","balance","records","appendix","appendix-a","appendix-b","appendix-c"];
+const tocLinks = [...document.querySelectorAll('#toc a')];
+const topLinks = [...document.querySelectorAll('#toplinks a')];
+const setActive = (id)=>{
+  tocLinks.forEach(a=>a.classList.toggle('on', a.getAttribute('href')==='#'+id));
+  topLinks.forEach(a=>a.classList.toggle('on', a.getAttribute('href')==='#'+id));
+};
+const obs = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting) setActive(e.target.id); });
+},{rootMargin:'-45% 0px -50% 0px', threshold:0});
+ids.forEach(id=>{ const el=document.getElementById(id); if(el) obs.observe(el); });
+
+// reveal on scroll
+const rev = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); rev.unobserve(e.target);} });
+},{rootMargin:'0px 0px -8% 0px', threshold:0.04});
+document.querySelectorAll('.reveal').forEach(s=>rev.observe(s));
+</script>

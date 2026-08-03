@@ -1,0 +1,182 @@
+@Component
+script CharacterCardController extends Component
+    property Entity levelText = "2324254a-77ac-4892-8782-00d734215488"
+    property Entity traitText = "7a73f011-73c1-4d80-814f-119dea17d10f"
+    property Entity statSTR = "69293c87-7b66-4e12-8b4c-ba4cf955455a"
+    property Entity statDEX = "e3ca8270-d0fe-4133-8975-9300612f9d45"
+    property Entity statINT = "d498e287-03a5-4d22-b2d7-7ff93aca6c6c"
+    property Entity statLUK = "99290b18-d01b-43b2-9eeb-d763eea081d2"
+    property Entity btnPlay = "61705819-dfe8-479b-bf8d-64b070ff4587"
+    property Entity btnClose = "432ff9c4-6899-4a28-8a5a-4e364b9bc43d"
+    property Entity btnDelete = "d71f7668-909e-41af-9edc-c4d050977546"
+    property Entity deleteConfirmGroup = "fe012aaa-f0d7-48f2-9b97-f9d63ea5ced8"
+    property Entity btnConfirmDelete = "da7dabeb-aa8c-4dfa-ac06-7bfeaee1a360"
+    property Entity btnCancelDelete = "f32e4b77-fb62-4daa-8fa9-ffcd3fdb6936"
+
+    @ExecSpace("ClientOnly")
+    method Entity GetMapController()
+        -- Looks up choice_map's root fresh every call instead of caching an Entity property to it.
+        -- A cached property went stale ("Object reference not set to an instance of an object" from
+        -- GetComponent) after a round trip through the Lobby - choice_map's root entity/component
+        -- gets destroyed and recreated (not just deactivated) when the client leaves and re-enters
+        -- that map (confirmed by CharacterSelectStageController.OnBeginPlay firing again on return),
+        -- so a raw Entity reference captured before the trip points at a dead object afterward. A
+        -- fresh path lookup always resolves the current live instance.
+        return _EntityService:GetEntityByPath("/maps/choice_map")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- Wires the play/close buttons and hides the card by default.
+        self._T.handlers = {}
+        self._T.revealTimers = {}
+        local hPlay = self.btnPlay:ConnectEvent(ButtonClickEvent, self.OnPlayClicked)
+        table.insert(self._T.handlers, { entity = self.btnPlay, eventHandler = hPlay })
+        local hClose = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        table.insert(self._T.handlers, { entity = self.btnClose, eventHandler = hClose })
+        local hDelete = self.btnDelete:ConnectEvent(ButtonClickEvent, self.OnDeleteClicked)
+        table.insert(self._T.handlers, { entity = self.btnDelete, eventHandler = hDelete })
+        local hConfirmDelete = self.btnConfirmDelete:ConnectEvent(ButtonClickEvent, self.OnConfirmDeleteClicked)
+        table.insert(self._T.handlers, { entity = self.btnConfirmDelete, eventHandler = hConfirmDelete })
+        local hCancelDelete = self.btnCancelDelete:ConnectEvent(ButtonClickEvent, self.OnCancelDeleteClicked)
+        table.insert(self._T.handlers, { entity = self.btnCancelDelete, eventHandler = hCancelDelete })
+        self.deleteConfirmGroup.Enable = false
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- Releases the play/close button handlers and any pending reveal-step timers.
+        self:ClearRevealTimers()
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ClearRevealTimers()
+        -- Cancels any stat-reveal steps still pending (e.g. the card was closed or reused before
+        -- the sequence finished) so a stale timer can't write text onto whatever the card shows next.
+        -- Guarded because CharacterSelectStageController.OnBeginPlay calls into this (via HideCard)
+        -- on world start, and cross-entity Component OnBeginPlay order isn't guaranteed - this
+        -- component's own OnBeginPlay (which sets revealTimers = {}) may not have run yet.
+        if self._T.revealTimers == nil then
+            return
+        end
+        for _, id in ipairs(self._T.revealTimers) do
+            _TimerService:ClearTimer(id)
+        end
+        self._T.revealTimers = {}
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ShowCard(table data)
+        -- Displays the selected slot's level/trait/stats, remembers its look for the PLAY handoff, and opens the card.
+        -- Instant - used when reselecting an existing character. A brand-new roll uses RevealCard instead.
+        -- `data` shape: { level, trait, str, dex, intel, luk, look = { body, hair, face, coat, pants, shoes } }
+        self:ClearRevealTimers()
+        self.levelText.TextGUIRendererComponent.Text = "Lv." .. data.level
+        self.traitText.TextGUIRendererComponent.Text = data.trait
+        self.statSTR.TextGUIRendererComponent.Text = "STR : " .. data.str
+        self.statDEX.TextGUIRendererComponent.Text = "DEX : " .. data.dex
+        self.statINT.TextGUIRendererComponent.Text = "INT : " .. data.intel
+        self.statLUK.TextGUIRendererComponent.Text = "LUK : " .. data.luk
+        self._T.look = data.look
+        self._T.equipment = data.equipment
+        self.deleteConfirmGroup.Enable = false
+        self.Entity.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RevealCard(table data)
+        -- Gacha-style reveal for a freshly rolled character: level/trait show immediately, then
+        -- STR/DEX/INT/LUK unveil one at a time (~0.35s apart) instead of dumping every stat at once,
+        -- so creation reads as a small "reveal" moment rather than a same-frame data dump.
+        self:ClearRevealTimers()
+        self.levelText.TextGUIRendererComponent.Text = "Lv." .. data.level
+        self.traitText.TextGUIRendererComponent.Text = data.trait
+        self.statSTR.TextGUIRendererComponent.Text = ""
+        self.statDEX.TextGUIRendererComponent.Text = ""
+        self.statINT.TextGUIRendererComponent.Text = ""
+        self.statLUK.TextGUIRendererComponent.Text = ""
+        self._T.look = data.look
+        self._T.equipment = data.equipment
+        self.deleteConfirmGroup.Enable = false
+        self.Entity.Enable = true
+        log("CharacterCard: RevealCard start, t=" .. _UtilLogic.ElapsedSeconds)
+
+        local step = 0.35
+        local str, dex, intel, luk = data.str, data.dex, data.intel, data.luk
+        table.insert(self._T.revealTimers, _TimerService:SetTimerOnce(function() self.statSTR.TextGUIRendererComponent.Text = "STR : " .. str; log("CharacterCard: reveal STR, t=" .. _UtilLogic.ElapsedSeconds) end, step * 1))
+        table.insert(self._T.revealTimers, _TimerService:SetTimerOnce(function() self.statDEX.TextGUIRendererComponent.Text = "DEX : " .. dex; log("CharacterCard: reveal DEX, t=" .. _UtilLogic.ElapsedSeconds) end, step * 2))
+        table.insert(self._T.revealTimers, _TimerService:SetTimerOnce(function() self.statINT.TextGUIRendererComponent.Text = "INT : " .. intel; log("CharacterCard: reveal INT, t=" .. _UtilLogic.ElapsedSeconds) end, step * 3))
+        table.insert(self._T.revealTimers, _TimerService:SetTimerOnce(function() self.statLUK.TextGUIRendererComponent.Text = "LUK : " .. luk; log("CharacterCard: reveal LUK, t=" .. _UtilLogic.ElapsedSeconds) end, step * 4))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void HideCard()
+        -- Closes the card.
+        self:ClearRevealTimers()
+        self.deleteConfirmGroup.Enable = false
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        -- Close button handler.
+        self:HideCard()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnDeleteClicked()
+        -- Bottom-right corner button on the card (moved here from a standalone world entity, which
+        -- sat at a fixed world position that ended up colliding with whichever standee's create-chip
+        -- happened to be nearby - see Archive/As-built.md Gotchas). Deletion is permanent (the slot's
+        -- rolled stats/trait/look are gone for good), so a single click here only opens a confirm
+        -- dialog instead of deleting immediately - guards against an accidental/mis-click delete.
+        self.deleteConfirmGroup.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnConfirmDeleteClicked()
+        -- "삭제" inside the confirm dialog - the user explicitly confirmed, now actually delete.
+        self.deleteConfirmGroup.Enable = false
+        local controller = self:GetMapController():GetComponent("script.CharacterSelectStageController")
+        if isvalid(controller) then
+            controller:DeleteCurrentCharacter()
+        end
+        self:HideCard()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCancelDeleteClicked()
+        -- "취소" inside the confirm dialog - just closes the confirm dialog, card stays open untouched.
+        self.deleteConfirmGroup.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnPlayClicked()
+        -- Enters the village lobby with the shown character's look. Squad formation (picking up to
+        -- 2 links) no longer happens here - it moved to an NPC inside the village, since the squad
+        -- is for choosing who joins a later dungeon run, not a gate on entering the lobby itself.
+        -- Routed through CharacterSelectStageController (a real map-entity component) because this
+        -- world's ServiceAuthorityCheck rejects TeleportService calls made directly from a UI-attached
+        -- component (LEA-3022 InvalidExecSpace).
+        if self._T.look == nil then
+            return
+        end
+        log("CharacterCard: PLAY clicked, requesting server to enter game")
+        local controller = self:GetMapController():GetComponent("script.CharacterSelectStageController")
+        if isvalid(controller) then
+            -- The slot about to become the live playable character - the Lobby needs this to know
+            -- which standee to hide/show on swap (see CharacterRosterLogic.SetActiveIndex).
+            _CharacterRosterLogic:SetActiveIndex(controller:GetCurrentIndex())
+            -- Client-side visibility restore (see CharacterRosterLogic.ShowLocalPlayer's comment for
+            -- why this can't be done from RequestEnterGame's server side), plus the server RPC for
+            -- costume + teleport.
+            _CharacterRosterLogic:ShowLocalPlayer()
+            controller:RequestEnterGame(self._T.look, self._T.equipment)
+        end
+        self:HideCard()
+    end
+end

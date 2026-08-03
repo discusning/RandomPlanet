@@ -1,0 +1,357 @@
+@Component
+script CharacterSelectStageController extends Component
+    property Entity standee1 = "90b86502-cc4b-408b-a42a-50036a809f26"
+    property Entity standee2 = "4f41ba7d-bd7b-49aa-a6e9-75ddd76a54b5"
+    property Entity standee3 = "6a4ce64a-5ffb-4d58-bfd9-c7afa9d69427"
+    property Entity standee4 = "9ef0ee9e-7a3a-4a5f-a34a-d7f35b430eb5"
+    property Entity standee5 = "4edff8ea-3f4f-4af8-8d42-00a39488de72"
+    property Entity standee6 = "aa14874c-259a-46ac-862c-0535f638d98b"
+    property Entity countText = "16584510-7692-4526-a5ca-89716f9ff30e"
+    property Entity cardGroup = "1879e4ab-8a6e-4f06-9c8c-3370223bebe3"
+    property Entity squadGroup = "5f96f6e4-814c-42e0-b42a-2b5926f6723b"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- Wires standee/button touch handlers and draws the initial (slot 1 selected, all-empty) state.
+        -- Roster data itself (data/dailyRemaining) now lives on CharacterRosterLogic, not here - see
+        -- that script for why (this component's state becomes unreachable once the player leaves
+        -- choice_map, but the Lobby also needs to read/mutate the same roster).
+        self._T.standees = { self.standee1, self.standee2, self.standee3, self.standee4, self.standee5, self.standee6 }
+        self._T.currentIndex = 1
+        self._T.handlers = {}
+        self._T.lastTouchIndex = nil
+        self._T.lastTouchTime = -1
+        self._T.pendingOpenCard = false
+        self:InitRandomPools()
+
+        -- Standee clicks go through ScreenTouchEvent + world-position hit testing (OnScreenTouched),
+        -- not per-standee TouchReceiveComponent/TouchEvent - see OnScreenTouched for why.
+        local hScreen = _InputService:ConnectEvent(ScreenTouchEvent, self.OnScreenTouched)
+        table.insert(self._T.handlers, { entity = _InputService, eventType = ScreenTouchEvent, eventHandler = hScreen })
+
+        log("CharacterSelectStage: OnBeginPlay, standee1 valid=" .. tostring(isvalid(self.standee1)) .. " standee6 valid=" .. tostring(isvalid(self.standee6)) .. " cardGroup valid=" .. tostring(isvalid(self.cardGroup)))
+        -- HideLocalPlayer/ShowLocalPlayer moved to CharacterRosterLogic (2026-07-23) so the Lobby's
+        -- return-portal flow can call the hide side too - see that script for why.
+        _CharacterRosterLogic:HideLocalPlayer()
+
+        -- Re-equip every already-rolled character's look onto its (freshly-instantiated) standee.
+        -- choice_map's root entity - and everything under it, including these standees - gets fully
+        -- destroyed and recreated (not just deactivated) each time the player leaves and re-enters
+        -- this map, so the CostumeManagerComponent:SetEquip calls CreateCharacter() applied to the
+        -- OLD standee instances don't carry over to the new ones; without this, a returning player
+        -- sees their own already-created characters back at the template's default blank look.
+        local roster = _CharacterRosterLogic:GetRoster()
+        for i, standee in ipairs(self._T.standees) do
+            local data = roster[i]
+            if data ~= nil then
+                _CharacterRosterLogic:ApplyLookToStandee(standee, data.look, data.equipment)
+            end
+        end
+
+        self:RefreshStage()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnRosterLoaded()
+        -- Called by CharacterRosterLogic once the async server load completes (see that script's
+        -- RequestLoadRoster/OnRosterLoaded). This entity's own OnBeginPlay above already ran against
+        -- an empty roster - the load is a network round trip that finishes later - so without this
+        -- the stage would stay blank until the player's next click. Re-applies looks to any
+        -- already-owned characters and redraws, mirroring the OnBeginPlay loop above.
+        local roster = _CharacterRosterLogic:GetRoster()
+        for i, standee in ipairs(self._T.standees) do
+            local data = roster[i]
+            if data ~= nil then
+                _CharacterRosterLogic:ApplyLookToStandee(standee, data.look, data.equipment)
+            end
+        end
+        self:RefreshStage()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- Releases the standee/button touch handlers.
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(rec.eventType, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer GetCurrentIndex()
+        -- Which slot is currently selected/viewed in this stage's UI (not necessarily the slot
+        -- actually being played - see CharacterRosterLogic.GetActiveIndex for that). Read by
+        -- CharacterCardController.OnPlayClicked right before it sets the active index and enters the game.
+        return self._T.currentIndex
+    end
+
+    @ExecSpace("ClientOnly")
+    method void InitRandomPools()
+        -- Random-look pools for character creation. Never touches the live player's own costume
+        -- (UseCustomEquipOnly=true on AvatarBody and on DefaultPlayer) - every slot is a fully
+        -- random default-avatar roll. "Gender" isn't a distinct field in this avatar system;
+        -- body/skin-tone + hair + face all roll independently for visual variety.
+        -- Coat/Pants/Shoes are intentionally NOT rolled - a separate in-game equipment system will
+        -- own gear, so new characters start with none (see ApplyLook/RequestEnterGame).
+        -- hairPool/facePool widened 2026-07-20 (6->60 each, via msw-search searchAvatarItems
+        -- canonicalOnly=false) - hair color and "eye" color/style are not separate slots in this
+        -- avatar system (no CustomHairColorEquip/CustomEyeEquip); each differently-colored
+        -- hairstyle or face/eye expression is its own distinct avataritem RUID, so a wider RUID
+        -- pool is what actually delivers hair-color and eye-color/type randomness (see Face maps
+        -- to eye expression - msw-avatar has no separate "Eye" category, only Face).
+        -- +20/+20 "newer" items appended same day - this resource API has no created/updated-at
+        -- field, so recency is approximated by the numeric suffix of each item's `dname` (e.g.
+        -- "hair-12809"), which appears to be an incrementing catalog id (higher = added later).
+        -- Not a guaranteed release-date sort, but the best available proxy - see Gotchas.
+        self._T.traitPool = { "상인", "버서크", "단단함", "날렵함", "균형", "절약가" }
+        -- bodyPool fixed to a single skin tone 2026-07-20 ("뽀송 꽃잎 피부") - user wants body/skin
+        -- no longer randomized, only hair/face still roll. A 1-item pool keeps CreateCharacter's
+        -- existing RandomIntegerRange(1, #pool) pick working unchanged (always resolves to this one).
+        self._T.bodyPool = { "04e82396b2ba40ab9d860f993447f3eb" }
+        self._T.hairPool = { "56ee34976c1e4bea990df9821c376661", "59aa5f8b64c7496ebb059ec91618694e", "96917c5a13cf422db33bdbcfc0331b18", "5079d11f0e22443dac284718fe3ed0d5", "b8de224237424a3095b71566b705eb63", "ae27075d1d0440f1ad908e460d9fb4e4", "694c6c41959240ff8d2beea82a755ab6", "3adf86290e5644aaaddf9c92c87cf5bf", "54fd9fd8b4e64d2589a1c269a1b47717", "d4c0fd3852ce497cbd4449a3c8c1e569", "d3e89b0ae2ce4319a6d4ddf6e172ae4e", "6a4f6c0fcfb540689ffd07786a4ac872", "64f1c348916d47f09d7b357a8bebde30", "7d55213a1527409aa295f444019b5238", "e85482fc4ba6486698d186a182b5e164", "2893c3d39ad241459ffcab222628294a", "a7519f760f86452daf0efbbc46c6f673", "2fe38ec018a24c7180190c7d1513fa8a", "d664cc9370574380af98781e65f86abc", "79641da3cb9e4e6987a540e5b3f57a44", "5469086abe1e413babf014cf210862dd", "e2a96e5d94304dd38707cac10f166bfc", "557dbc6724d84296a0572701199ad251", "1839530e06d6407391294b3329f3d058", "5086502f9904454187dfcc3c26a0c5ce", "57547d8e6788454e972d1e4d811e5843", "24512511a1584ce0b0119917f9e5a518", "8ba1773a75414176abf170c5131b4bf1", "3e94a07578b7423db3f32a83dc492ce0", "7d59223d5c324a5c864ed3b04774f74a", "52366068d57d4344b5a2adb45d5d06ec", "092653016adb46beb2e7c2c82b09e1c8", "ee2e7fc580f64d7b8f1532ac73aee6b7", "984c98fe9e3045f18f5c6d0e44ed9e87", "d1d83f7283ab4f198c168f2b753c6d58", "c7fda194b92e44bd8bf07e1d176c78ab", "8897cdad8ab4462788b23355aa3d6bd4", "4818349232774244950c53754f57c2d5", "de30f89d240b41aeb38753cc24d2faeb", "eee9f5b9aefa4d738702a7e017485aed", "3377d108a5e64f49bf34849e8c356251", "d403278115754a96a998cf6092270c3c", "ed942fc8a8134d359b064d1d73efdd1e", "37a3183d748940199c46fb25fb55b952", "25b062cccb7d4083a73d21e049872ad4", "6c0446accf5e4fb38106dabf440cee24", "cf71b587490b42e08967653a6713e0bf", "a32698022b3940ac93bdb8407114bc00", "ddb96259b5e246759317f1a0a08b5c6d", "0fafc18c8de94aa3b9b520359ecb7ad8", "02e61fe7a68644a5b27bfe34ffd8e732", "e2dcf2b213b44ca3a1c69bbdc1c05299", "dbdbaf764aa944b597fc99183feae758", "b21dab465edb4111b69d1570f9094182", "9153a2dca2b342b5b8a288eead91b7d8", "b029de47c2bd44afb574e8d1da18b0ca", "182dde78c94147bc8a5a15516a276af8", "1b5d64e429224e87baeb021894f7e1cc", "5e1231b498a54d8cafae2d1a17665c37", "67c192ff98064a4bafd37e6abba5d8d2", "fd27ac0b8c7048dc9634a1da9eb9cd92", "f6c42d0c78e44b12a515c39c94b0db09", "f725239ea75b47b8aa330574a12af068", "df9a887cf1064c31889ec5835a0cfa7a", "dd075da736f7469793ee39d0e4c9d2f4", "d631247b95004a47b3d3d0d9a6082b9a", "d3dd82ec603141308f113c5fb4a299dd", "cdb8cfe18d8140c0b7c262eff1f287d0", "c2b8b9e42584471ca1521c1273f6c1c2", "bf08ac32bfe14abcbf4af9006b9bd6d1", "bd78125357da4fb98a247a234845dd7f", "b52c1ce6124f4bcd8ccd2c4a3e75e942", "aed9dec10e00404596b18f6e37b5927e", "ae18661bdbae450193764d26780257d6", "9f20e6c5a946437db3e1ebeaddf2d277", "9bdfbd88cd624fdfae81a2cbc85cf39c", "8e2b45dd1ffe4f9ab6c03f2639a70d62", "8c38c98c7c42415c95841fbb8ed8b09f", "804a0eff221049669ba64ab1897314c0", "80582523f97d4dcda04bbcb8c07a075a" }
+        self._T.facePool = { "d4796bfaeaad4a76aab247ec19495cad", "a9e2439cf2f44d2bb3fdc613ce2b631a", "51ffa6a1da1342b589303f6375cf8750", "1a6eb2119535481b99edddc17836f9f8", "63e1f92f8eb046139a50b2526e4c3de7", "7f51b7cba4044ef09ad059813cf40b8d", "7f67c54f47ee4175a8a8c58ade3c4f0f", "ec148a4be5534e55984b0ce1ea15e735", "3c9fce0fac454bedb4805547ff7b8d27", "a1af0a503ade46328f1a2d3e5a514459", "8cba31d4f6104cf0a75908761e496002", "7c0d5a0fbb1649bf865d4fffbabcfa20", "32655755b7aa4436865eb08783274236", "afc3719ab52e49399dd15b85037dd60b", "c5285193266a48d88ccff2504df9a95f", "8c0c5fdb515948f8a273d4de614538af", "e148deb72988476296a99331c62e9e77", "3611e6ac261b4aeb9e5996e717a085b2", "20a6734403f945ae881bf40719ab76b8", "3288d94de8b94e9e8d9c4cd172f291cf", "bc12136753034202b7ee2bed1f03455f", "98433f5ab81945dd8bf6a419e899849f", "c4b39a078b174f4cbc7d51449b8258e3", "b7887e0cd530415da802900109ff4912", "6a9689bde321402b908ac2509e5b9635", "20ac4abd4d324d36bd4c32237e67b2be", "3551226d99a44b9884f8607264165167", "1d56ac1d2281486f9df86a7c32f8e0d3", "651d12b1bd134b58b526bc9a5aef259f", "10741372ec3d4523bae82f0f9990b4d2", "ed7334d6ddde459a8ea3880bec2cfe3f", "db1a52b5da244a1d8bbebccb3d2b46f5", "869f1d15fdc8437893a4be7d1b8f1b21", "7b04c29bc1704b1ba74809810fbc04f2", "6d9ecd4fce57426daaa85a5c29d9dfa5", "5791786210d24ec2a76fa8f0dda26ad6", "5267de4176834ceab623c9e7c2c08f55", "adbbed72d0124878ac8f1fd782bfde21", "808ffab2eea14ba5825ac9765776bdd5", "60a7bf96b7454fc68866d72359561a92", "d88aa7bfde3c47b49b2f2e9c68a95eff", "e265a215ca7d404b8bd14c0f6785b978", "9189c4552bf34cfaa908794545c952dc", "4f5ce75294404afbac632e094371bd8b", "b68db39317144aff8597039db8239b49", "fb511053e5374b7a9e0bfe9fe44f28d9", "26b6c5635426461ba43d5a3c2bfe51f7", "d2f4f94572894729961f85ebd35bda8f", "08c70a2a9c8c4d548265d4149686326e", "f8cbe427abff4b5fa5ff307b9cbcda69", "5d1b2e1d8ece4c3e9d179f135e33c85d", "af5247f9e96b421d92f694c09d28cced", "66202d65188a4ac4a00ecaf825889c25", "c7f06cb831184141933aa3f70c0b3ce9", "7ddfc4f62bc24aae9576d8ff1468d072", "dec3212cb73641a3973200ba107f73d8", "82649306d3444f0a8d2b84aabae99b50", "6d7fe2e4b0f8499cbe83eb68bc1e3577", "38fa6a49ed9e4952be9da80238fd7925", "5441adfcf3ba466e8cdcf2fc628afefd", "ffdb94916ec74e86a86c888822ae4e2c", "ff2ebb856aaf468094c8ba96e9add551", "fcfbf57370db4a61a92cad9108fa5e81", "f9da7d2b9dcb4e5cac879df70fc7be89", "f5c5da7572f54b2ab50ca8b0528e02da", "e54741cb0ae9435aa2a6bb398f183b38", "d347fdcbeba44c8b988756195c512b9a", "cf1282b50bae4f779da1b6f805fd64de", "cbbef08398214904b4fe42b90b70cb53", "bf09b2af762846ecb7af6cfd6b3c60e1", "bb1e9dcdcadf4e27b43c430bc51d840b", "b16371d40be64a27a0d5ec89e06502d6", "ae419236cacd4fc98d2098a444c5eb9b", "abb523f614164632b5a95d1a1c418795", "97e2fbc635a641888654afa7b9f21103", "8dc749beac6e4f1ba7b12f411642fc7b", "7b0ba89422f947208a2af8d03722aaa0", "72b448199bde4c92ad8c57459535e45c", "70308ab9803b470b94661da5d74c870c", "6ec9dedbcac74d6fa87619b6bb313fab", "8609c899660d43bf8f1ab78800e00863", "cf6091afc5964d169ca38e700163e70c", "c92ce0eb29dc4aa8a7d8478406a6a8de", "cf209486422644679dd972cb4c88aacd", "eced1dc691e14e0586a59fafc6dde07c", "ca6f97e1ca1d40a79d54ae10bd8afd74", "677b23923b764377a7a69578643e2a10", "f7e24a250b9e40998666ce708218472f", "9a6a7eb4bde54b638d31c8d695c3ab42", "63e035f7f6dd48469d8b8a9583598f0c" }
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnScreenTouched(ScreenTouchEvent event)
+        -- Standee clicks use this screen->world hit test instead of TouchReceiveComponent, because
+        -- TouchReceiveComponent's click zone on a standee shrinks to a tiny sliver around the root's
+        -- exact Transform position once the AvatarBody child (not the root) is the visible renderer -
+        -- true even with AutoFitToSize=false and a large manual TouchArea (tested up to 4x4 units,
+        -- still failed a click 0.4 world units above center). A human aiming at the character's
+        -- visible body/face (well above the foot-anchored root) reliably misses that sliver. This
+        -- checks world-position distance against each standee's actual Transform instead.
+        if _InputService:IsPointerOverUI() then
+            return
+        end
+
+        local roster = _CharacterRosterLogic:GetRoster()
+        local worldPos = _UILogic:ScreenToWorldPosition(event.TouchPoint)
+        for i, standee in ipairs(self._T.standees) do
+            if isvalid(standee) then
+                local pos = standee.TransformComponent.WorldPosition
+                local dx = worldPos.x - pos.x
+                local dy = worldPos.y - pos.y
+                local hit
+                if roster[i] == nil then
+                    -- Empty slot: creation now fires ONLY when the click lands on the
+                    -- "캐릭터 생성" button chip (CreateBg/CreateBorder, local center ~(0.24,-1.72)
+                    -- as of the 2026-07-20 pixel-measured box reposition, half-size ~(0.95,0.35))
+                    -- - clicking elsewhere on the empty standee's area (e.g. where the avatar would
+                    -- stand) no longer creates a character.
+                    local bdx = dx - 0.24
+                    local bdy = dy - (-1.72)
+                    hit = bdx > -0.95 and bdx < 0.95 and bdy > -0.35 and bdy < 0.35
+                else
+                    -- Occupied slot: keep the generous box covering the visible avatar
+                    -- (feet ~0.85 below root, head ~0.55 above root) for select/open-card.
+                    hit = dx > -0.75 and dx < 0.75 and dy > -2.1 and dy < 0.95
+                end
+                if hit then
+                    self:OnStandeeTouched(i)
+                    return
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnStandeeTouched(integer index)
+        -- Single click selects the slot (glow moves there) without opening the detail card. A second
+        -- click on the SAME occupied slot within DOUBLE_CLICK_WINDOW opens the card instead - this is
+        -- what lets the world delete button move into the card's corner (see RefreshStage/DeleteCurrentCharacter)
+        -- without colliding with a neighboring standee's create-chip, since the card only appears on an
+        -- explicit double click, not on every select. Clicking an empty slot still creates immediately
+        -- and reveals right away (one click, no separate button) - the gacha reveal moment doesn't wait
+        -- for a double click.
+        local DOUBLE_CLICK_WINDOW = 0.4
+        local now = _UtilLogic.ElapsedSeconds
+        local roster = _CharacterRosterLogic:GetRoster()
+        local wasOccupied = roster[index] ~= nil
+        local isDoubleClick = wasOccupied and (self._T.lastTouchIndex == index) and ((now - self._T.lastTouchTime) < DOUBLE_CLICK_WINDOW)
+        self._T.lastTouchIndex = index
+        self._T.lastTouchTime = now
+
+        log("CharacterSelectStage: standee touched, index=" .. index .. " doubleClick=" .. tostring(isDoubleClick))
+        self._T.currentIndex = index
+        local wasEmpty = not wasOccupied
+        if wasEmpty then
+            self:CreateCharacter(index)
+        end
+        self._T.pendingOpenCard = isDoubleClick or wasEmpty
+        self:RefreshStage()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void CreateCharacter(integer idx)
+        -- Rolls a fully random character (stats/trait/look) into slot idx (if empty and under the
+        -- daily cap) and applies the look to that standee's avatar right away - costume equips are
+        -- a one-time cost per creation, not repeated on every RefreshStage.
+        local roster = _CharacterRosterLogic:GetRoster()
+        if roster[idx] ~= nil then
+            return
+        end
+        if _CharacterRosterLogic:GetDailyRemaining() <= 0 then
+            log("CharacterSelectStage: daily creation limit reached")
+            return
+        end
+
+        local stats = self:RollStats()
+        local trait = self._T.traitPool[_UtilLogic:RandomIntegerRange(1, #self._T.traitPool)]
+        local look = {
+            body = self._T.bodyPool[_UtilLogic:RandomIntegerRange(1, #self._T.bodyPool)],
+            hair = self._T.hairPool[_UtilLogic:RandomIntegerRange(1, #self._T.hairPool)],
+            face = self._T.facePool[_UtilLogic:RandomIntegerRange(1, #self._T.facePool)],
+        }
+        roster[idx] = { level = 1, trait = trait, str = stats.str, dex = stats.dex, intel = stats.intel, luk = stats.luk, look = look }
+        -- Starter equipment kit (one of every catalog item, unequipped) - the only item source
+        -- for now since there's no shop/loot system yet. See EquipmentLogic.GrantStarterKit.
+        _EquipmentLogic:GrantStarterKit(roster[idx])
+        _CharacterRosterLogic:SetDailyRemaining(_CharacterRosterLogic:GetDailyRemaining() - 1)
+        self._T.justCreatedIndex = idx
+
+        -- roster[idx].equipment is nil at this point (nothing equipped yet, everything just
+        -- landed in inventory) - ApplyLookToStandee/EquipmentLogic handle a nil equipment table.
+        _CharacterRosterLogic:ApplyLookToStandee(self._T.standees[idx], look, roster[idx].equipment)
+        log("CharacterSelectStage: created character in slot " .. idx .. " trait=" .. trait)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void DeleteCurrentCharacter()
+        -- Called from the card's delete button (bottom-right corner, see CharacterCardController) -
+        -- no longer a world-entity touch handler. Clears the current slot so it can be reused, but
+        -- does NOT refund dailyRemaining - the daily count limits how many times you may roll a
+        -- character today, not how many slots are occupied. Refunding on delete would let
+        -- create->delete->create reroll indefinitely.
+        local idx = self._T.currentIndex
+        local roster = _CharacterRosterLogic:GetRoster()
+        if roster[idx] == nil then
+            return
+        end
+
+        roster[idx] = nil
+        log("CharacterSelectStage: deleted character in slot " .. idx)
+        _CharacterRosterLogic:SaveRoster()
+        self:RefreshStage()
+    end
+
+    @ExecSpace("ClientOnly")
+    method table RollStats()
+        -- Distributes 20 total points across STR/DEX/INT/LUK with a minimum of 1 each (GDD 8-1 baseline).
+        local values = { 1, 1, 1, 1 }
+        for i = 1, 16 do
+            local pick = _UtilLogic:RandomIntegerRange(1, 4)
+            values[pick] = values[pick] + 1
+        end
+        return { str = values[1], dex = values[2], intel = values[3], luk = values[4] }
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshStage()
+        -- Redraws all 6 standees (glow/nametag/avatar visibility), the detail card, the delete
+        -- button, and the daily count. Costume equips are NOT re-applied here (see CreateCharacter).
+        local idx = self._T.currentIndex
+        local roster = _CharacterRosterLogic:GetRoster()
+
+        for i, standee in ipairs(self._T.standees) do
+            if not isvalid(standee) then
+                continue
+            end
+
+            local data = roster[i]
+
+            -- Gold ring shows only on the selected slot AND only once it's occupied - an empty slot
+            -- (including the default currentIndex=1 on first load, before anything is created) must
+            -- stay ring-free, which was the original complaint that led to force-disabling this.
+            local glow = standee:GetChildByName("Glow")
+            if isvalid(glow) then
+                glow.Enable = (i == idx) and (data ~= nil)
+            end
+
+            local nameTag = standee:GetChildByName("NameTag")
+            if isvalid(nameTag) then
+                if data == nil then
+                    -- Empty slot doubles as its own "create" button (see OnScreenTouched/OnStandeeTouched) -
+                    -- label it accordingly now that the separate world "생성" button has been removed.
+                    -- Dark text matches the gold CreateBg chip behind it (see below) for contrast.
+                    nameTag.TextRendererComponent.Text = "캐릭터 생성"
+                    nameTag.TextRendererComponent.FontColor = Color(0.12, 0.09, 0.03, 1)
+                else
+                    nameTag.TextRendererComponent.Text = "Lv." .. data.level
+                    nameTag.TextRendererComponent.FontColor = Color(0.85, 0.85, 0.9, 1)
+                end
+            end
+
+            -- Gold "생성" chip behind the label - only for empty slots, so it reads as a button
+            -- against the map background instead of low-contrast bare text (was hard to read).
+            -- Toggled via the SpriteRendererComponent's own Enable, not the entity-level Enable -
+            -- entity-level Enable silently failed to stick for one specific standee instance
+            -- (Standee3) after repeated placeModel re-syncs this session, while every other slot's
+            -- entity-level toggle kept working; component-level Enable proved reliable in a live
+            -- script test and sidesteps whatever made that one entity's Enable @Sync state stale.
+            local createBg = standee:GetChildByName("CreateBg")
+            if isvalid(createBg) then
+                createBg.SpriteRendererComponent.Enable = (data == nil)
+            end
+
+            -- The standee root's own silhouette sprite is always hidden now - it used to double as a
+            -- second "button"-looking box stacked directly above the CreateBg/NameTag create-chip,
+            -- sharing the exact same click zone (OnScreenTouched hit-tests the whole standee box
+            -- regardless of which visual is showing), which read as a redundant duplicate button.
+            -- The CreateBg chip below is now the sole visual affordance for an empty slot.
+            standee.SpriteRendererComponent.Enable = false
+            local avatarBody = standee:GetChildByName("AvatarBody")
+            if isvalid(avatarBody) then
+                avatarBody.AvatarRendererComponent.Enable = (data ~= nil)
+            end
+        end
+
+        local selected = roster[idx]
+
+        local card = self.cardGroup:GetComponent("script.CharacterCardController")
+        if isvalid(card) then
+            if selected == nil then
+                card:HideCard()
+            elseif self._T.justCreatedIndex == idx then
+                -- Only a freshly rolled character gets the gacha-style reveal; reselecting an
+                -- already-existing one (including this same one on a later click) is instant.
+                card:RevealCard(selected)
+                self._T.justCreatedIndex = nil
+            elseif self._T.pendingOpenCard then
+                -- Explicit double click on an occupied slot - open the card (see OnStandeeTouched).
+                card:ShowCard(selected)
+            else
+                -- Single click on an already-occupied slot: just move selection/glow there, don't
+                -- pop the card open (and close it if it was showing a different character).
+                card:HideCard()
+            end
+        end
+        self._T.pendingOpenCard = false
+
+        self.countText.TextRendererComponent.Text = "오늘 생성 가능: " .. _CharacterRosterLogic:GetDailyRemaining() .. "/6"
+    end
+
+    @ExecSpace("Server")
+    method void RequestEnterGame(table look, table equipment)
+        -- Client (the character card's PLAY button) asked to enter the village lobby. Applies the
+        -- chosen slot's rolled look + equipped gear onto the actual player entity via the shared
+        -- roster logic - the player's own MSW-account avatar is never shown (DefaultPlayer.model
+        -- has UseCustomEquipOnly=true), only this random look. Destination is the Lobby map's main
+        -- ground foothold (y=-1.25, spans x=5.54~33.16), landing 0.4 units above it per the standard
+        -- MapleTile spawn-clearance convention.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+
+        _CharacterRosterLogic:ApplyLookToPlayer(player, look, equipment)
+
+        -- NOTE: undoing HideLocalPlayer's visibility hide does NOT happen here. Component.Enable is
+        -- an engine @Sync property (server->client one-way); the client-only hide never changed the
+        -- server's true value, so a same-value server write here would be a silent no-op that never
+        -- re-syncs to the client. The client calls ShowLocalPlayer() itself instead (see that method).
+
+        -- Lands on the "town square" ground foothold (y=-1.22, spans x=54.05~66.15) between
+        -- portal-3 (x=55.37) and the squad NPC (x=63.6) - the zone that actually has content now.
+        _TeleportService:TeleportToMapPosition(player, Vector3(58, -0.82, 0), "Lobby")
+    end
+end

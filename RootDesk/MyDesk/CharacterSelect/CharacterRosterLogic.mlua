@@ -1,0 +1,337 @@
+@Logic
+script CharacterRosterLogic extends Logic
+
+    property string RosterStorageName = "CharacterRoster"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- World-session-scoped roster state. Lives here (not on a map-scoped @Component) because
+        -- both choice_map and the Lobby need it, and a @Component's entity/state becomes
+        -- unreachable client-side once the local player leaves that component's map (confirmed via
+        -- maker_execute_script: choice_map's entity is isvalid=false from Lobby) - a @Logic survives
+        -- map transitions for the whole world session instead.
+        self._T.data = {}
+        self._T.dailyRemaining = 6
+        self._T.activeIndex = nil
+        self._T.squadLinks = {}
+        self._T.lastResetDate = ""
+        self._T.loadComplete = false
+
+        -- One-time per-world-session load of this player's saved roster (see RequestLoadRoster /
+        -- OnRosterLoaded below). Previously this state was purely in-memory - lost on refresh/session
+        -- end (see Archive/As-built.md Deferred) - this connects it to _DataStorageService.
+        self:RequestLoadRoster()
+    end
+
+    @ExecSpace("ClientOnly")
+    method table GetRoster()
+        return self._T.data
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer GetDailyRemaining()
+        return self._T.dailyRemaining
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetDailyRemaining(integer value)
+        self._T.dailyRemaining = value
+        self:SaveRoster()
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetActiveIndex()
+        return self._T.activeIndex
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetActiveIndex(integer idx)
+        self._T.activeIndex = idx
+        self:SaveRoster()
+    end
+
+    @ExecSpace("ClientOnly")
+    method table GetSquadLinks()
+        -- Previously confirmed link-candidate indices, restored so the squad-formation popup can
+        -- pre-select them on reopen. Without this getter, the popup had no way to know a squad was
+        -- already confirmed (see OpenSquadFormation) - it stored correctly in DataStorage but always
+        -- displayed as empty, reading as "the save doesn't work" even though it did.
+        return self._T.squadLinks
+    end
+
+    @ExecSpace("Server")
+    method void RequestLoadRoster()
+        -- Client->server: loads this player's saved roster from UserDataStorage (keyed by
+        -- ProfileCode, matching the first-party PlayerData reference pattern - see
+        -- msw-scripting/references/datastorage.md). A first-time player (NotFound=1000002) is not
+        -- an error - defaults are sent back either way so the select stage never blocks on this.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local profileCode = player.PlayerComponent.ProfileCode
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local errorCode, raw = storage:GetAndWait(self.RosterStorageName)
+
+        local data, dailyRemaining, activeIndex, squadLinks, lastResetDate = {}, 6, 0, {}, ""
+        if errorCode == 0 and raw ~= nil and raw ~= "" then
+            local decoded = _HttpService:JSONDecode(raw)
+            for k, v in pairs(decoded.data or {}) do
+                data[tonumber(k)] = v
+            end
+            dailyRemaining = decoded.dailyRemaining or 6
+            activeIndex = decoded.activeIndex or 0
+            squadLinks = decoded.squadLinks or {}
+            lastResetDate = decoded.lastResetDate or ""
+        elseif errorCode ~= 0 and errorCode ~= 1000002 then
+            log_error("CharacterRoster: RequestLoadRoster GetAndWait failed, errorCode=" .. tostring(errorCode))
+            -- Fail open with defaults rather than blocking the player from reaching the select stage.
+        end
+
+        -- Daily creation limit reset. Before persistence existed, dailyRemaining naturally reset to
+        -- 6 every Play session (pure in-memory state) - now that it survives via DataStorage, without
+        -- this check a player who ever creates 6 characters total would be locked out of creation
+        -- forever. Compare against real UTC calendar date (server-authoritative, can't be spoofed by
+        -- client clock) rather than session count.
+        local now = DateTime.UtcNow
+        local today = string.format("%04d-%02d-%02d", now.Year, now.Month, now.Day)
+        if lastResetDate ~= today then
+            dailyRemaining = 6
+            lastResetDate = today
+        end
+
+        self:OnRosterLoaded(data, dailyRemaining, activeIndex, squadLinks, lastResetDate, senderUserId)
+    end
+
+    @ExecSpace("Client")
+    method void OnRosterLoaded(table data, integer dailyRemaining, integer activeIndex, table squadLinks, string lastResetDate)
+        -- Populates this client's roster mirror from the server load, then nudges choice_map's
+        -- stage controller to redraw - its own OnBeginPlay already ran against an empty roster
+        -- (this load is an async network round trip), so without this the stage would stay blank
+        -- until the next click. Uses a fresh path lookup rather than a cached Entity property,
+        -- matching this project's established pattern (see CharacterCardController.GetMapController's
+        -- comment for why a cached cross-map reference goes stale).
+        self._T.data = data
+        self._T.dailyRemaining = dailyRemaining
+        self._T.activeIndex = (activeIndex == 0) and nil or activeIndex
+        self._T.squadLinks = squadLinks
+        self._T.lastResetDate = lastResetDate
+        self._T.loadComplete = true
+        log("CharacterRoster: OnRosterLoaded, dailyRemaining=" .. dailyRemaining .. " activeIndex=" .. tostring(activeIndex) .. " lastResetDate=" .. lastResetDate)
+
+        local mapEntity = _EntityService:GetEntityByPath("/maps/choice_map")
+        if isvalid(mapEntity) then
+            local controller = mapEntity:GetComponent("script.CharacterSelectStageController")
+            if isvalid(controller) then
+                controller:OnRosterLoaded()
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SaveRoster()
+        -- Fire-and-forget persistence trigger called after every roster mutation (character
+        -- create/delete, active-character swap, squad confirm). Guarded on loadComplete so a save
+        -- can never fire with fresh-session defaults before RequestLoadRoster's real saved data has
+        -- come back and overwrite it (same IsLoadSuccess-gate reasoning as
+        -- msw-scripting/references/datastorage.md §8).
+        if not self._T.loadComplete then
+            log_warning("CharacterRoster: SaveRoster skipped, load not complete yet")
+            return
+        end
+        local activeIndexOut = self._T.activeIndex or 0
+        self:RequestSaveRoster(self._T.data, self._T.dailyRemaining, activeIndexOut, self._T.squadLinks, self._T.lastResetDate)
+    end
+
+    @ExecSpace("Server")
+    method void RequestSaveRoster(table data, integer dailyRemaining, integer activeIndex, table squadLinks, string lastResetDate)
+        -- Client->server: persists the whole roster as one JSON blob under one key. Mutations are
+        -- click-driven and rare within a session (character create/delete, squad confirm, active
+        -- swap), well within DataStorage's event-driven-only rule - no debounce/dirty-flag protocol
+        -- needed for a single small key like this (see msw-scripting/references/datastorage.md).
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local profileCode = player.PlayerComponent.ProfileCode
+
+        -- data is a sparse 1..6 table (a deleted slot is simply absent, not null) - re-key to
+        -- strings so JSONEncode always serializes it as a JSON object, never an ambiguous holey array.
+        local dataOut = {}
+        for i = 1, 6 do
+            if data[i] ~= nil then
+                dataOut[tostring(i)] = data[i]
+            end
+        end
+
+        -- JSONEncode throws [LEA-3001] LuaTableToJsonType.UnknownType on a genuinely empty Lua table
+        -- {} (confirmed via maker_execute_script: a fresh roster's empty squadLinks triggered this
+        -- mid-RequestSaveRoster) - it can't tell an empty array from an empty dictionary. Omit empty
+        -- collections from the payload entirely instead; the decode side already treats an absent
+        -- key as "use defaults" (`decoded.data or {}` / `decoded.squadLinks or {}` in RequestLoadRoster).
+        -- Each character's own table can carry equipment/inventory sub-tables (added by the
+        -- equipment system) that are just as prone to the empty-table JSONEncode bug above -
+        -- e.g. a freshly created character's `inventory` starts non-empty (starter kit) but
+        -- `equipment` starts as {} (nothing equipped yet) until the player equips something.
+        -- Strip any empty nested table before encoding, for every character in dataOut.
+        for _, charData in pairs(dataOut) do
+            if charData.inventory ~= nil and next(charData.inventory) == nil then
+                charData.inventory = nil
+            end
+            if charData.equipment ~= nil and next(charData.equipment) == nil then
+                charData.equipment = nil
+            end
+        end
+
+        local payload = { dailyRemaining = dailyRemaining, activeIndex = activeIndex, lastResetDate = lastResetDate }
+        if next(dataOut) ~= nil then
+            payload.data = dataOut
+        end
+        if #squadLinks > 0 then
+            payload.squadLinks = squadLinks
+        end
+        local json = _HttpService:JSONEncode(payload)
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        storage:SetAsync(self.RosterStorageName, json, function(errorCode, key)
+            if errorCode ~= 0 then
+                log_error("CharacterRoster: RequestSaveRoster SetAsync failed, errorCode=" .. tostring(errorCode))
+            end
+        end)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ApplyLookToStandee(Entity standee, table look, table equipment)
+        -- Equips a rolled look onto a standee's AvatarBody child - shared by choice_map's creation
+        -- flow and the Lobby's "other owned characters standing around" display. `equipment` may
+        -- be nil (nothing equipped yet) - forwarded to EquipmentLogic either way, see that
+        -- method's own nil handling.
+        if not isvalid(standee) then
+            return
+        end
+        local avatarBody = standee:GetChildByName("AvatarBody")
+        if not isvalid(avatarBody) then
+            return
+        end
+        local costume = avatarBody.CostumeManagerComponent
+        costume:SetEquip(MapleAvatarItemCategory.Body, look.body)
+        costume:SetEquip(MapleAvatarItemCategory.Hair, look.hair)
+        costume:SetEquip(MapleAvatarItemCategory.Face, look.face)
+        _EquipmentLogic:ApplyEquipmentToAvatar(avatarBody, equipment)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyLookToPlayer(Entity player, table look, table equipment)
+        -- Equips a rolled look onto the real player entity's CostumeManagerComponent. Shared by the
+        -- initial choice_map PLAY entry and the Lobby's character-swap - both just re-skin the same
+        -- player entity, only PLAY additionally teleports.
+        local costume = player.CostumeManagerComponent
+        if not isvalid(costume) then
+            return
+        end
+        costume.UseCustomEquipOnly = true
+        costume:SetEquip(MapleAvatarItemCategory.Body, look.body)
+        costume:SetEquip(MapleAvatarItemCategory.Hair, look.hair)
+        costume:SetEquip(MapleAvatarItemCategory.Face, look.face)
+        _EquipmentLogic:ApplyEquipmentToAvatar(player, equipment)
+    end
+
+    @ExecSpace("Server")
+    method void SwapActiveCharacter(table look, table equipment, Vector3 standeePos)
+        -- Called from the Lobby when the player clicks a different owned character's standee.
+        -- Re-skins the player AND moves them to the clicked standee's spot - the character you just
+        -- took control of should be movable from where it was standing, not from wherever the
+        -- previous character happened to be.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        self:ApplyLookToPlayer(player, look, equipment)
+        _TeleportService:TeleportToMapPosition(player, standeePos, "Lobby")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ConfirmSquad(table linkIndices)
+        -- Called by the squad-formation popup's "확정" button. Just records the choice - actual
+        -- link-passive effects require the trait/combat systems from Phase 3+.
+        self._T.squadLinks = linkIndices
+        log("CharacterRoster: squad confirmed, linkCount=" .. #linkIndices)
+        self:SaveRoster()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void HideLocalPlayer()
+        -- Moved here from CharacterSelectStageController (2026-07-23) so the Lobby's portal-return
+        -- handler can call it too - a map-scoped @Component can't be reached once the player has
+        -- left that component's map (see this script's OnBeginPlay comment), but this Logic can be
+        -- called from anywhere. choice_map shows only the 6 standees; the real local player entity
+        -- also exists there (with the account nickname) and must stay invisible whenever the
+        -- player is on that map instead of actually playing.
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then
+            log("CharacterRoster: HideLocalPlayer, LocalPlayer not valid yet")
+            return
+        end
+        if isvalid(localPlayer.AvatarRendererComponent) then
+            localPlayer.AvatarRendererComponent.Enable = false
+        end
+        if isvalid(localPlayer.NameTagComponent) then
+            localPlayer.NameTagComponent.Enable = false
+        end
+        log("CharacterRoster: HideLocalPlayer, hid local player avatar/nametag")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ShowLocalPlayer()
+        -- Mirrors HideLocalPlayer's avatar restore, called directly on the client right before
+        -- entering real gameplay. Component.Enable is an engine @Sync property (server->client
+        -- one-way). HideLocalPlayer's hide is a client-only local override that never touched the
+        -- server's true value (it stayed true the whole time) - so a same-value server-side
+        -- "Enable = true" write is a no-op and never re-syncs to clear the local override. Undoing
+        -- the hide must happen on the same side that set it.
+        -- NameTagComponent is deliberately NOT re-enabled here (2026-07-31, found during playtest) -
+        -- it shows the player's real MSW account nickname, which reads as immersion-breaking for a
+        -- "nameless randomly-rolled character" (every standee only ever shows "Lv.N", never an
+        -- account name) in a solo-only game (GDD §2: no multiplayer, so no other player ever needs
+        -- to read this nametag). Stays hidden through actual gameplay too, not just the select stage.
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then
+            log("CharacterRoster: ShowLocalPlayer, LocalPlayer not valid yet")
+            return
+        end
+        if isvalid(localPlayer.AvatarRendererComponent) then
+            localPlayer.AvatarRendererComponent.Enable = true
+        end
+        log("CharacterRoster: ShowLocalPlayer, restored local player avatar visibility (nametag stays hidden)")
+    end
+
+    @ExecSpace("Server")
+    method void RequestApplyEquipmentToPlayer(table equipment)
+        -- Client->server: re-applies the active character's current equipment onto the real
+        -- player's CostumeManagerComponent after an equip/unequip/scroll change from the
+        -- Equipment UI (see EquipmentUIController). Same ServerOnly-costume-write requirement as
+        -- ApplyLookToPlayer - a ClientOnly SetEquip on the local player would only be a local
+        -- visual override that never reaches the server's authoritative synced value (see
+        -- ShowLocalPlayer's comment above for the same class of Sync-property pitfall).
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        _EquipmentLogic:ApplyEquipmentToAvatar(player, equipment)
+    end
+
+    @ExecSpace("Server")
+    method void RequestReturnToSelect()
+        -- Called from the Lobby's return portal (up-arrow near portal-3, see LobbyStageController).
+        -- Implemented as a direct teleport rather than the native PortalComponent/PortalEntityRef
+        -- pairing - linking a portal's destination through the Maker Property Editor is a manual
+        -- step neither builder can perform (no EntityRef serialization support in either .cjs, see
+        -- Archive/As-built.md Gotchas), and that manual step was missed twice in practice. A custom
+        -- key-check + teleport keeps the whole flow inside AI-editable files.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        _TeleportService:TeleportToMapPosition(player, Vector3(-0.276143551, 1.86000013, 0), "choice_map")
+    end
+
+end

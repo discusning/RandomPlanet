@@ -1,0 +1,225 @@
+@Component
+script LobbyStageController extends Component
+    property Entity slot1 = "c31b4539-7aa9-4a12-8af0-99365e02040e"
+    property Entity slot2 = "148ecd4e-eeea-4cfe-909f-eef663e2230e"
+    property Entity slot3 = "94b4dc08-70e2-4c9c-b7eb-cce06c4d1ece"
+    property Entity slot4 = "3bc33795-3551-472e-a76b-0df4e11e17e9"
+    property Entity slot5 = "1443fa95-9eda-4626-b4ed-172739e0e90b"
+    property Entity slot6 = "9ff81c75-b43a-44d7-bf23-e94241b7163b"
+    property Entity npc = "8e42aaa6-04c1-41cc-811e-7a3f86f8f17e"
+    property Entity squadGroup = "5f96f6e4-814c-42e0-b42a-2b5926f6723b"
+    property Entity portal = "3857eb19-aa56-462a-9700-de2d00d22c5e"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- Wires the 6 lobby standee slots (screen-touch hit test, same reliability reasoning as
+        -- choice_map's standees), the squad-formation NPC (plain TouchReceiveComponent works here
+        -- since the NPC's renderer never swaps), and the up-arrow return-to-select portal.
+        self._T.slots = { self.slot1, self.slot2, self.slot3, self.slot4, self.slot5, self.slot6 }
+        self._T.handlers = {}
+
+        local hScreen = _InputService:ConnectEvent(ScreenTouchEvent, self.OnScreenTouched)
+        table.insert(self._T.handlers, { entity = _InputService, eventType = ScreenTouchEvent, eventHandler = hScreen })
+
+        local hNpc = self.npc:ConnectEvent(TouchEvent, self.OnNpcTouched)
+        table.insert(self._T.handlers, { entity = self.npc, eventType = TouchEvent, eventHandler = hNpc })
+
+        local hKey = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
+        table.insert(self._T.handlers, { entity = _InputService, eventType = KeyDownEvent, eventHandler = hKey })
+
+        self:RefreshLobbyStandees()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- Releases the screen-touch and NPC touch handlers.
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(rec.eventType, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshLobbyStandees()
+        -- Shows every owned character EXCEPT the one currently being played (that one is the real
+        -- player walking around) as a standing standee in its slot. Empty slots and the active slot
+        -- both render as nothing - no "생성" affordance here, creation only happens in choice_map.
+        local roster = _CharacterRosterLogic:GetRoster()
+        local activeIdx = _CharacterRosterLogic:GetActiveIndex()
+
+        for i, standee in ipairs(self._T.slots) do
+            if not isvalid(standee) then
+                continue
+            end
+            local data = roster[i]
+            local show = (data ~= nil) and (i ~= activeIdx)
+
+            -- Root silhouette and the choice_map-only "생성" chip stay hidden here regardless of
+            -- state - Lobby standees only ever show an equipped avatar or nothing.
+            standee.SpriteRendererComponent.Enable = false
+            local glow = standee:GetChildByName("Glow")
+            if isvalid(glow) then
+                glow.Enable = false
+            end
+            local createBg = standee:GetChildByName("CreateBg")
+            if isvalid(createBg) then
+                createBg.SpriteRendererComponent.Enable = false
+            end
+            local createBorder = standee:GetChildByName("CreateBorder")
+            if isvalid(createBorder) then
+                createBorder.SpriteRendererComponent.Enable = false
+            end
+
+            local avatarBody = standee:GetChildByName("AvatarBody")
+            if isvalid(avatarBody) then
+                avatarBody.AvatarRendererComponent.Enable = show
+                if show then
+                    _CharacterRosterLogic:ApplyLookToStandee(standee, data.look, data.equipment)
+                end
+            end
+
+            -- Toggled via the TextRendererComponent's own Enable, not entity-level Enable - the
+            -- choice_map standees hit a case where entity-level Enable silently stopped responding
+            -- for one specific placeModel-synced instance (see Archive/As-built.md Gotchas).
+            local nameTag = standee:GetChildByName("NameTag")
+            if isvalid(nameTag) then
+                nameTag.TextRendererComponent.Enable = show
+                if show then
+                    nameTag.TextRendererComponent.Text = "Lv." .. data.level
+                    nameTag.TextRendererComponent.FontColor = Color(0.85, 0.85, 0.9, 1)
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnScreenTouched(ScreenTouchEvent event)
+        -- Same screen->world hit-test approach as choice_map's standees (TouchReceiveComponent is
+        -- unreliable once AvatarBody becomes the visible renderer - see
+        -- CharacterSelectStageController.OnScreenTouched for the full explanation). Only slots
+        -- currently showing a standee (owned + not the active character) are hit-testable.
+        if _InputService:IsPointerOverUI() then
+            return
+        end
+        local roster = _CharacterRosterLogic:GetRoster()
+        local activeIdx = _CharacterRosterLogic:GetActiveIndex()
+        local worldPos = _UILogic:ScreenToWorldPosition(event.TouchPoint)
+        for i, standee in ipairs(self._T.slots) do
+            if isvalid(standee) and roster[i] ~= nil and i ~= activeIdx then
+                local pos = standee.TransformComponent.WorldPosition
+                local dx = worldPos.x - pos.x
+                local dy = worldPos.y - pos.y
+                if dx > -0.75 and dx < 0.75 and dy > -2.1 and dy < 0.95 then
+                    self:SwapCharacter(i)
+                    return
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SwapCharacter(integer idx)
+        -- Clicking a different owned character makes it the live playable one, moved to that
+        -- standee's spot so it's immediately controllable from where it was standing; the
+        -- previously active character now shows as a standee in its own slot (handled by
+        -- RefreshLobbyStandees reading the updated active index). No transition effect - instant swap.
+        local roster = _CharacterRosterLogic:GetRoster()
+        local data = roster[idx]
+        local standee = self._T.slots[idx]
+        if data == nil or not isvalid(standee) then
+            return
+        end
+        local standeePos = standee.TransformComponent.WorldPosition
+        _CharacterRosterLogic:SetActiveIndex(idx)
+        _CharacterRosterLogic:SwapActiveCharacter(data.look, data.equipment, standeePos)
+        self:RefreshLobbyStandees()
+        log("LobbyStage: swapped active character to slot " .. idx)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnNpcTouched(TouchEvent event)
+        -- Squad-formation NPC ("공격대 관리인").
+        self:OpenSquadFormation()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OpenSquadFormation()
+        -- playable = whichever character is currently being played; links = up to 2 more picked
+        -- from the other owned characters. Moved here from CharacterSelectStageController since the
+        -- squad popup is only ever opened from this Lobby NPC now (see GDD §9 revision log).
+        local roster = _CharacterRosterLogic:GetRoster()
+        local activeIdx = _CharacterRosterLogic:GetActiveIndex()
+        if activeIdx == nil then
+            return
+        end
+        local playableData = roster[activeIdx]
+        if playableData == nil then
+            return
+        end
+
+        local candidates = {}
+        for i = 1, 6 do
+            if i ~= activeIdx and roster[i] ~= nil then
+                table.insert(candidates, { index = i, level = roster[i].level, trait = roster[i].trait })
+            end
+        end
+
+        -- Restore a previously confirmed squad so reopening the popup doesn't look like the save
+        -- was lost (see CharacterRosterLogic.GetSquadLinks).
+        local existingLinks = _CharacterRosterLogic:GetSquadLinks()
+
+        local squad = self.squadGroup:GetComponent("script.SquadFormationController")
+        if isvalid(squad) then
+            squad:Show(activeIdx, playableData, candidates, existingLinks)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeyDown(KeyDownEvent event)
+        -- Classic MapleStory "press up near a portal" return-to-select. Implemented as a custom
+        -- box-distance check + direct teleport rather than the native PortalComponent/PortalEntityRef
+        -- pairing - linking a portal's destination is a manual Maker Property Editor step neither
+        -- builder can perform (see CharacterRosterLogic.RequestReturnToSelect), and it was missed
+        -- twice in practice. portal-3 still has its own PortalComponent (BoxOffset/BoxSize reused
+        -- below for the "am I standing on it" check) and visible sprite - only the destination-link
+        -- half of the native system is replaced.
+        if event.key == KeyboardKey.I then
+            -- Equipment UI toggle - matches the msw-packages inventory-package's own "I" convention.
+            -- Global overlay layer (/ui/*), safe to look up fresh every press (see the
+            -- CharacterCardController.GetMapController comment for why /ui/* doesn't go stale
+            -- across map transitions the way a /maps/* reference would).
+            local equipGroup = _EntityService:GetEntityByPath("/ui/EquipmentGroup")
+            if isvalid(equipGroup) then
+                local controller = equipGroup:GetComponent("script.EquipmentUIController")
+                if isvalid(controller) then
+                    controller:Toggle()
+                end
+            end
+            return
+        end
+        if event.key ~= KeyboardKey.UpArrow then
+            return
+        end
+        if _InputService:IsPointerOverUI() then
+            return
+        end
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) or not isvalid(self.portal) then
+            return
+        end
+
+        local portalComp = self.portal.PortalComponent
+        local portalPos = self.portal.TransformComponent.WorldPosition
+        local offset = portalComp.BoxOffset
+        local size = portalComp.BoxSize
+        local center = Vector2(portalPos.x + offset.x, portalPos.y + offset.y)
+
+        local playerPos = localPlayer.TransformComponent.WorldPosition
+        local dx = playerPos.x - center.x
+        local dy = playerPos.y - center.y
+        if dx > -size.x / 2 and dx < size.x / 2 and dy > -size.y / 2 and dy < size.y / 2 then
+            log("LobbyStage: up-arrow at return portal, requesting server teleport to choice_map")
+            _CharacterRosterLogic:HideLocalPlayer()
+            _CharacterRosterLogic:RequestReturnToSelect()
+        end
+    end
+end

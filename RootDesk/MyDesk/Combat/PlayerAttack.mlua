@@ -1,0 +1,50 @@
+@Component
+script PlayerAttack extends AttackComponent
+
+    property number AttackDamage = 50
+    property number CriticalChance = 0.3
+    @HideFromInspector property any Shape = nil
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- Prepares the reusable frontal hit box.
+        self.Shape = BoxShape(Vector2.zero, Vector2(1.2, 1.2), 0)
+    end
+
+    @ExecSpace("ServerOnly")
+    @EventSender("Self")
+    handler HandlePlayerActionEvent(PlayerActionEvent event)
+        -- Resolves the player's manual attack key into a hit-box swing.
+        if event.ActionName ~= "Attack" then return end
+        self:DoAttack()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoAttack()
+        -- Places the hit box in front of the player using current facing.
+        local transform = self.Entity.TransformComponent
+        local controller = self.Entity.PlayerControllerComponent
+        if not isvalid(transform) or not isvalid(controller) then return end
+        local pos = transform.WorldPosition
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        self.Shape.Position = Vector2(pos.x + 0.6 * dir, pos.y + 0.5)
+        self.Shape.Size = Vector2(1.2, 1.2)
+        self.Shape.Angle = 0
+        self:AttackFast(self.Shape, "melee.basic", CollisionGroups.Monster)
+    end
+
+    method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
+        return self.AttackDamage
+    end
+
+    method boolean CalcCritical(Entity attacker, Entity defender, string attackInfo)
+        return _UtilLogic:RandomDouble() < self.CriticalChance
+    end
+
+    method boolean IsAttackTarget(Entity defender, string attackInfo)
+        if isvalid(defender:GetComponent("script.Monster")) == false then return false end
+        return __base:IsAttackTarget(defender, attackInfo)
+    end
+
+end

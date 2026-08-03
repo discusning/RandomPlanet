@@ -1,0 +1,18 @@
+{
+  "description": "기획서 '부록. 미결 항목' 추적용. 값이 확정되면 각 데이터 파일에 반영하고 여기서 resolved: true로 표시할 것.",
+  "items": [
+    { "id": "numeric_values_300_skills", "summary": "특성·패시브·링크 300종의 계수·확률·쿨다운 수치화 미정 (현재 정성적 설명)", "resolved": false },
+    { "id": "trait_change_interaction", "summary": "이능 '특성 변경'으로 제약형 Hidden-bad(고독·약속된 죽음 등) 탈출 가능 여부 규칙 미정 (운명론자만 변경 차단 확정)", "resolved": false },
+    { "id": "link_skill_assignment_rarity", "summary": "링크스킬 배정 방식 - 생성 시 1개 랜덤 배정안 확정, 레어도 가중치 도입 여부 미정", "resolved": false },
+    { "id": "passive_acquisition_method", "summary": "패시브 스킬 획득 방식 - 현재 안은 전직 시 액티브 3택과 별개로 패시브 3택 1, 대안 검토 필요", "resolved": false },
+    { "id": "level_16_21_unlock_conditions", "summary": "16~21레벨 해금 조건 구체값 미정 (레벨별 개별 설계 예정)", "resolved": false },
+    { "id": "boss_curation", "summary": "전직 퀘스트·레이드·해금 조건에 쓸 보스 선정 미정", "resolved": false },
+    { "id": "level_21_content", "summary": "만렙 이후 추가 콘텐츠 미정", "resolved": false },
+    { "id": "cube_system", "summary": "메이플 월드 개발 환경 파악 후 큐브 시스템 도입 여부 결정 예정", "resolved": false },
+    { "id": "trait_balance_priority", "summary": "밸런스 점검 1순위(특성): Hidden-good의 처형자·흡혈귀·저격수, Gamble의 한탕주의·미친 과학자", "resolved": false },
+    { "id": "playtime_retarget", "summary": "타깃 플레이타임이 10~20분 → 1시간으로 변경됨. 8-3 경험치 테이블·5-1 난이도 배율·8-4 게이트 스케일 전면 재산정 필요", "resolved": false },
+    { "id": "daily_creation_storage_conflict", "summary": "하루 최대 생성(6개) = 보관함 슬롯(6칸) 동일 - 슬롯 꽉 찼을 때 처리 흐름(자동 정리·경고·강제 방출) 설계 필요", "resolved": false },
+    { "id": "passive_link_balance_priority", "summary": "밸런스 점검 1순위(패시브/링크): 흡수·치명타 강화·불굴·처치 연쇄(패시브) / 후원·조준 지원·최후의 인연(링크)", "resolved": false },
+    { "id": "link_skill_count_mismatch", "summary": "부록 B 표 제목은 '링크스킬 100종'이나 실제 목록은 110개 - 원본 기획서와 대조하여 10개를 줄일지 제목을 110종으로 바꿀지 확인 필요", "resolved": false }
+  ]
+}
