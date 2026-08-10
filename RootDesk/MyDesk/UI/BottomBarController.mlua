@@ -68,22 +68,46 @@ script BottomBarController extends Component
     end
 
     @ExecSpace("ClientOnly")
+    method void CloseOtherWindows(string keepPath)
+        -- Mutually-exclusive single-window mode: every bottom-bar window lives as its own .ui
+        -- root group with no shared z-order, so two windows opened back-to-back render stacked
+        -- with no visual sign a second click did anything (e.g. Equipment opening fully behind an
+        -- already-open Inventory). Closing every other window before toggling the target keeps at
+        -- most one window on screen at a time, matching a normal bottom-tab-bar's behavior.
+        local windows = {
+            { path = "/ui/CharacterInfoGroup", scriptType = "script.CharacterInfoUIController" },
+            { path = "/ui/InventoryGroup", scriptType = "script.InventoryUIController" },
+            { path = "/ui/EquipmentGroup", scriptType = "script.EquipmentUIController" },
+            { path = "/ui/SettingsGroup", scriptType = "script.SettingsUIController" },
+        }
+        for _, w in ipairs(windows) do
+            if w.path ~= keepPath then
+                self:CloseWindow(w.path, w.scriptType)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
     method void OnCharacterClicked()
+        self:CloseOtherWindows("/ui/CharacterInfoGroup")
         self:ToggleWindow("/ui/CharacterInfoGroup", "script.CharacterInfoUIController")
     end
 
     @ExecSpace("ClientOnly")
     method void OnInventoryClicked()
+        self:CloseOtherWindows("/ui/InventoryGroup")
         self:ToggleWindow("/ui/InventoryGroup", "script.InventoryUIController")
     end
 
     @ExecSpace("ClientOnly")
     method void OnEquipmentClicked()
+        self:CloseOtherWindows("/ui/EquipmentGroup")
         self:ToggleWindow("/ui/EquipmentGroup", "script.EquipmentUIController")
     end
 
     @ExecSpace("ClientOnly")
     method void OnSettingsClicked()
+        self:CloseOtherWindows("/ui/SettingsGroup")
         self:ToggleWindow("/ui/SettingsGroup", "script.SettingsUIController")
     end
 end

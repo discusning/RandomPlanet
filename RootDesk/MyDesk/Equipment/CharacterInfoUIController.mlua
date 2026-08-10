@@ -21,13 +21,8 @@ script CharacterInfoUIController extends Component
         local h = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
         table.insert(self._T.handlers, { entity = self.btnClose, eventType = ButtonClickEvent, eventHandler = h })
         if isvalid(self.dragHandle) then
-            local hDown = self.dragHandle:ConnectEvent(UITouchDownEvent, function(e) log("DEBUG: DragHandle UITouchDownEvent fired") end)
-            table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDownEvent, eventHandler = hDown })
             local hDrag = self.dragHandle:ConnectEvent(UITouchDragEvent, self.OnDrag)
             table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDragEvent, eventHandler = hDrag })
-            log("DEBUG: drag handlers connected successfully, dragHandle valid=" .. tostring(isvalid(self.dragHandle)))
-        else
-            log("DEBUG: dragHandle NOT valid, skipping connection")
         end
         self.Entity.Enable = false
     end
