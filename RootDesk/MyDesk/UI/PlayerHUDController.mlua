@@ -1,0 +1,99 @@
+@Logic
+script PlayerHUDController extends Logic
+
+    property Entity hudGroup = "3788d8a9-ba9e-406b-8c21-1edecfdcbd2d"
+    property UITransformComponent hpFillTransform = "b11baf70-d1db-4bf0-9b8a-1f60f51ba7ad"
+    property SpriteGUIRendererComponent hpFillImage = "b11baf70-d1db-4bf0-9b8a-1f60f51ba7ad"
+    property TextGUIRendererComponent hpText = "b5a5440d-b342-4d6c-aad5-f36d2bd4c1c0"
+    property UITransformComponent xpFillTransform = "271e5cb0-801f-42b8-bd1a-14f2355e80c0"
+    property UITransformComponent mpFillTransform = "9a221da6-0b28-45e8-9bf4-ef9e3941fd88"
+    property TextGUIRendererComponent levelText = "c095a488-bbd8-44a1-8f97-cc543cc4abb2"
+    property TextGUIRendererComponent skillNameText = "ec6309fb-68a6-45ee-b76f-5c419708b1cd"
+    property TextGUIRendererComponent skillStatusText = "e4a77839-f995-4905-84ae-c3d3c1fc59e1"
+    property number fullWidth = 220
+    property any timerId = nil
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- Hidden by default - CharacterRosterLogic's ShowLocalPlayer/HideLocalPlayer toggle this
+        -- alongside the real avatar/nametag visibility (see those methods).
+        self.hudGroup.Enable = false
+        self.timerId = _TimerService:SetTimerRepeat(self.Tick, 1 / 10)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.timerId then
+            _TimerService:ClearTimer(self.timerId)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Tick()
+        -- Polls the local player's PlayerComponent (Hp/MaxHp) and PlayerStatsComponent
+        -- (Level/CurrentXp/XpToNextLevel) at 10Hz - simple values, no need for per-frame precision.
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return end
+
+        local pc = localPlayer.PlayerComponent
+        if isvalid(pc) and pc.MaxHp > 0 then
+            local ratio = math.max(0, math.min(1, pc.Hp / pc.MaxHp))
+            local size = self.hpFillTransform.RectSize
+            self.hpFillTransform.RectSize = Vector2(self.fullWidth * ratio, size.y)
+            self.hpText.Text = tostring(math.floor(pc.Hp)) .. " / " .. tostring(math.floor(pc.MaxHp))
+            if ratio > 0.5 then
+                self.hpFillImage.Color = Color(0, 1, 0, 1)
+            elseif ratio > 0.2 then
+                self.hpFillImage.Color = Color(1, 1, 0, 1)
+            else
+                self.hpFillImage.Color = Color(1, 0, 0, 1)
+            end
+        end
+
+        local stats = localPlayer:GetComponent("script.PlayerStatsComponent")
+        if isvalid(stats) and stats.XpToNextLevel > 0 then
+            self.levelText.Text = "Lv." .. stats.Level
+            local xpRatio = math.max(0, math.min(1, stats.CurrentXp / stats.XpToNextLevel))
+            local xpSize = self.xpFillTransform.RectSize
+            self.xpFillTransform.RectSize = Vector2(self.fullWidth * xpRatio, xpSize.y)
+
+            if stats.MaxMp > 0 then
+                local mpRatio = math.max(0, math.min(1, stats.CurrentMp / stats.MaxMp))
+                local mpSize = self.mpFillTransform.RectSize
+                self.mpFillTransform.RectSize = Vector2(self.fullWidth * mpRatio, mpSize.y)
+            end
+        end
+
+        local skill = localPlayer:GetComponent("script.PlayerSkillComponent")
+        if isvalid(skill) then
+            if skill.SkillId == "" then
+                self.skillNameText.Text = "(no skill)"
+                self.skillStatusText.Text = ""
+            else
+                local def = _SkillCatalog:GetSkillDef(skill.SkillId)
+                if def ~= nil then
+                    self.skillNameText.Text = "[Q] " .. def.name
+                    local remaining = def.cooldown - (_UtilLogic.ElapsedSeconds - skill.LastUseTime)
+                    if remaining > 0 then
+                        self.skillStatusText.Text = string.format("%.1f", remaining)
+                        self.skillStatusText.FontColor = Color(1, 0.4, 0.4, 1)
+                    else
+                        self.skillStatusText.Text = "READY"
+                        self.skillStatusText.FontColor = Color(0.49, 0.99, 0.49, 1)
+                    end
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        self.hudGroup.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        self.hudGroup.Enable = false
+    end
+
+end

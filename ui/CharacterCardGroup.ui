@@ -160,11 +160,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": 220.0,
-                "y": 280.0
+                "y": 310.0
               },
               "OffsetMin": {
                 "x": -220.0,
-                "y": -280.0
+                "y": -310.0
               },
               "Pivot": {
                 "x": 0.5,
@@ -172,7 +172,7 @@
               },
               "RectSize": {
                 "x": 440.0,
-                "y": 560.0
+                "y": 620.0
               },
               "UIMode": 1,
               "UIScale": {
@@ -311,11 +311,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": 206.0,
-                "y": 266.0
+                "y": 296.0
               },
               "OffsetMin": {
                 "x": -206.0,
-                "y": -266.0
+                "y": -296.0
               },
               "Pivot": {
                 "x": 0.5,
@@ -323,7 +323,7 @@
               },
               "RectSize": {
                 "x": 412.0,
-                "y": 532.0
+                "y": 592.0
               },
               "UIMode": 1,
               "UIScale": {
@@ -494,7 +494,7 @@
               },
               "Position": {
                 "x": 0.0,
-                "y": 238.0,
+                "y": 268.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -688,7 +688,7 @@
               },
               "Position": {
                 "x": 0.0,
-                "y": 190.0,
+                "y": 220.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -839,7 +839,7 @@
               },
               "Position": {
                 "x": 0.0,
-                "y": 174.0,
+                "y": 204.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -1033,7 +1033,7 @@
               },
               "Position": {
                 "x": 0.0,
-                "y": 118.0,
+                "y": 148.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -1227,7 +1227,7 @@
               },
               "Position": {
                 "x": 0.0,
-                "y": 66.0,
+                "y": 96.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -1378,7 +1378,7 @@
               },
               "Position": {
                 "x": -10.0,
-                "y": 57.0,
+                "y": 87.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -1572,7 +1572,7 @@
               },
               "Position": {
                 "x": -10.0,
-                "y": 27.0,
+                "y": 57.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -1766,7 +1766,7 @@
               },
               "Position": {
                 "x": -10.0,
-                "y": -3.0,
+                "y": 27.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -1960,7 +1960,7 @@
               },
               "Position": {
                 "x": -10.0,
-                "y": -33.0,
+                "y": -3.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -2085,6 +2085,250 @@
         }
       },
       {
+        "id": "9dc35212-2bd3-4d8d-baee-4e8dd0f063f7",
+        "path": "/ui/CharacterCardGroup/Card/Inner/SkillButton",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.ButtonComponent,MOD.Core.TextGUIRendererComponent",
+        "jsonString": {
+          "name": "SkillButton",
+          "path": "/ui/CharacterCardGroup/Card/Inner/SkillButton",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": true,
+          "displayOrder": 9,
+          "pathConstraints": "/////",
+          "revision": 0,
+          "origin": {
+            "type": "Model",
+            "entry_id": "UIButton",
+            "sub_entity_id": null,
+            "root_entity_id": null,
+            "replaced_model_id": null
+          },
+          "modelId": "uibutton",
+          "@components": [
+            {
+              "@type": "MOD.Core.UITransformComponent",
+              "ActivePlatform": 255,
+              "AlignmentOption": 3,
+              "AnchorsMax": {
+                "x": 0.5,
+                "y": 1.0
+              },
+              "AnchorsMin": {
+                "x": 0.5,
+                "y": 1.0
+              },
+              "MobileOnly": false,
+              "OffsetMax": {
+                "x": 180.0,
+                "y": -360.0
+              },
+              "OffsetMin": {
+                "x": -180.0,
+                "y": -400.0
+              },
+              "Pivot": {
+                "x": 0.5,
+                "y": 1.0
+              },
+              "RectSize": {
+                "x": 360.0,
+                "y": 40.0
+              },
+              "UIMode": 1,
+              "UIScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              },
+              "UIVersion": 2,
+              "anchoredPosition": {
+                "x": 0.0,
+                "y": -360.0
+              },
+              "Rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "Position": {
+                "x": 0.0,
+                "y": -64.0,
+                "z": 0.0
+              },
+              "QuaternionRotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+              },
+              "Scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              },
+              "ZRotation": 0.0,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteGUIRendererComponent",
+              "AnimClipPlayType": 0,
+              "EndFrameIndex": 2147483647,
+              "IgnoreMapLayerCheck": false,
+              "ImageRUID": {
+                "DataId": "2860136c06ab075439721c027de365af"
+              },
+              "LocalPosition": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "LocalScale": {
+                "x": 1.0,
+                "y": 1.0
+              },
+              "MaterialId": "",
+              "OrderInLayer": 0,
+              "OverrideSorting": false,
+              "PlayRate": 1.0,
+              "PreserveSprite": 0,
+              "SortingLayer": "UI",
+              "StartFrameIndex": 0,
+              "Color": {
+                "r": 0.18,
+                "g": 0.14,
+                "b": 0.06,
+                "a": 0.9
+              },
+              "DropShadow": false,
+              "DropShadowAngle": 120.0,
+              "DropShadowColor": {
+                "r": 0.0,
+                "g": 0.0,
+                "b": 0.0,
+                "a": 0.72
+              },
+              "DropShadowDistance": 3.0,
+              "FillAmount": 1.0,
+              "FillCenter": true,
+              "FillClockWise": true,
+              "FillMethod": 0,
+              "FillOrigin": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "FrameColumn": 1,
+              "FrameRate": 0,
+              "FrameRow": 1,
+              "Outline": false,
+              "OutlineColor": {
+                "r": 0.0,
+                "g": 0.0,
+                "b": 0.0,
+                "a": 1.0
+              },
+              "OutlineWidth": 3.0,
+              "RaycastTarget": true,
+              "Type": 1,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.ButtonComponent",
+              "Colors": {
+                "NormalColor": {
+                  "r": 1.0,
+                  "g": 1.0,
+                  "b": 1.0,
+                  "a": 1.0
+                },
+                "HighlightedColor": {
+                  "r": 0.9607843,
+                  "g": 0.9607843,
+                  "b": 0.9607843,
+                  "a": 1.0
+                },
+                "PressedColor": {
+                  "r": 0.784313738,
+                  "g": 0.784313738,
+                  "b": 0.784313738,
+                  "a": 1.0
+                },
+                "SelectedColor": {
+                  "r": 0.9607843,
+                  "g": 0.9607843,
+                  "b": 0.9607843,
+                  "a": 1.0
+                },
+                "DisabledColor": {
+                  "r": 0.784313738,
+                  "g": 0.784313738,
+                  "b": 0.784313738,
+                  "a": 0.5019608
+                },
+                "ColorMultiplier": 1.0,
+                "FadeDuration": 0.1
+              },
+              "IgnoreMapLayerCheck": false,
+              "ImageRUIDs": {
+                "HighlightedSprite": null,
+                "PressedSprite": null,
+                "SelectedSprite": null,
+                "DisabledSprite": null
+              },
+              "KeyCode": 0,
+              "OrderInLayer": 0,
+              "OverrideSorting": false,
+              "SortingLayer": "UI",
+              "Transition": 1,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TextGUIRendererComponent",
+              "BestFit": false,
+              "ConstraintX": 100.0,
+              "ConstraintY": 100.0,
+              "Font": "Default",
+              "FontColor": {
+                "r": 1.0,
+                "g": 0.9529412,
+                "b": 0.7529412,
+                "a": 1.0
+              },
+              "FontSize": 20.0,
+              "FontStyle": 0,
+              "HorizontalAlignment": 2,
+              "IgnoreMapLayerCheck": false,
+              "MaxSize": 40.0,
+              "MinSize": 10.0,
+              "OrderInLayer": 0,
+              "OutlineColor": {
+                "r": 0.0,
+                "g": 0.0,
+                "b": 0.0,
+                "a": 1.0
+              },
+              "OutlineWidth": 0.0,
+              "Overflow": 0,
+              "OverrideSorting": false,
+              "Padding": {
+                "left": 0,
+                "right": 0,
+                "top": 0,
+                "bottom": 0
+              },
+              "SizeFit": false,
+              "SortingLayer": "UI",
+              "Text": "스킬: (미정) [탭하여 변경]",
+              "Underlay": false,
+              "UseConstraintX": false,
+              "UseConstraintY": false,
+              "VerticalAlignment": 512,
+              "Enable": true
+            }
+          ],
+          "@version": 1
+        }
+      },
+      {
         "id": "76ac4c94-3e54-4231-b304-71419dbfb8f6",
         "path": "/ui/CharacterCardGroup/Card/CornerTL",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
@@ -2154,7 +2398,7 @@
               },
               "Position": {
                 "x": -214.0,
-                "y": 274.0,
+                "y": 304.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -2305,7 +2549,7 @@
               },
               "Position": {
                 "x": 214.0,
-                "y": 274.0,
+                "y": 304.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -2456,7 +2700,7 @@
               },
               "Position": {
                 "x": -214.0,
-                "y": -274.0,
+                "y": -304.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -2607,7 +2851,7 @@
               },
               "Position": {
                 "x": 214.0,
-                "y": -274.0,
+                "y": -304.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -2758,7 +3002,7 @@
               },
               "Position": {
                 "x": 0.0,
-                "y": -192.0,
+                "y": -222.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -3002,7 +3246,7 @@
               },
               "Position": {
                 "x": 196.0,
-                "y": 256.0,
+                "y": 286.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -3246,7 +3490,7 @@
               },
               "Position": {
                 "x": 196.0,
-                "y": -256.0,
+                "y": -286.0,
                 "z": 0.0
               },
               "QuaternionRotation": {

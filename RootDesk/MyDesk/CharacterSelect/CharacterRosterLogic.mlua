@@ -236,7 +236,7 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("Server")
-    method void SwapActiveCharacter(table look, table equipment, Vector3 standeePos)
+    method void SwapActiveCharacter(table look, table equipment, table stats, Vector3 standeePos, string skillId)
         -- Called from the Lobby when the player clicks a different owned character's standee.
         -- Re-skins the player AND moves them to the clicked standee's spot - the character you just
         -- took control of should be movable from where it was standing, not from wherever the
@@ -246,6 +246,14 @@ script CharacterRosterLogic extends Logic
             return
         end
         self:ApplyLookToPlayer(player, look, equipment)
+        local statsComp = player:GetComponent("script.PlayerStatsComponent")
+        if isvalid(statsComp) then
+            statsComp:ApplyStats(stats)
+        end
+        local skillComp = player:GetComponent("script.PlayerSkillComponent")
+        if isvalid(skillComp) and skillId ~= nil then
+            skillComp:SetSkillId(skillId)
+        end
         _TeleportService:TeleportToMapPosition(player, standeePos, "Lobby")
     end
 
@@ -277,6 +285,8 @@ script CharacterRosterLogic extends Logic
         if isvalid(localPlayer.NameTagComponent) then
             localPlayer.NameTagComponent.Enable = false
         end
+        _PlayerHUDController:Hide()
+        self:SetBottomBarVisible(false)
         log("CharacterRoster: HideLocalPlayer, hid local player avatar/nametag")
     end
 
@@ -301,7 +311,30 @@ script CharacterRosterLogic extends Logic
         if isvalid(localPlayer.AvatarRendererComponent) then
             localPlayer.AvatarRendererComponent.Enable = true
         end
+        _PlayerHUDController:Show()
+        self:SetBottomBarVisible(true)
         log("CharacterRoster: ShowLocalPlayer, restored local player avatar visibility (nametag stays hidden)")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetBottomBarVisible(boolean visible)
+        -- BottomBarController is a @Component on /ui/BottomBarGroup's root (matching
+        -- EquipmentUIController/InventoryUIController's pattern), not a @Logic singleton like
+        -- _PlayerHUDController - so it's reached via entity-path lookup instead of a direct
+        -- _BottomBarController call.
+        local barGroup = _EntityService:GetEntityByPath("/ui/BottomBarGroup")
+        if not isvalid(barGroup) then
+            return
+        end
+        local bar = barGroup:GetComponent("script.BottomBarController")
+        if not isvalid(bar) then
+            return
+        end
+        if visible then
+            bar:Show()
+        else
+            bar:Hide()
+        end
     end
 
     @ExecSpace("Server")

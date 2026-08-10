@@ -1,0 +1,64 @@
+@Component
+script SettingsUIController extends Component
+    -- Minimal settings popup stub, opened from the bottom bar's "설정" button (see AGENTS.md's
+    -- latest UI-split request). No actual settings exist yet in this project - this is just the
+    -- window shell so the bottom bar's 4 buttons are all wired, ready to grow real options later.
+    property Entity btnClose = "6104a159-3a26-4295-8669-a7d20e3701be"
+    -- Title-bar drag strip (left of the close button) + the window panel it moves - lets the
+    -- player reposition the window by mouse-down-dragging the title, matching classic MapleStory
+    -- window behavior (see AGENTS.md's window-drag request).
+    property Entity dragHandle = "1e8644e5-2095-455a-a040-956fcec66d4b"
+    property UITransformComponent cardTransform = "8bf82fcd-7253-4829-ab55-99b486ebbd41"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.handlers = {}
+        local h = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        table.insert(self._T.handlers, { entity = self.btnClose, eventType = ButtonClickEvent, eventHandler = h })
+        if isvalid(self.dragHandle) then
+            local hDrag = self.dragHandle:ConnectEvent(UITouchDragEvent, self.OnDrag)
+            table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDragEvent, eventHandler = hDrag })
+        end
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(rec.eventType, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnDrag(UITouchDragEvent event)
+        -- Moves the whole window panel by the drag delta - only the title-bar strip
+        -- (dragHandle) generates this event, so clicks inside the window body are unaffected.
+        if not isvalid(self.cardTransform) then return end
+        local pos = self.cardTransform.anchoredPosition
+        self.cardTransform.anchoredPosition = Vector2(pos.x + event.TouchDelta.x, pos.y + event.TouchDelta.y)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        self.Entity.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Toggle()
+        if self.Entity.Enable then
+            self:Hide()
+        else
+            self:Show()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        self:Hide()
+    end
+end

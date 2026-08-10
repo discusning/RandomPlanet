@@ -1,0 +1,227 @@
+@Component
+script InventoryUIController extends Component
+    -- Inventory popup controller - split out of the old combined EquipmentGroup.ui (see
+    -- AGENTS.md's latest UI-split request: Equipment and Inventory are now separate windows).
+    -- A 4x4 classic-MapleStory item grid. Clicking a gear slot equips it immediately (auto-routes
+    -- to its matching Equipment slot); clicking a scroll slot arms it for use in the Equipment
+    -- window (shared selection lives in EquipmentLogic.selectedInventoryIndex).
+    property Entity btnClose = "83ec823b-e7ad-4a12-8126-551b85efa6ce"
+    property Entity slot1 = "7fcaaf35-8920-424b-acb3-08e80f533861"
+    property Entity slot2 = "a87801e4-43ae-490c-aad8-f8edc96c9218"
+    property Entity slot3 = "7ac08fd2-aa67-4931-8f7b-62cc69bd3fa2"
+    property Entity slot4 = "d8e52815-f5a2-4edf-aa5b-01dc71d3ab2f"
+    property Entity slot5 = "2407bfef-7437-4aad-939d-55cecdd44ccc"
+    property Entity slot6 = "38af8347-10c6-4f9e-9736-1b2e42faf538"
+    property Entity slot7 = "d498d786-833a-4441-8d09-5b190f3a7e6d"
+    property Entity slot8 = "db900423-db3e-4f29-ab02-a5d77ed1c7a1"
+    property Entity slot9 = "4b87d5c1-e23a-4a81-8d5c-20d47e47a4c1"
+    property Entity slot10 = "1b65de0b-0d3f-43e3-b02c-47a47dfb9ecf"
+    property Entity slot11 = "04b25961-4fa0-4152-bde4-f8c903396bfd"
+    property Entity slot12 = "30daddd0-a237-4d7c-92fe-2b227589cf26"
+    property Entity slot13 = "ce00f569-4de4-476a-9c60-6ab5825df5a8"
+    property Entity slot14 = "c8cd508e-9cc8-435c-a7e2-0d4e24467cac"
+    property Entity slot15 = "84225077-1356-42e0-bec7-9c9818d60f14"
+    property Entity slot16 = "fba37843-ac00-437a-8a75-8c1cf7ae5b07"
+    property Entity name1 = "98b21209-033b-42ef-860c-989e68b76fa4"
+    property Entity name2 = "b5ba58e6-2318-47a6-804a-b981212f6a61"
+    property Entity name3 = "6d003a5e-f28a-447b-a01d-e15cecf8ee74"
+    property Entity name4 = "379ad9bb-e8c5-415c-8a40-94c5ea449a66"
+    property Entity name5 = "5ca135c9-6fce-444f-bfe0-6aab203d4f50"
+    property Entity name6 = "4eb7fecd-e449-4932-8be9-e8620f6bcc0d"
+    property Entity name7 = "4baf9e70-3bb1-4abe-b114-53fd8f432c53"
+    property Entity name8 = "65ee76c5-aec8-4533-ac85-5b7f48b5fd83"
+    property Entity name9 = "1bce1756-eabc-46c2-8bcb-2f73c8fa139f"
+    property Entity name10 = "b58096c3-9213-474d-9f31-d7917bb86a97"
+    property Entity name11 = "a3832a19-33ae-42c8-a50f-abf23545d46c"
+    property Entity name12 = "4f3dbac8-7bda-4675-a3e5-909fe9f43cf9"
+    property Entity name13 = "50ac49be-e7a5-4a3d-8431-ea512cc8e423"
+    property Entity name14 = "fec30145-fb41-4333-8ee4-a888ba09f568"
+    property Entity name15 = "fc2f4bca-131b-4471-92cd-05bd4ba7f8d9"
+    property Entity name16 = "9628b939-6b95-4c70-b292-75933211ccc7"
+    -- Title-bar drag strip (left of the close button) + the window panel it moves - lets the
+    -- player reposition the window by mouse-down-dragging the title, matching classic MapleStory
+    -- window behavior (see AGENTS.md's window-drag request).
+    property Entity dragHandle = "74008532-eea8-48e7-a2d5-3ecf3c0dcafb"
+    property UITransformComponent cardTransform = "d2f17650-547d-498f-bc83-781f11aeb260"
+    -- Neutral slot background RUID (same sprite every slot was built with) - Refresh must reset
+    -- ImageRUID back to this for empty/scroll slots, or a stale gear thumbnail from before an
+    -- inventory shift (table.remove shifts every later item down one slot on equip) keeps
+    -- rendering under the wrong tint - same bug class found in EquipmentUIController's unequip.
+    property string DefaultSlotRUID = "2860136c06ab075439721c027de365af"
+
+    method Color _EmptyColor()
+        return Color(0.86, 0.75, 0.52, 0.35)
+    end
+
+    method Color _GearColor()
+        return Color(1, 1, 1, 1)
+    end
+
+    method Color _ScrollNeutralColor()
+        return Color(0.55, 0.42, 0.72, 1)
+    end
+
+    method Color _ScrollSelectedColor()
+        return Color(0.85, 0.65, 0.18, 1)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.handlers = {}
+        self._T.slots = {
+            self.slot1, self.slot2, self.slot3, self.slot4, self.slot5, self.slot6, self.slot7, self.slot8,
+            self.slot9, self.slot10, self.slot11, self.slot12, self.slot13, self.slot14, self.slot15, self.slot16,
+        }
+        self._T.names = {
+            self.name1, self.name2, self.name3, self.name4, self.name5, self.name6, self.name7, self.name8,
+            self.name9, self.name10, self.name11, self.name12, self.name13, self.name14, self.name15, self.name16,
+        }
+
+        local hClose = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        table.insert(self._T.handlers, { entity = self.btnClose, eventType = ButtonClickEvent, eventHandler = hClose })
+
+        for i, btn in ipairs(self._T.slots) do
+            local capturedIndex = i
+            local h = btn:ConnectEvent(ButtonClickEvent, function() self:OnSlotClicked(capturedIndex) end)
+            table.insert(self._T.handlers, { entity = btn, eventType = ButtonClickEvent, eventHandler = h })
+        end
+
+        if isvalid(self.dragHandle) then
+            local hDrag = self.dragHandle:ConnectEvent(UITouchDragEvent, self.OnDrag)
+            table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDragEvent, eventHandler = hDrag })
+        end
+
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(rec.eventType, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnDrag(UITouchDragEvent event)
+        -- Moves the whole window panel by the drag delta - only the title-bar strip
+        -- (dragHandle) generates this event, so clicks inside the item grid are unaffected.
+        if not isvalid(self.cardTransform) then return end
+        local pos = self.cardTransform.anchoredPosition
+        self.cardTransform.anchoredPosition = Vector2(pos.x + event.TouchDelta.x, pos.y + event.TouchDelta.y)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        self.Entity.Enable = true
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Toggle()
+        if self.Entity.Enable then
+            self:Hide()
+        else
+            self:Show()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetActiveCharacterData()
+        local activeIdx = _CharacterRosterLogic:GetActiveIndex()
+        if activeIdx == nil then
+            return nil
+        end
+        local roster = _CharacterRosterLogic:GetRoster()
+        return roster[activeIdx]
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        local data = self:GetActiveCharacterData()
+        if data == nil then
+            self:Hide()
+            return
+        end
+        local inventory = data.inventory or {}
+        local selectedIdx = _EquipmentLogic:GetSelectedInventoryIndex()
+
+        for i, btn in ipairs(self._T.slots) do
+            local inst = inventory[i]
+            local nameText = self._T.names[i].TextGUIRendererComponent
+            local sprite = btn.SpriteGUIRendererComponent
+            if inst == nil then
+                sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
+                sprite.Color = self:_EmptyColor()
+                nameText.Text = ""
+            elseif inst.itemId ~= nil then
+                local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
+                if tpl ~= nil and tpl.ruid ~= nil and tpl.ruid ~= "" then
+                    sprite.ImageRUID = DataRef("thumbnail://" .. tpl.ruid)
+                else
+                    sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
+                end
+                sprite.Color = self:_GearColor()
+                nameText.Text = (tpl ~= nil) and (tpl.name .. " (" .. inst.upgradesUsed .. "/" .. tpl.maxUpgradeSlots .. ")") or "?"
+            else
+                local tpl = _EquipmentLogic:GetScrollTemplate(inst.scrollId)
+                sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
+                sprite.Color = (selectedIdx == i) and self:_ScrollSelectedColor() or self:_ScrollNeutralColor()
+                nameText.Text = (tpl ~= nil) and tpl.name or "?"
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotClicked(integer index)
+        local data = self:GetActiveCharacterData()
+        if data == nil then
+            return
+        end
+        local inst = (data.inventory or {})[index]
+        if inst == nil then
+            return
+        end
+
+        if inst.itemId ~= nil then
+            -- Gear: single click equips immediately, auto-routed to its matching Equipment slot.
+            local changed = _EquipmentLogic:EquipItem(data, index)
+            if changed then
+                _CharacterRosterLogic:RequestApplyEquipmentToPlayer(data.equipment)
+                _CharacterRosterLogic:SaveRoster()
+                self:Refresh()
+                self:RefreshEquipmentWindowIfOpen()
+            end
+        else
+            -- Scroll: toggle arm/disarm. Applying it happens by clicking a slot in the Equipment
+            -- window (shared state - see EquipmentLogic.selectedInventoryIndex).
+            local current = _EquipmentLogic:GetSelectedInventoryIndex()
+            if current == index then
+                _EquipmentLogic:SetSelectedInventoryIndex(nil)
+            else
+                _EquipmentLogic:SetSelectedInventoryIndex(index)
+            end
+            self:Refresh()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshEquipmentWindowIfOpen()
+        local eqGroup = _EntityService:GetEntityByPath("/ui/EquipmentGroup")
+        if isvalid(eqGroup) and eqGroup.Enable then
+            local eqController = eqGroup:GetComponent("script.EquipmentUIController")
+            if isvalid(eqController) then
+                eqController:Refresh()
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        self:Hide()
+    end
+end

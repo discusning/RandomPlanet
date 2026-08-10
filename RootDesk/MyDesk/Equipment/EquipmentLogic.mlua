@@ -3,6 +3,10 @@ script EquipmentLogic extends Logic
 
     property string ItemsDataSetName = "EquipmentItems"
     property string ScrollsDataSetName = "EquipmentScrolls"
+    -- Client-local UI selection state shared between the (now separate) Inventory and Equipment
+    -- windows: selecting a scroll in the Inventory window, then clicking a slot in the Equipment
+    -- window, applies it. Never synced/persisted - pure transient UI state.
+    property any selectedInventoryIndex = nil
 
     method void OnBeginPlay()
         -- Unannotated (not ClientOnly) so both the client process's instance AND the server
@@ -45,6 +49,18 @@ script EquipmentLogic extends Logic
             }
         end
         log("EquipmentLogic: catalogs loaded, items=" .. #self:ListItemTemplates() .. " scrolls=" .. #self:ListScrollTemplates())
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetSelectedInventoryIndex(any index)
+        -- Records which inventory slot (a scroll) is "armed" so the Equipment window's slot click
+        -- knows to apply a scroll instead of equipping/unequipping. Pass nil to clear selection.
+        self.selectedInventoryIndex = index
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetSelectedInventoryIndex()
+        return self.selectedInventoryIndex
     end
 
     method table GetSlotList()

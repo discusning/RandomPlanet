@@ -1,0 +1,128 @@
+@Component
+script PlayerStatsComponent extends Component
+    -- Implements Docs/랜덤 플래닛 전체 기획서.md §2-2 + §8-1's official STR/DEX/INT/LUK effect table.
+    -- MaxHp is deliberately NOT derived from any of the 4 stats here - the design doc only ever
+    -- grants HP via traits (강건함/약골/etc., Phase 3+) or level, never a base stat.
+    -- INT's primary effects (스킬 데미지, 스킬 쿨다운 감소) and STR's secondary (넉백 저항) and LUK's
+    -- secondary (회피) are computed and stored below but have no consumer yet - no skill system
+    -- (Phase 3) and no monster-attacks-player pipeline exist in this project yet. MaxMp is the one
+    -- INT effect that's concretely real today (a resource number + HUD bar), even with nothing
+    -- spending it yet, per the GDD's own HUD spec ("HP/MP 바, 경험치·레벨...").
+
+    @Sync property integer Str = 1
+    @Sync property integer Dex = 1
+    @Sync property integer Intel = 1
+    @Sync property integer Luk = 1
+    @Sync property integer Level = 1
+    @Sync property integer CurrentXp = 0
+    @Sync property integer XpToNextLevel = 100
+    @Sync property integer MaxMp = 0
+    @Sync property integer CurrentMp = 0
+    -- Inert until Phase 3+ wires them into a real consumer (see comment above).
+    @Sync property number SkillDamageBonus = 0
+    @Sync property number SkillCooldownReduction = 0
+    @Sync property number EvasionPercent = 0
+    @Sync property number KnockbackResistance = 0
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- Seeds sane combat defaults before the real roster stats arrive via ApplyStats
+        -- (RequestEnterGame / SwapActiveCharacter), so the player never starts at 0 damage.
+        self:RecalculateDerived()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyStats(table stats)
+        -- stats = { str, dex, intel, luk, level } - effective (base + equipment bonus) values
+        -- computed client-side by EquipmentLogic:GetEffectiveStat, crossed over the
+        -- RequestEnterGame / SwapActiveCharacter RPC boundary alongside look/equipment.
+        self.Str = stats.str
+        self.Dex = stats.dex
+        self.Intel = stats.intel
+        self.Luk = stats.luk
+        self.Level = stats.level
+        self.CurrentXp = 0
+        self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
+        self:RecalculateDerived()
+        log("PlayerStats: ApplyStats str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " level=" .. self.Level)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantXp(integer amount)
+        -- Adds kill XP and auto-levels in a loop (no player choice yet - Phase 3 replaces this with
+        -- a 3-way level-up pick). Each level bumps all four stats by 1 and fully heals/restores MP.
+        self.CurrentXp = self.CurrentXp + amount
+        while self.CurrentXp >= self.XpToNextLevel do
+            self.CurrentXp = self.CurrentXp - self.XpToNextLevel
+            self.Level = self.Level + 1
+            self.Str = self.Str + 1
+            self.Dex = self.Dex + 1
+            self.Intel = self.Intel + 1
+            self.Luk = self.Luk + 1
+            self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
+            log("PlayerStats: level up -> " .. self.Level)
+        end
+        self:RecalculateDerived()
+    end
+
+    method integer ComputeXpToNextLevel(integer level)
+        -- Simple linear ramp (MVP) - 100 at level 1, +50 per level thereafter.
+        return 100 + (level - 1) * 50
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RecalculateDerived()
+        -- Pushes the current base stats into the real combat-facing components/properties, following
+        -- Docs/랜덤 플래닛 전체 기획서.md §8-1's official per-point coefficients. Called on every stat
+        -- change (initial apply, level-up) so nothing else needs to poll for changes.
+        local player = self.Entity.PlayerComponent
+        if isvalid(player) then
+            local maxHp = 50 + self.Level * 10
+            player.MaxHp = maxHp
+            player.Hp = maxHp
+        end
+
+        -- INT primary: 최대 MP +3/pt (real resource). Skill damage bonus is inert until Phase 3.
+        self.MaxMp = 20 + self.Intel * 3
+        self.CurrentMp = self.MaxMp
+        self.SkillDamageBonus = self.Intel * 0.015
+        -- INT secondary: 스킬 쿨다운 감소 - inert until Phase 3 (no skill system yet).
+        self.SkillCooldownReduction = math.min(0.5, self.Intel * 0.01)
+        -- STR secondary: 넉백 저항 - inert until a monster-attacks-player pipeline exists.
+        self.KnockbackResistance = math.min(0.8, self.Str * 0.02)
+        -- LUK secondary: 회피 +0.2%/pt - inert until a monster-attacks-player pipeline exists.
+        self.EvasionPercent = self.Luk * 0.002
+
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if isvalid(attack) then
+            -- STR primary: 물리 공격력. 기획서 원안은 +2/pt이지만, STR이 캡 없는 선형 증가인 반면
+            -- DEX(공격속도, 상한+100%)/LUK(크리확률, 상한60%)는 %기반+상한이 있어 몰빵 시 순수 DPS가
+            -- 2.8~3배까지 벌어짐(실측 2026-08-06) - 사용자 결정에 따라 +1.5/pt로 소폭 완화.
+            attack.AttackDamage = 10 + self.Str * 1.5
+            -- LUK primary: 크리 확률 +0.3%/pt (상한 60%), 크리 데미지 +0.5%/pt.
+            attack.CriticalChance = math.min(0.6, 0.05 + self.Luk * 0.003)
+            attack.CritDamageMultiplier = math.min(3.0, 1.5 + self.Luk * 0.005)
+            -- DEX primary: 공격 속도 +0.5%/pt (상한 +100%) -> cooldown shrinks proportionally.
+            local attackSpeedBonus = math.min(1.0, self.Dex * 0.005)
+            attack.AttackCooldownSeconds = 0.6 / (1 + attackSpeedBonus)
+            -- DEX primary: 명중 +1/pt.
+            attack.Accuracy = 90 + self.Dex * 1
+        end
+
+        -- DEX secondary: 이동 속도 (no official per-point number in the design doc - tuned value).
+        local move = self.Entity.MovementComponent
+        if isvalid(move) then
+            move.InputSpeed = 3.0 + self.Dex * 0.08
+        end
+
+        local attackDamage = isvalid(attack) and attack.AttackDamage or -1
+        local critChance = isvalid(attack) and attack.CriticalChance or -1
+        local critMult = isvalid(attack) and attack.CritDamageMultiplier or -1
+        local cooldown = isvalid(attack) and attack.AttackCooldownSeconds or -1
+        local accuracy = isvalid(attack) and attack.Accuracy or -1
+        local inputSpeed = isvalid(move) and move.InputSpeed or -1
+        local maxHp = isvalid(player) and player.MaxHp or -1
+        log("PlayerStats: RecalculateDerived maxHp=" .. maxHp .. " maxMp=" .. self.MaxMp .. " attackDamage=" .. attackDamage .. " critChance=" .. critChance .. " critMult=" .. critMult .. " cooldown=" .. cooldown .. " accuracy=" .. accuracy .. " inputSpeed=" .. inputSpeed)
+    end
+
+end

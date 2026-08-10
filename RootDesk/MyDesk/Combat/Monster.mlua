@@ -8,6 +8,11 @@ script Monster extends Component
     @Sync property number RespawnDelay = 5
     @Sync property number DestroyDelay = 0.6
     property string DamageSkinRUID = "02c22d93421b4038b3c413b3e40b57ec"
+    property integer XpReward = 20
+    -- Countered by the attacker's DEX-driven Accuracy stat (PlayerAttack.IsAttackTarget) - see
+    -- Docs/랜덤 플래닛 전체 기획서.md §2-2 (민첩 -> 명중). 0 for a basic monster like this test slime;
+    -- future tougher/evasive monster types can raise it.
+    property number Evasion = 0
 
     method void OnBeginPlay()
         -- Initializes HP and wires the defender-side damage skin id.
@@ -50,9 +55,21 @@ script Monster extends Component
         local originalHp = self.Hp
         self.Hp = self.Hp - event.TotalDamage
         if self.Hp > 0 or originalHp <= 0 then return end
+        self:GrantXpToAttacker(event.AttackerEntity)
         self:Dead()
         if self.RespawnOn then
             _TimerService:SetTimerOnce(function() self:Respawn() end, self.RespawnDelay)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantXpToAttacker(Entity attacker)
+        -- Awards this monster's XpReward to the killer's PlayerStatsComponent, if any (a monster
+        -- killed with no recorded attacker simply grants nothing).
+        if not isvalid(attacker) then return end
+        local stats = attacker:GetComponent("script.PlayerStatsComponent")
+        if isvalid(stats) then
+            stats:GrantXp(self.XpReward)
         end
     end
 

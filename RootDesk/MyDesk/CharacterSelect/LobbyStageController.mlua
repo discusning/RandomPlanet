@@ -129,8 +129,18 @@ script LobbyStageController extends Component
             return
         end
         local standeePos = standee.TransformComponent.WorldPosition
+        -- Effective (base + equipment bonus) stats - see CharacterCardController.OnPlayClicked's
+        -- comment for why this is computed here (ClientOnly GetEffectiveStat) rather than server-side.
+        local stats = {
+            str = _EquipmentLogic:GetEffectiveStat(data, "str"),
+            dex = _EquipmentLogic:GetEffectiveStat(data, "dex"),
+            intel = _EquipmentLogic:GetEffectiveStat(data, "int"),
+            luk = _EquipmentLogic:GetEffectiveStat(data, "luk"),
+            level = data.level,
+        }
         _CharacterRosterLogic:SetActiveIndex(idx)
-        _CharacterRosterLogic:SwapActiveCharacter(data.look, data.equipment, standeePos)
+        local swapSkillId = data.skillId
+        _CharacterRosterLogic:SwapActiveCharacter(data.look, data.equipment, stats, standeePos, swapSkillId)
         self:RefreshLobbyStandees()
         log("LobbyStage: swapped active character to slot " .. idx)
     end
@@ -183,13 +193,15 @@ script LobbyStageController extends Component
         -- below for the "am I standing on it" check) and visible sprite - only the destination-link
         -- half of the native system is replaced.
         if event.key == KeyboardKey.I then
-            -- Equipment UI toggle - matches the msw-packages inventory-package's own "I" convention.
+            -- Inventory UI toggle - classic MapleStory's own "I" convention (Equipment and
+            -- Inventory are now separate windows; the bottom nav bar covers both plus Character
+            -- Info/Settings, but this shortcut is kept as a bonus for the inventory specifically).
             -- Global overlay layer (/ui/*), safe to look up fresh every press (see the
             -- CharacterCardController.GetMapController comment for why /ui/* doesn't go stale
             -- across map transitions the way a /maps/* reference would).
-            local equipGroup = _EntityService:GetEntityByPath("/ui/EquipmentGroup")
-            if isvalid(equipGroup) then
-                local controller = equipGroup:GetComponent("script.EquipmentUIController")
+            local invGroup = _EntityService:GetEntityByPath("/ui/InventoryGroup")
+            if isvalid(invGroup) then
+                local controller = invGroup:GetComponent("script.InventoryUIController")
                 if isvalid(controller) then
                     controller:Toggle()
                 end

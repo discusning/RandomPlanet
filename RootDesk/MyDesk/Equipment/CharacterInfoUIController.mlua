@@ -1,0 +1,95 @@
+@Component
+script CharacterInfoUIController extends Component
+    -- Read-only character info sheet, opened from the bottom bar's "캐릭터" button (see
+    -- AGENTS.md's latest UI-split request for a dedicated character-info window).
+    property Entity btnClose = "d1c7f6b7-2244-4be3-86bb-6a963738f266"
+    property Entity levelText = "b548eee5-933f-4f28-bd5b-1f5ef620c349"
+    property Entity traitText = "6bab7344-dc5c-4674-8005-867e4daefaae"
+    property Entity statSTR = "05d246d4-2db4-4b6e-bbf8-d9af590ab4f9"
+    property Entity statDEX = "19d96f45-b6c8-412d-8149-2f7a9c173494"
+    property Entity statINT = "0a46e2a0-0bac-44fa-bbbf-5916f57a8308"
+    property Entity statLUK = "2fcd5bfc-233b-43d8-b451-f91f4c84c54b"
+    -- Title-bar drag strip (left of the close button) + the window panel it moves - lets the
+    -- player reposition the window by mouse-down-dragging the title, matching classic MapleStory
+    -- window behavior (see AGENTS.md's window-drag request).
+    property Entity dragHandle = "691c5981-6a6b-4dd5-848d-4f2bd752db33"
+    property UITransformComponent cardTransform = "b03312f3-955d-465d-ad4b-c69f867ce563"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.handlers = {}
+        local h = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        table.insert(self._T.handlers, { entity = self.btnClose, eventType = ButtonClickEvent, eventHandler = h })
+        if isvalid(self.dragHandle) then
+            local hDown = self.dragHandle:ConnectEvent(UITouchDownEvent, function(e) log("DEBUG: DragHandle UITouchDownEvent fired") end)
+            table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDownEvent, eventHandler = hDown })
+            local hDrag = self.dragHandle:ConnectEvent(UITouchDragEvent, self.OnDrag)
+            table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDragEvent, eventHandler = hDrag })
+            log("DEBUG: drag handlers connected successfully, dragHandle valid=" .. tostring(isvalid(self.dragHandle)))
+        else
+            log("DEBUG: dragHandle NOT valid, skipping connection")
+        end
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(rec.eventType, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnDrag(UITouchDragEvent event)
+        -- Moves the whole window panel by the drag delta - only the title-bar strip
+        -- (dragHandle) generates this event, so clicks inside the window body are unaffected.
+        if not isvalid(self.cardTransform) then return end
+        local pos = self.cardTransform.anchoredPosition
+        self.cardTransform.anchoredPosition = Vector2(pos.x + event.TouchDelta.x, pos.y + event.TouchDelta.y)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        self.Entity.Enable = true
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Toggle()
+        if self.Entity.Enable then
+            self:Hide()
+        else
+            self:Show()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        local activeIdx = _CharacterRosterLogic:GetActiveIndex()
+        if activeIdx == nil then
+            self:Hide()
+            return
+        end
+        local data = _CharacterRosterLogic:GetRoster()[activeIdx]
+        if data == nil then
+            self:Hide()
+            return
+        end
+        self.levelText.TextGUIRendererComponent.Text = "Lv. " .. tostring(data.level or 1)
+        self.traitText.TextGUIRendererComponent.Text = data.trait or ""
+        self.statSTR.TextGUIRendererComponent.Text = "STR  " .. _EquipmentLogic:GetEffectiveStat(data, "str")
+        self.statDEX.TextGUIRendererComponent.Text = "DEX  " .. _EquipmentLogic:GetEffectiveStat(data, "dex")
+        self.statINT.TextGUIRendererComponent.Text = "INT  " .. _EquipmentLogic:GetEffectiveStat(data, "int")
+        self.statLUK.TextGUIRendererComponent.Text = "LUK  " .. _EquipmentLogic:GetEffectiveStat(data, "luk")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        self:Hide()
+    end
+end

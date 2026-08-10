@@ -1,0 +1,89 @@
+@Component
+script BottomBarController extends Component
+    -- Bottom-of-screen navigation bar: 4 buttons (캐릭터/인벤토리/장비/설정) instead of relying
+    -- purely on keybinds (see AGENTS.md's latest UI-split request - "단축키만 쓰면 복잡해지니
+    -- 하단에 버튼 UI로"). Shown/hidden alongside PlayerHUDController by CharacterRosterLogic's
+    -- ShowLocalPlayer/HideLocalPlayer, matching that existing pattern.
+    property Entity btnCharacter = "35b552a0-2b40-4c80-92ce-2d0c7a317460"
+    property Entity btnInventory = "795efb46-1da8-43d2-89da-c68816636fc4"
+    property Entity btnEquipment = "40dbcbd6-cbc0-426d-9a0a-a58d5937dcbe"
+    property Entity btnSettings = "53330b64-ec9c-4a55-b746-fa331a9ab80c"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.handlers = {}
+        local hC = self.btnCharacter:ConnectEvent(ButtonClickEvent, self.OnCharacterClicked)
+        table.insert(self._T.handlers, { entity = self.btnCharacter, eventHandler = hC })
+        local hI = self.btnInventory:ConnectEvent(ButtonClickEvent, self.OnInventoryClicked)
+        table.insert(self._T.handlers, { entity = self.btnInventory, eventHandler = hI })
+        local hE = self.btnEquipment:ConnectEvent(ButtonClickEvent, self.OnEquipmentClicked)
+        table.insert(self._T.handlers, { entity = self.btnEquipment, eventHandler = hE })
+        local hS = self.btnSettings:ConnectEvent(ButtonClickEvent, self.OnSettingsClicked)
+        table.insert(self._T.handlers, { entity = self.btnSettings, eventHandler = hS })
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        self.Entity.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        self.Entity.Enable = false
+        -- Close every sub-window too so nothing lingers open across a map/select transition.
+        self:CloseWindow("/ui/CharacterInfoGroup", "script.CharacterInfoUIController")
+        self:CloseWindow("/ui/InventoryGroup", "script.InventoryUIController")
+        self:CloseWindow("/ui/EquipmentGroup", "script.EquipmentUIController")
+        self:CloseWindow("/ui/SettingsGroup", "script.SettingsUIController")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void CloseWindow(string path, string scriptType)
+        local e = _EntityService:GetEntityByPath(path)
+        if isvalid(e) then
+            local c = e:GetComponent(scriptType)
+            if isvalid(c) then
+                c:Hide()
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ToggleWindow(string path, string scriptType)
+        local e = _EntityService:GetEntityByPath(path)
+        if isvalid(e) then
+            local c = e:GetComponent(scriptType)
+            if isvalid(c) then
+                c:Toggle()
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCharacterClicked()
+        self:ToggleWindow("/ui/CharacterInfoGroup", "script.CharacterInfoUIController")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnInventoryClicked()
+        self:ToggleWindow("/ui/InventoryGroup", "script.InventoryUIController")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEquipmentClicked()
+        self:ToggleWindow("/ui/EquipmentGroup", "script.EquipmentUIController")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSettingsClicked()
+        self:ToggleWindow("/ui/SettingsGroup", "script.SettingsUIController")
+    end
+end

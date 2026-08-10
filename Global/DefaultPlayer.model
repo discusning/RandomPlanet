@@ -19,7 +19,9 @@
       "Id": "defaultplayer",
       "Components": [
         "script.PlayerAttack",
-        "script.PlayerInputBinding"
+        "script.PlayerInputBinding",
+        "script.PlayerStatsComponent",
+        "script.PlayerSkillComponent"
       ],
       "Properties": [],
       "Values": [

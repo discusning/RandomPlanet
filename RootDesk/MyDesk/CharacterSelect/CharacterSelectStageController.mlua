@@ -202,7 +202,13 @@ script CharacterSelectStageController extends Component
             hair = self._T.hairPool[_UtilLogic:RandomIntegerRange(1, #self._T.hairPool)],
             face = self._T.facePool[_UtilLogic:RandomIntegerRange(1, #self._T.facePool)],
         }
-        roster[idx] = { level = 1, trait = trait, str = stats.str, dex = stats.dex, intel = stats.intel, luk = stats.luk, look = look }
+        -- 1차 스킬 후보 3개 제시 -> 카드의 SkillButton으로 1개 선택 (기본값은 후보 1번). See
+        -- CharacterCardController.OnSkillButtonClicked for the cycle-through-3 picker.
+        local skillCandidates = _SkillCatalog:RollThreeSkills()
+        roster[idx] = {
+            level = 1, trait = trait, str = stats.str, dex = stats.dex, intel = stats.intel, luk = stats.luk, look = look,
+            skillCandidates = skillCandidates, skillId = skillCandidates[1],
+        }
         -- Starter equipment kit (one of every catalog item, unequipped) - the only item source
         -- for now since there's no shop/loot system yet. See EquipmentLogic.GrantStarterKit.
         _EquipmentLogic:GrantStarterKit(roster[idx])
@@ -331,7 +337,7 @@ script CharacterSelectStageController extends Component
     end
 
     @ExecSpace("Server")
-    method void RequestEnterGame(table look, table equipment)
+    method void RequestEnterGame(table look, table equipment, table stats, string skillId)
         -- Client (the character card's PLAY button) asked to enter the village lobby. Applies the
         -- chosen slot's rolled look + equipped gear onto the actual player entity via the shared
         -- roster logic - the player's own MSW-account avatar is never shown (DefaultPlayer.model
@@ -344,6 +350,19 @@ script CharacterSelectStageController extends Component
         end
 
         _CharacterRosterLogic:ApplyLookToPlayer(player, look, equipment)
+
+        -- Pushes the effective (base + equipment bonus) stats onto the real combat-facing
+        -- components (PlayerComponent.MaxHp, PlayerAttack.AttackDamage/CriticalChance,
+        -- MovementComponent.InputSpeed) - see PlayerStatsComponent.ApplyStats.
+        local statsComp = player:GetComponent("script.PlayerStatsComponent")
+        if isvalid(statsComp) then
+            statsComp:ApplyStats(stats)
+        end
+
+        local skillComp = player:GetComponent("script.PlayerSkillComponent")
+        if isvalid(skillComp) and skillId ~= nil then
+            skillComp:SetSkillId(skillId)
+        end
 
         -- NOTE: undoing HideLocalPlayer's visibility hide does NOT happen here. Component.Enable is
         -- an engine @Sync property (server->client one-way); the client-only hide never changed the

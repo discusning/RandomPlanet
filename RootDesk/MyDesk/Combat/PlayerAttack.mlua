@@ -3,7 +3,16 @@ script PlayerAttack extends AttackComponent
 
     property number AttackDamage = 50
     property number CriticalChance = 0.3
+    -- Secondary/primary stat values driven by PlayerStatsComponent.RecalculateDerived, matching
+    -- Docs/랜덤 플래닛 전체 기획서.md §2-2/§8-1's official STR/DEX/INT/LUK effect table:
+    -- LUK -> crit payoff, DEX -> attack rate + accuracy (vs a defender's Evasion), STR -> knockback
+    -- resistance (defender-side; stored here as a convenience mirror, applied on the player's own
+    -- incoming-hit path once that exists - see KnockbackResistance note below).
+    property number CritDamageMultiplier = 1.5
+    property number AttackCooldownSeconds = 0.6
+    property number Accuracy = 91
     @HideFromInspector property any Shape = nil
+    @HideFromInspector property number LastAttackTime = -999
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
@@ -21,7 +30,13 @@ script PlayerAttack extends AttackComponent
 
     @ExecSpace("ServerOnly")
     method void DoAttack()
-        -- Places the hit box in front of the player using current facing.
+        -- Places the hit box in front of the player using current facing. Gated by
+        -- AttackCooldownSeconds (DEX primary effect) - previously attacks had no rate limit at all.
+        if _UtilLogic.ElapsedSeconds - self.LastAttackTime < self.AttackCooldownSeconds then
+            return
+        end
+        self.LastAttackTime = _UtilLogic.ElapsedSeconds
+
         local transform = self.Entity.TransformComponent
         local controller = self.Entity.PlayerControllerComponent
         if not isvalid(transform) or not isvalid(controller) then return end
@@ -42,9 +57,20 @@ script PlayerAttack extends AttackComponent
         return _UtilLogic:RandomDouble() < self.CriticalChance
     end
 
+    method float GetCriticalDamageRate()
+        return self.CritDamageMultiplier
+    end
+
     method boolean IsAttackTarget(Entity defender, string attackInfo)
+        -- DEX primary effect (명중/accuracy): rolls a hit chance against the defender's own Evasion
+        -- stat (Monster.Evasion, LUK's 회피 secondary once a monster-attacks-player pipeline exists
+        -- on the reverse direction). Floor/ceiling keep hits from ever feeling purely random.
         if isvalid(defender:GetComponent("script.Monster")) == false then return false end
-        return __base:IsAttackTarget(defender, attackInfo)
+        if __base:IsAttackTarget(defender, attackInfo) == false then return false end
+        local monster = defender:GetComponent("script.Monster")
+        local evasion = monster.Evasion or 0
+        local hitChance = math.max(0.5, math.min(1.0, 0.5 + (self.Accuracy - evasion) * 0.005))
+        return _UtilLogic:RandomDouble() < hitChance
     end
 
 end

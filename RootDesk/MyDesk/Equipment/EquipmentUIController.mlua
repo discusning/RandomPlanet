@@ -1,41 +1,36 @@
 @Component
 script EquipmentUIController extends Component
-    -- Equipment popup controller (register bump to force a clean rebuild).
-    property Entity btnClose = "33facd98-a245-454e-81b6-6098107f0db2"
-    property Entity statSummary = "883b7969-5373-42ed-935b-207832672384"
-    property Entity slotWeapon = "29055bf2-174d-49f5-b617-466ee252ee02"
-    property Entity slotCap = "4af9ef26-0ea8-4393-8159-db8d5184e8c1"
-    property Entity slotCoat = "522a1488-654b-4e64-a096-d7f3940afd5c"
-    property Entity slotPants = "f42dd10b-4de8-4a5c-874f-3c15341e65dd"
-    property Entity slotShoes = "0292cbc3-dc4f-466a-8af3-dcbfd243ee3b"
-    property Entity slotGlove = "d66e9ccf-c2f9-4416-ae41-7cdbfd49026d"
-    property Entity slotShield = "6b974496-a213-4bac-8763-892f2402015a"
-    property Entity slotEaraccessory = "e26ecdcc-b572-490f-8825-ed8de914e567"
-    property Entity invRow1 = "0596a9bb-15d5-4f81-ba99-f2660a11bdf4"
-    property Entity invRow2 = "0a878d86-018a-47ec-865f-6609237400a8"
-    property Entity invRow3 = "569c2ea5-55c4-454c-9f28-ddc20053c118"
-    property Entity invRow4 = "84c59aa2-2edf-4b24-9f2a-3a580dd5c0a4"
-    property Entity invRow5 = "a41091e3-a2fb-42a6-9977-fd201652490c"
-    property Entity invRow6 = "b00f7574-1699-4640-af7e-daffcdb93198"
-    property Entity invRow7 = "279bc4d7-fba0-470e-8bde-32f8721274eb"
-    property Entity invRow8 = "047f6b18-d30d-4a50-bbbd-4a9bfd0f893e"
-    property Entity invRow9 = "db28bf53-b6cb-4456-82cb-cc7f352f3901"
-    property Entity invRow10 = "167c1459-3f01-401a-9971-97bc205bca4e"
-    property Entity invRow11 = "330b6749-1ea6-414f-bcab-442a59c8312e"
-    property Entity invRow12 = "821637a0-2d2d-40e5-be7d-4db3d0ceaa92"
-    property Entity invRow13 = "134ac9b2-d05c-4dd1-ace7-97f7cf5b02e1"
-    property Entity invRow14 = "7a9bbb38-a149-440d-aa74-8e0419c4c396"
-    property Entity invRow15 = "9971dad8-3a75-48fc-badc-9ee321ac530b"
-    property Entity invRow16 = "3cddbc7c-70f1-43c0-8012-9a1b7c6f8e3b"
+    -- Equipment popup controller - paperdoll-only (inventory rows moved to InventoryUIController,
+    -- see AGENTS.md's latest UI-split request: Equipment and Inventory are now separate windows).
+    property Entity btnClose = "3d26f324-8c2c-49c6-b768-f549840e5ddd"
+    property Entity statSummary = "75b19f09-ee5a-4b07-98c1-026f23c493db"
+    property Entity slotWeapon = "44dd39d9-e767-4fd5-a654-6f1d2d8507a5"
+    property Entity slotCap = "046a1503-cd94-47d1-85c6-43f515a1c816"
+    property Entity slotCoat = "234e590c-41d2-4acd-b79e-b7eb2f0f0789"
+    property Entity slotPants = "45d5c055-8704-496d-b0c8-264f560703c4"
+    property Entity slotShoes = "6f6caba0-cd77-49cc-ab85-b4c24af478a6"
+    property Entity slotGlove = "6c021631-79af-4255-9a43-7ed4b9830a36"
+    property Entity slotShield = "c62c078d-ba46-4844-8494-9d8b48bbe914"
+    property Entity slotEaraccessory = "235a38fe-bb3f-497a-b2c4-1d6e894cca1b"
+    -- Title-bar drag strip (left of the close button) + the window panel it moves - lets the
+    -- player reposition the window by mouse-down-dragging the title, matching classic MapleStory
+    -- window behavior (see AGENTS.md's window-drag request).
+    property Entity dragHandle = "86c1a89d-a08a-4e0d-929f-84c2aa7e36e8"
+    property UITransformComponent cardTransform = "3c92ee94-5d13-49af-99a2-fe3e5bd3e5c8"
+    -- Neutral slot background RUID (same sprite every empty/labeled slot was built with) - Refresh
+    -- must reset ImageRUID back to this on unequip, or a stale item thumbnail from before the
+    -- unequip keeps rendering under the tan tint (found via playtest: unequip left the sword icon
+    -- visible in the weapon slot even though STR correctly dropped back down).
+    property string DefaultSlotRUID = "2860136c06ab075439721c027de365af"
 
-    -- Selected-row highlight vs the neutral tan the rows/slots are built with - matches this
-    -- project's established gold/parchment palette (same colors SquadFormationController uses).
-    method Color _SelectedColor()
-        return Color(0.85, 0.65, 0.18, 1)
+    -- Empty-slot tan vs filled-slot white (so the real item thumbnail reads at full color) -
+    -- matches this project's established gold/parchment palette.
+    method Color _EmptyColor()
+        return Color(0.86, 0.75, 0.52, 1)
     end
 
-    method Color _NeutralColor()
-        return Color(0.86, 0.75, 0.52, 1)
+    method Color _FilledColor()
+        return Color(1, 1, 1, 1)
     end
 
     @ExecSpace("ClientOnly")
@@ -47,25 +42,19 @@ script EquipmentUIController extends Component
             weapon = self.slotWeapon, cap = self.slotCap, coat = self.slotCoat, pants = self.slotPants,
             shoes = self.slotShoes, glove = self.slotGlove, shield = self.slotShield, earaccessory = self.slotEaraccessory,
         }
-        self._T.invRows = {
-            self.invRow1, self.invRow2, self.invRow3, self.invRow4, self.invRow5, self.invRow6, self.invRow7, self.invRow8,
-            self.invRow9, self.invRow10, self.invRow11, self.invRow12, self.invRow13, self.invRow14, self.invRow15, self.invRow16,
-        }
-        self._T.selectedInvIndex = nil
 
         local hClose = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
-        table.insert(self._T.handlers, { entity = self.btnClose, eventHandler = hClose })
+        table.insert(self._T.handlers, { entity = self.btnClose, eventType = ButtonClickEvent, eventHandler = hClose })
 
         for slot, btn in pairs(self._T.slotButtons) do
             local capturedSlot = slot
             local h = btn:ConnectEvent(ButtonClickEvent, function() self:OnSlotClicked(capturedSlot) end)
-            table.insert(self._T.handlers, { entity = btn, eventHandler = h })
+            table.insert(self._T.handlers, { entity = btn, eventType = ButtonClickEvent, eventHandler = h })
         end
 
-        for i, row in ipairs(self._T.invRows) do
-            local capturedIndex = i
-            local h = row:ConnectEvent(ButtonClickEvent, function() self:OnInvRowClicked(capturedIndex) end)
-            table.insert(self._T.handlers, { entity = row, eventHandler = h })
+        if isvalid(self.dragHandle) then
+            local hDrag = self.dragHandle:ConnectEvent(UITouchDragEvent, self.OnDrag)
+            table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDragEvent, eventHandler = hDrag })
         end
 
         self.Entity.Enable = false
@@ -74,13 +63,21 @@ script EquipmentUIController extends Component
     @ExecSpace("ClientOnly")
     method void OnEndPlay()
         for _, rec in ipairs(self._T.handlers) do
-            rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+            rec.entity:DisconnectEvent(rec.eventType, rec.eventHandler)
         end
     end
 
     @ExecSpace("ClientOnly")
+    method void OnDrag(UITouchDragEvent event)
+        -- Moves the whole window panel by the drag delta - only the title-bar strip
+        -- (dragHandle) generates this event, so clicks inside the window body/slots are unaffected.
+        if not isvalid(self.cardTransform) then return end
+        local pos = self.cardTransform.anchoredPosition
+        self.cardTransform.anchoredPosition = Vector2(pos.x + event.TouchDelta.x, pos.y + event.TouchDelta.y)
+    end
+
+    @ExecSpace("ClientOnly")
     method void Show()
-        self._T.selectedInvIndex = nil
         self.Entity.Enable = true
         self:Refresh()
     end
@@ -102,7 +99,7 @@ script EquipmentUIController extends Component
     @ExecSpace("ClientOnly")
     method any GetActiveCharacterData()
         -- The Equipment UI is only ever opened from the Lobby, where the active roster slot is
-        -- the real player being controlled - see LobbyStageController's "I" key handler.
+        -- the real player being controlled - see LobbyStageController's bottom-bar wiring.
         local activeIdx = _CharacterRosterLogic:GetActiveIndex()
         if activeIdx == nil then
             return nil
@@ -123,40 +120,29 @@ script EquipmentUIController extends Component
         local dex = _EquipmentLogic:GetEffectiveStat(data, "dex")
         local intel = _EquipmentLogic:GetEffectiveStat(data, "int")
         local luk = _EquipmentLogic:GetEffectiveStat(data, "luk")
-        self.statSummary.TextGUIRendererComponent.Text = "STR " .. str .. "  DEX " .. dex .. "  INT " .. intel .. "  LUK " .. luk
+        self.statSummary.TextGUIRendererComponent.Text = "STR " .. str .. "\nDEX " .. dex .. "\nINT " .. intel .. "\nLUK " .. luk
 
         local equipment = data.equipment or {}
         local slotLabels = { weapon = "무기", cap = "모자", coat = "상의", pants = "하의", shoes = "신발", glove = "장갑", shield = "방패", earaccessory = "귀고리" }
         for slot, btn in pairs(self._T.slotButtons) do
             local inst = equipment[slot]
-            local text = slotLabels[slot]
+            local sprite = btn.SpriteGUIRendererComponent
+            local text = btn.TextGUIRendererComponent
             if inst ~= nil then
                 local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
-                if tpl ~= nil then
-                    text = tpl.name .. "\n(" .. inst.upgradesUsed .. "/" .. tpl.maxUpgradeSlots .. ")"
-                end
-            end
-            btn.TextGUIRendererComponent.Text = text
-            btn.SpriteGUIRendererComponent.Color = (inst ~= nil) and self:_SelectedColor() or self:_NeutralColor()
-        end
-
-        local inventory = data.inventory or {}
-        for i, row in ipairs(self._T.invRows) do
-            local inst = inventory[i]
-            if inst == nil then
-                row.Enable = false
-            else
-                row.Enable = true
-                local label
-                if inst.itemId ~= nil then
-                    local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
-                    label = (tpl ~= nil) and ("[장비] " .. tpl.name) or "[장비] ?"
+                if tpl ~= nil and tpl.ruid ~= nil and tpl.ruid ~= "" then
+                    sprite.ImageRUID = DataRef("thumbnail://" .. tpl.ruid)
+                    sprite.Color = self:_FilledColor()
+                    text.Text = ""
                 else
-                    local tpl = _EquipmentLogic:GetScrollTemplate(inst.scrollId)
-                    label = (tpl ~= nil) and ("[주문서] " .. tpl.name) or "[주문서] ?"
+                    sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
+                    sprite.Color = self:_EmptyColor()
+                    text.Text = (tpl ~= nil) and tpl.name or "?"
                 end
-                row.TextGUIRendererComponent.Text = label
-                row.SpriteGUIRendererComponent.Color = (self._T.selectedInvIndex == i) and self:_SelectedColor() or self:_NeutralColor()
+            else
+                sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
+                sprite.Color = self:_EmptyColor()
+                text.Text = slotLabels[slot]
             end
         end
     end
@@ -169,26 +155,26 @@ script EquipmentUIController extends Component
         end
 
         local changed = false
-        if self._T.selectedInvIndex == nil then
-            -- Nothing selected in the inventory list - clicking a filled slot unequips it.
-            -- Clicking an empty slot with nothing selected does nothing.
+        local selectedIdx = _EquipmentLogic:GetSelectedInventoryIndex()
+        if selectedIdx == nil then
+            -- Nothing armed in the Inventory window - clicking a filled slot unequips it.
             changed = _EquipmentLogic:UnequipSlot(data, slot)
         else
-            local inst = (data.inventory or {})[self._T.selectedInvIndex]
+            local inst = (data.inventory or {})[selectedIdx]
             if inst ~= nil and inst.itemId ~= nil then
-                -- A gear item is selected - only equip it if the clicked slot actually matches
-                -- the item's own slot (clicking an unrelated slot box is a silent no-op).
+                -- A gear item is armed - only equip it if the clicked slot matches the item's own
+                -- slot (clicking an unrelated slot box is a silent no-op).
                 local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
                 if tpl ~= nil and tpl.slot == slot then
-                    changed = _EquipmentLogic:EquipItem(data, self._T.selectedInvIndex)
+                    changed = _EquipmentLogic:EquipItem(data, selectedIdx)
                 end
             elseif inst ~= nil and inst.scrollId ~= nil then
-                -- A scroll is selected - apply it to whatever is equipped in the clicked slot.
-                local result = _EquipmentLogic:ApplyScroll(data, self._T.selectedInvIndex, slot)
+                -- A scroll is armed - apply it to whatever is equipped in the clicked slot.
+                local result = _EquipmentLogic:ApplyScroll(data, selectedIdx, slot)
                 log("EquipmentUI: " .. result.message)
                 changed = true
             end
-            self._T.selectedInvIndex = nil
+            _EquipmentLogic:SetSelectedInventoryIndex(nil)
         end
 
         if changed then
@@ -196,16 +182,20 @@ script EquipmentUIController extends Component
             _CharacterRosterLogic:SaveRoster()
         end
         self:Refresh()
+        self:RefreshInventoryWindowIfOpen()
     end
 
     @ExecSpace("ClientOnly")
-    method void OnInvRowClicked(integer index)
-        if self._T.selectedInvIndex == index then
-            self._T.selectedInvIndex = nil
-        else
-            self._T.selectedInvIndex = index
+    method void RefreshInventoryWindowIfOpen()
+        -- Equip/unequip/scroll all mutate the same shared inventory array the Inventory window
+        -- displays - keep it in sync if it's currently open.
+        local invGroup = _EntityService:GetEntityByPath("/ui/InventoryGroup")
+        if isvalid(invGroup) and invGroup.Enable then
+            local invController = invGroup:GetComponent("script.InventoryUIController")
+            if isvalid(invController) then
+                invController:Refresh()
+            end
         end
-        self:Refresh()
     end
 
     @ExecSpace("ClientOnly")

@@ -6,6 +6,7 @@ script CharacterCardController extends Component
     property Entity statDEX = "e3ca8270-d0fe-4133-8975-9300612f9d45"
     property Entity statINT = "d498e287-03a5-4d22-b2d7-7ff93aca6c6c"
     property Entity statLUK = "99290b18-d01b-43b2-9eeb-d763eea081d2"
+    property Entity skillButton = "9dc35212-2bd3-4d8d-baee-4e8dd0f063f7"
     property Entity btnPlay = "61705819-dfe8-479b-bf8d-64b070ff4587"
     property Entity btnClose = "432ff9c4-6899-4a28-8a5a-4e364b9bc43d"
     property Entity btnDelete = "d71f7668-909e-41af-9edc-c4d050977546"
@@ -36,6 +37,8 @@ script CharacterCardController extends Component
         table.insert(self._T.handlers, { entity = self.btnClose, eventHandler = hClose })
         local hDelete = self.btnDelete:ConnectEvent(ButtonClickEvent, self.OnDeleteClicked)
         table.insert(self._T.handlers, { entity = self.btnDelete, eventHandler = hDelete })
+        local hSkill = self.skillButton:ConnectEvent(ButtonClickEvent, self.OnSkillButtonClicked)
+        table.insert(self._T.handlers, { entity = self.skillButton, eventHandler = hSkill })
         local hConfirmDelete = self.btnConfirmDelete:ConnectEvent(ButtonClickEvent, self.OnConfirmDeleteClicked)
         table.insert(self._T.handlers, { entity = self.btnConfirmDelete, eventHandler = hConfirmDelete })
         local hCancelDelete = self.btnCancelDelete:ConnectEvent(ButtonClickEvent, self.OnCancelDeleteClicked)
@@ -83,8 +86,47 @@ script CharacterCardController extends Component
         self.statLUK.TextGUIRendererComponent.Text = "LUK : " .. data.luk
         self._T.look = data.look
         self._T.equipment = data.equipment
+        self._T.characterData = data
+        self:RefreshSkillButtonText()
         self.deleteConfirmGroup.Enable = false
         self.Entity.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshSkillButtonText()
+        -- Shows the currently selected 1차 스킬 (3 candidates rolled at creation - see
+        -- CharacterSelectStageController.CreateCharacter). Older test characters created before this
+        -- system existed have no skillCandidates - the button just shows a placeholder for those.
+        local data = self._T.characterData
+        if data == nil or data.skillCandidates == nil then
+            self.skillButton:GetComponent("MOD.Core.TextGUIRendererComponent").Text = "스킬: (없음)"
+            return
+        end
+        local def = _SkillCatalog:GetSkillDef(data.skillId)
+        local name = (def ~= nil) and def.name or "?"
+        self.skillButton:GetComponent("MOD.Core.TextGUIRendererComponent").Text = "스킬: " .. name .. " [탭하여 변경]"
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSkillButtonClicked()
+        -- Cycles through the 3 rolled skill candidates each click, wrapping back to the first after
+        -- the third - the "3개 제시 -> 1개 선택" flow from the design doc's 1차 스킬 system, minus a
+        -- separate 3-button picker (no room on the card - see ui/CharacterCardGroup.ui SkillButton).
+        local data = self._T.characterData
+        if data == nil or data.skillCandidates == nil then
+            return
+        end
+        local curIdx = 1
+        for i, id in ipairs(data.skillCandidates) do
+            if id == data.skillId then
+                curIdx = i
+                break
+            end
+        end
+        local nextIdx = (curIdx % #data.skillCandidates) + 1
+        data.skillId = data.skillCandidates[nextIdx]
+        self:RefreshSkillButtonText()
+        _CharacterRosterLogic:SaveRoster()
     end
 
     @ExecSpace("ClientOnly")
@@ -101,6 +143,8 @@ script CharacterCardController extends Component
         self.statLUK.TextGUIRendererComponent.Text = ""
         self._T.look = data.look
         self._T.equipment = data.equipment
+        self._T.characterData = data
+        self:RefreshSkillButtonText()
         self.deleteConfirmGroup.Enable = false
         self.Entity.Enable = true
         log("CharacterCard: RevealCard start, t=" .. _UtilLogic.ElapsedSeconds)
@@ -175,7 +219,17 @@ script CharacterCardController extends Component
             -- why this can't be done from RequestEnterGame's server side), plus the server RPC for
             -- costume + teleport.
             _CharacterRosterLogic:ShowLocalPlayer()
-            controller:RequestEnterGame(self._T.look, self._T.equipment)
+            -- Effective (base + equipment bonus) stats, computed here since EquipmentLogic:
+            -- GetEffectiveStat is ClientOnly - crosses the Server RPC boundary as a plain table
+            -- alongside look/equipment, same pattern as those two.
+            local stats = {
+                str = _EquipmentLogic:GetEffectiveStat(self._T.characterData, "str"),
+                dex = _EquipmentLogic:GetEffectiveStat(self._T.characterData, "dex"),
+                intel = _EquipmentLogic:GetEffectiveStat(self._T.characterData, "int"),
+                luk = _EquipmentLogic:GetEffectiveStat(self._T.characterData, "luk"),
+                level = self._T.characterData.level,
+            }
+            controller:RequestEnterGame(self._T.look, self._T.equipment, stats, self._T.characterData.skillId)
         end
         self:HideCard()
     end
