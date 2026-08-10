@@ -223,7 +223,7 @@ function defaultComponent(componentType, pos) {
   return { "@type": type, Enable: true };
 }
 
-function componentsFromModel(modelJson, pos) {
+function componentsFromModel(modelJson, pos, hasExplicitPosition) {
   const content = modelDefinitionContent(modelJson);
   const components = content.Components.map((componentType) =>
     defaultComponent(componentType, componentType === "MOD.Core.TransformComponent" ? pos : null));
@@ -240,7 +240,16 @@ function componentsFromModel(modelJson, pos) {
       }
     }
     if (!targetType || !propertyName) continue;
-    const component = byType.get(normalizeComponentName(targetType));
+    const normalizedTarget = normalizeComponentName(targetType);
+    // The model's own Values array frequently carries a baked root
+    // TransformComponent.Position (its authoring-time local offset). When the
+    // caller passed an explicit placement `pos`, that pos must win - otherwise
+    // this loop silently overwrites it with the model's baked value right
+    // after defaultComponent() set it correctly above.
+    if (hasExplicitPosition && normalizedTarget === "MOD.Core.TransformComponent" && propertyName === "Position") {
+      continue;
+    }
+    const component = byType.get(normalizedTarget);
     if (component) component[propertyName] = clone(item.Value);
   }
   return components;
@@ -470,7 +479,7 @@ class MapBuilder {
   placeModel(name, modelFilepathOrJson, options = {}) {
     const modelJson = typeof modelFilepathOrJson === "string" ? readJsonFile(modelFilepathOrJson, "model") : clone(modelFilepathOrJson);
     const modelId = options.modelId || modelIdFromJson(modelJson);
-    const components = componentsFromModel(modelJson, options.pos || [0, 0, 0]);
+    const components = componentsFromModel(modelJson, options.pos || [0, 0, 0], hasExplicitPos(options));
     for (const [componentType, updates] of Object.entries(options.componentOverrides || {})) {
       const component = components.find((item) => item["@type"] === normalizeComponentName(componentType));
       if (!component) throw new Error(`Model ${modelId} has no component ${componentType}`);
