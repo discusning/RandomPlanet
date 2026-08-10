@@ -6,6 +6,8 @@ script PlayerInputBinding extends Component
         -- Binds the melee attack key. PlayerAttack.mlua only reacts to a PlayerActionEvent
         -- named "Attack" — without this binding no key ever fires that event.
         self.Entity.PlayerControllerComponent:SetActionKey(KeyboardKey.LeftControl, "Attack")
+        -- 1차 스킬 1슬롯 키(Q). PlayerSkillComponent도 동일한 PlayerActionEvent 패턴으로 반응한다.
+        self.Entity.PlayerControllerComponent:SetActionKey(KeyboardKey.Q, "Skill")
     end
 
 end

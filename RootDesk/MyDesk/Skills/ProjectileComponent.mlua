@@ -1,0 +1,74 @@
+@Component
+script ProjectileComponent extends Component
+    -- Body-less straight projectile, shared by any ranged 1차 스킬 (매직 클로/애로우 블로우 등).
+    -- Follows msw-combat-system/references/projectile.md's "straight projectile, no homing"
+    -- variant, generalized to scan every script.Monster on the map (not one fixed EnemyModelId)
+    -- since this project doesn't restrict enemies to a single model.
+
+    property number Speed = 10
+    property number Damage = 10
+    property number MaxLifetime = 2
+    property number HitRadius = 0.4
+    property boolean Pierce = false
+    @HideFromInspector property number DirX = 0
+    @HideFromInspector property number DirY = 0
+
+    method void OnBeginPlay()
+        self._T.fired = false
+        self._T.lifetime = 0
+        self._T.hitList = {}
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Fire(number dirX, number dirY)
+        self.DirX = dirX
+        self.DirY = dirY
+        self._T.fired = true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        if not self._T.fired then return end
+
+        self._T.lifetime = self._T.lifetime + delta
+        if self._T.lifetime >= self.MaxLifetime then
+            self.Entity:Destroy()
+            return
+        end
+
+        self.Entity.TransformComponent:Translate(self.DirX * self.Speed * delta, self.DirY * self.Speed * delta)
+
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then return end
+        local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
+        if monsters == nil then return end
+        local myPos = self.Entity.TransformComponent.WorldPosition
+        for _, monsterComp in ipairs(monsters) do
+            local monsterEntity = monsterComp.Entity
+            if isvalid(monsterEntity) and (not self._T.hitList[monsterEntity.Name]) then
+                local mPos = monsterEntity.TransformComponent.WorldPosition
+                local dx = mPos.x - myPos.x
+                local dy = mPos.y - myPos.y
+                if math.sqrt(dx * dx + dy * dy) <= self.HitRadius then
+                    self:OnHit()
+                    if not self.Pierce then return end
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnHit()
+        -- Do not subtract HP directly - AttackFrom keeps the real HitEvent pipeline (damage skin,
+        -- hit effect, IsHitTarget) working. See msw-combat-system/SKILL.md §2-3.
+        local pos = self.Entity.TransformComponent.WorldPosition
+        local ac = self.Entity.AttackComponent
+        if isvalid(ac) then
+            ac:AttackFrom(Vector2(self.HitRadius * 2, self.HitRadius * 2), Vector2(pos.x, pos.y), "skill.projectile", CollisionGroups.Monster)
+        end
+        if not self.Pierce then
+            self.Entity:Destroy()
+        end
+    end
+
+end

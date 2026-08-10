@@ -1,0 +1,27 @@
+@Component
+script ProjectileAttackComponent extends AttackComponent
+    -- Attacker-side resolution for ProjectileComponent's AttackFrom call. Damage/crit are set once
+    -- at spawn time by whichever skill fired the projectile (see PlayerSkillComponent).
+
+    property number Damage = 10
+    property number CriticalChance = 0
+    property number CritDamageMultiplier = 1.5
+
+    method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
+        return self.Damage
+    end
+
+    method boolean CalcCritical(Entity attacker, Entity defender, string attackInfo)
+        return _UtilLogic:RandomDouble() < self.CriticalChance
+    end
+
+    method float GetCriticalDamageRate()
+        return self.CritDamageMultiplier
+    end
+
+    method boolean IsAttackTarget(Entity defender, string attackInfo)
+        if isvalid(defender:GetComponent("script.Monster")) == false then return false end
+        return __base:IsAttackTarget(defender, attackInfo)
+    end
+
+end

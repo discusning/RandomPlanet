@@ -1,0 +1,286 @@
+@Component
+script PlayerSkillComponent extends Component
+    -- 1차 스킬 1슬롯 실행기. 스킬 정의는 SkillCatalog(@Logic)에서 조회, 실제 수치는 PlayerAttack/
+    -- PlayerStatsComponent/MovementComponent를 그때그때 읽고 쓴다(각 스탯 공식은 그쪽이 유일한 소유자).
+
+    @Sync property string SkillId = ""
+    @Sync @HideFromInspector property number LastUseTime = -999
+    @HideFromInspector property boolean BuffActive = false
+    @HideFromInspector property number BuffExpireTime = 0
+    @HideFromInspector property string BuffType = ""
+    @HideFromInspector property number BuffOriginalValue = 0
+    @HideFromInspector property integer BuffParticleSerial = 0
+    @HideFromInspector property integer ProjectileCount = 0
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        if not self.BuffActive then return end
+        if _UtilLogic.ElapsedSeconds < self.BuffExpireTime then return end
+        self:RevertBuff()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SetSkillId(string skillId)
+        self.SkillId = skillId
+        log("PlayerSkill: equipped skillId=" .. skillId)
+    end
+
+    @ExecSpace("ServerOnly")
+    @EventSender("Self")
+    handler HandlePlayerActionEvent(PlayerActionEvent event)
+        -- Resolves the player's skill key (Q) into UseSkill(). Mirrors PlayerAttack's own
+        -- ActionName-filtered handler pattern for the "Attack" key.
+        if event.ActionName ~= "Skill" then return end
+        self:UseSkill()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void UseSkill()
+        if self.SkillId == "" then return end
+        local def = _SkillCatalog:GetSkillDef(self.SkillId)
+        if def == nil then return end
+        if _UtilLogic.ElapsedSeconds - self.LastUseTime < def.cooldown then
+            return
+        end
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        if not isvalid(statsComp) or statsComp.CurrentMp < def.mpCost then
+            log("PlayerSkill: not enough MP for " .. def.name)
+            return
+        end
+
+        self.LastUseTime = _UtilLogic.ElapsedSeconds
+        statsComp.CurrentMp = statsComp.CurrentMp - def.mpCost
+        log("PlayerSkill: use " .. def.name .. " (kind=" .. def.kind .. " mp=" .. def.mpCost .. ")")
+
+        -- dash already reads as a motion via its own AddForce impulse - every other kind gets a
+        -- body pose here since the "Skill"(Q) action isn't part of PlayerControllerComponent's
+        -- auto-state set (only "Attack"/LeftControl is - see msw-avatar SKILL.md), so without this
+        -- the character would stand idle while only the VFX/damage happen.
+        if def.kind ~= "dash" then
+            self:PlaySkillMotion(def.kind == "buff" and "Heal" or "Attack")
+        end
+
+        if def.kind == "melee_single" then
+            self:DoMeleeSingle(def)
+        elseif def.kind == "ranged_single" or def.kind == "ranged_pierce" then
+            self:DoRanged(def, def.kind == "ranged_pierce")
+        elseif def.kind == "multi_hit" then
+            self:DoMultiHit(def)
+        elseif def.kind == "dash" then
+            self:DoDash(def)
+        elseif def.kind == "buff" then
+            self:DoBuff(def)
+        end
+    end
+
+    @ExecSpace("Client")
+    method void PlaySkillMotion(string poseName)
+        -- Replays a built-in avatar body pose (Attack swing / Heal self-cast) via a fresh
+        -- BodyActionStateChangeEvent instead of StateComponent:ChangeState("ATTACK") - the latter
+        -- gets silently stomped because PlayerControllerComponent re-evaluates real held keys every
+        -- tick and would immediately transition back to IDLE/MOVE since Q isn't in its own action
+        -- set (see msw-avatar SKILL.md "14 states vs custom actions" + its ChangeState pitfall).
+        -- Called with no target from ServerOnly code, so it's a broadcast RPC every nearby client sees.
+        local actionState = MapleAvatarBodyActionState.Attack
+        if poseName == "Heal" then
+            actionState = MapleAvatarBodyActionState.Heal
+        end
+        local event = BodyActionStateChangeEvent()
+        event.ActionState = actionState
+        event.needResetAction = true
+        self.Entity:SendEvent(event)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoMeleeSingle(table def)
+        -- Reuses PlayerAttack's existing hitbox/crit pipeline - temporarily scales AttackDamage by
+        -- the skill coefficient, fires, then restores the base value in the same call.
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        local transform = self.Entity.TransformComponent
+        local controller = self.Entity.PlayerControllerComponent
+        if not isvalid(attack) or not isvalid(transform) or not isvalid(controller) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+        local shape = BoxShape(Vector2(pos.x + 0.7 * dir, pos.y + 0.5), Vector2(1.5, 1.4), 0)
+
+        local originalDamage = attack.AttackDamage
+        attack.AttackDamage = math.floor(originalDamage * def.coef)
+        attack:AttackFast(shape, "skill." .. def.id, CollisionGroups.Monster)
+        attack.AttackDamage = originalDamage
+
+        if def.hitVfxRuid ~= nil then
+            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, Vector3(pos.x + 0.7 * dir, pos.y + 0.5, pos.z), 0, Vector3(1, 1, 1), false)
+            log("PlayerSkill: " .. def.name .. " hit VFX serial=" .. tostring(serial))
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoMultiHit(table def)
+        -- Fires def.hits instant hits back-to-back (no stagger yet - simple MVP version, each hit
+        -- independently resolved so multiple overlapping monsters each take every hit).
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        local transform = self.Entity.TransformComponent
+        local controller = self.Entity.PlayerControllerComponent
+        if not isvalid(attack) or not isvalid(transform) or not isvalid(controller) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+        local shape = BoxShape(Vector2(pos.x + 0.6 * dir, pos.y + 0.5), Vector2(1.2, 1.2), 0)
+
+        local originalDamage = attack.AttackDamage
+        attack.AttackDamage = math.floor(originalDamage * def.coef)
+        for i = 1, def.hits do
+            attack:AttackFast(shape, "skill." .. def.id, CollisionGroups.Monster)
+        end
+        attack.AttackDamage = originalDamage
+
+        if def.hitVfxRuid ~= nil then
+            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, Vector3(pos.x + 0.6 * dir, pos.y + 0.5, pos.z), 0, Vector3(1, 1, 1), false)
+            log("PlayerSkill: " .. def.name .. " hit VFX serial=" .. tostring(serial))
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoRanged(table def, boolean pierce)
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        local transform = self.Entity.TransformComponent
+        local controller = self.Entity.PlayerControllerComponent
+        local map = self.Entity.CurrentMap
+        if not isvalid(attack) or not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
+
+        local damage = attack.AttackDamage * def.coef
+        if def.magic and isvalid(statsComp) then
+            damage = damage * (1 + statsComp.SkillDamageBonus)
+        end
+        damage = math.floor(damage)
+
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+
+        self.ProjectileCount = self.ProjectileCount + 1
+        local name = "skillproj_" .. tostring(self.ProjectileCount)
+        -- Spawn at the caster's own Y (not offset up) - monsters are hit-checked against their own
+        -- WorldPosition (foot-anchor), and ProjectileComponent's HitRadius=0.4 circular check has no
+        -- vertical tolerance beyond that radius, so a +0.5 spawn offset flew every projectile clean
+        -- over the head of any monster at the same ground level as the caster (confirmed via a real
+        -- Play-session test: magicclaw/arrowblow both dealt 0 damage on a same-level dummy).
+        local proj = _SpawnService:SpawnByModelId("projectile", name, Vector3(pos.x + 0.5 * dir, pos.y, pos.z), map)
+        if not isvalid(proj) then return end
+
+        -- Overrides the projectile model's default sprite so each ranged skill actually looks like
+        -- itself (magic claw swipe / flying arrow) instead of every ranged_single/ranged_pierce
+        -- sharing the same generic placeholder bullet baked into Models/Skills/Projectile.model.
+        if def.projectileVfxRuid ~= nil and isvalid(proj.SpriteRendererComponent) then
+            proj.SpriteRendererComponent.SpriteRUID = def.projectileVfxRuid
+            log("PlayerSkill: " .. def.name .. " projectile sprite -> " .. def.projectileVfxRuid)
+        end
+
+        local projComp = proj:GetComponent("script.ProjectileComponent")
+        local projAttack = proj:GetComponent("script.ProjectileAttackComponent")
+        if isvalid(projAttack) then
+            projAttack.Damage = damage
+            projAttack.CriticalChance = attack.CriticalChance
+            projAttack.CritDamageMultiplier = attack.CritDamageMultiplier
+        end
+        if isvalid(projComp) then
+            projComp.Speed = 12
+            projComp.MaxLifetime = 2
+            projComp.HitRadius = 0.4
+            projComp.Pierce = pierce
+            projComp:Fire(dir, 0)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoDash(table def)
+        local body = self.Entity.RigidbodyComponent
+        local controller = self.Entity.PlayerControllerComponent
+        if not isvalid(body) or not isvalid(controller) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        body:AddForce(Vector2(dir * def.force, 0))
+
+        if def.dashVfxRuid ~= nil then
+            local serial = _EffectService:PlayEffect(def.dashVfxRuid, self.Entity, self.Entity.TransformComponent.WorldPosition, 0, Vector3(1, 1, 1), false)
+            log("PlayerSkill: " .. def.name .. " dash VFX serial=" .. tostring(serial))
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoBuff(table def)
+        -- Only the testableEffect actually changes a real value (see SkillCatalog comments) - the
+        -- rest of each buff's design is logged so the intent is visible without a fake mechanic.
+        if def.inertNote ~= nil then
+            log("PlayerSkill: " .. def.name .. " partial effect inert - " .. def.inertNote)
+        end
+
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        local move = self.Entity.MovementComponent
+
+        if def.testableEffect == "accuracy" and isvalid(attack) then
+            self.BuffOriginalValue = attack.Accuracy
+            attack.Accuracy = attack.Accuracy + def.accuracyBonus
+        elseif def.testableEffect == "movespeed" and isvalid(move) then
+            self.BuffOriginalValue = move.InputSpeed
+            move.InputSpeed = move.InputSpeed + def.moveSpeedBonus
+        elseif def.testableEffect == "atkspeed" and isvalid(attack) then
+            self.BuffOriginalValue = attack.AttackCooldownSeconds
+            attack.AttackCooldownSeconds = attack.AttackCooldownSeconds * 0.4
+        else
+            self.BuffOriginalValue = 0
+        end
+
+        self.BuffType = def.testableEffect
+        self.BuffActive = true
+        self.BuffExpireTime = _UtilLogic.ElapsedSeconds + def.duration
+
+        if def.auraType ~= nil then
+            local particleType = self:ResolveBasicParticleType(def.auraType)
+            if particleType ~= nil then
+                self.BuffParticleSerial = _ParticleService:PlayBasicParticleAttached(particleType, self.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), true, { Color = def.auraColor })
+                log("PlayerSkill: " .. def.name .. " aura serial=" .. tostring(self.BuffParticleSerial))
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method any ResolveBasicParticleType(string key)
+        -- Converts the SkillCatalog string key back into the engine's BasicParticleType enum -
+        -- enums can't cross data tables/RPC boundaries directly (see msw-scripting §6), so each
+        -- buff's def just carries the enum's field name and this maps it back locally.
+        if key == "Aura" then return BasicParticleType.Aura
+        elseif key == "Enchant" then return BasicParticleType.Enchant
+        elseif key == "SpinField" then return BasicParticleType.SpinField
+        elseif key == "Buff" then return BasicParticleType.Buff
+        elseif key == "LightningOrbSoft" then return BasicParticleType.LightningOrbSoft
+        end
+        return nil
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RevertBuff()
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        local move = self.Entity.MovementComponent
+
+        if self.BuffType == "accuracy" and isvalid(attack) then
+            attack.Accuracy = self.BuffOriginalValue
+        elseif self.BuffType == "movespeed" and isvalid(move) then
+            move.InputSpeed = self.BuffOriginalValue
+        elseif self.BuffType == "atkspeed" and isvalid(attack) then
+            attack.AttackCooldownSeconds = self.BuffOriginalValue
+        end
+
+        if self.BuffParticleSerial ~= 0 then
+            _ParticleService:RemoveParticle(self.BuffParticleSerial)
+            self.BuffParticleSerial = 0
+        end
+
+        log("PlayerSkill: buff expired, reverted " .. self.BuffType)
+        self.BuffActive = false
+        self.BuffType = ""
+    end
+
+end
