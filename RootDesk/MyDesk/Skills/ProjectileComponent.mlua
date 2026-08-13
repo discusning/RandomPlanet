@@ -17,6 +17,8 @@ script ProjectileComponent extends Component
         self._T.fired = false
         self._T.lifetime = 0
         self._T.hitList = {}
+        self._T.monsters = {}
+        self._T.monsterScanTimer = 0
     end
 
     @ExecSpace("ServerOnly")
@@ -38,12 +40,23 @@ script ProjectileComponent extends Component
 
         self.Entity.TransformComponent:Translate(self.DirX * self.Speed * delta, self.DirY * self.Speed * delta)
 
-        local map = self.Entity.CurrentMap
-        if not isvalid(map) then return end
-        local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
-        if monsters == nil then return end
+        -- Rescans the map's monster list at most ~7x/sec instead of every frame -
+        -- GetChildComponentsByTypeName(recursive=true) walks the whole map entity tree, and doing
+        -- that 60x/sec per in-flight projectile was the single most expensive loop in the project
+        -- (cost multiplies with concurrent projectiles - e.g. luckyseven's 3 hits or rapid arrowblow
+        -- taps). A projectile lives at most MaxLifetime seconds (2s default) and monsters aren't
+        -- currently spawned mid-flight, so a briefly-stale list is a non-issue in practice.
+        self._T.monsterScanTimer = self._T.monsterScanTimer - delta
+        if self._T.monsterScanTimer <= 0 then
+            self._T.monsterScanTimer = 0.15
+            local map = self.Entity.CurrentMap
+            if isvalid(map) then
+                self._T.monsters = map:GetChildComponentsByTypeName("script.Monster", true) or {}
+            end
+        end
+
         local myPos = self.Entity.TransformComponent.WorldPosition
-        for _, monsterComp in ipairs(monsters) do
+        for _, monsterComp in ipairs(self._T.monsters) do
             local monsterEntity = monsterComp.Entity
             if isvalid(monsterEntity) and (not self._T.hitList[monsterEntity.Name]) then
                 local mPos = monsterEntity.TransformComponent.WorldPosition

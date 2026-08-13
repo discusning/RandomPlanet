@@ -41,14 +41,26 @@ script BottomBarController extends Component
     end
 
     @ExecSpace("ClientOnly")
+    method table GetWindowList()
+        -- Single source of truth for the 5 bottom-bar windows' {path, scriptType} pairs - Hide()
+        -- and CloseOtherWindows() both used to hardcode this same list separately, which meant a
+        -- new window had to be added in two places or Hide()/close-all silently drifted apart.
+        return {
+            { path = "/ui/CharacterInfoGroup", scriptType = "script.CharacterInfoUIController" },
+            { path = "/ui/InventoryGroup", scriptType = "script.InventoryUIController" },
+            { path = "/ui/EquipmentGroup", scriptType = "script.EquipmentUIController" },
+            { path = "/ui/SettingsGroup", scriptType = "script.SettingsUIController" },
+            { path = "/ui/SkillGroup", scriptType = "script.SkillUIController" },
+        }
+    end
+
+    @ExecSpace("ClientOnly")
     method void Hide()
         self.Entity.Enable = false
         -- Close every sub-window too so nothing lingers open across a map/select transition.
-        self:CloseWindow("/ui/CharacterInfoGroup", "script.CharacterInfoUIController")
-        self:CloseWindow("/ui/InventoryGroup", "script.InventoryUIController")
-        self:CloseWindow("/ui/EquipmentGroup", "script.EquipmentUIController")
-        self:CloseWindow("/ui/SettingsGroup", "script.SettingsUIController")
-        self:CloseWindow("/ui/SkillGroup", "script.SkillUIController")
+        for _, w in ipairs(self:GetWindowList()) do
+            self:CloseWindow(w.path, w.scriptType)
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -80,14 +92,7 @@ script BottomBarController extends Component
         -- with no visual sign a second click did anything (e.g. Equipment opening fully behind an
         -- already-open Inventory). Closing every other window before toggling the target keeps at
         -- most one window on screen at a time, matching a normal bottom-tab-bar's behavior.
-        local windows = {
-            { path = "/ui/CharacterInfoGroup", scriptType = "script.CharacterInfoUIController" },
-            { path = "/ui/InventoryGroup", scriptType = "script.InventoryUIController" },
-            { path = "/ui/EquipmentGroup", scriptType = "script.EquipmentUIController" },
-            { path = "/ui/SettingsGroup", scriptType = "script.SettingsUIController" },
-            { path = "/ui/SkillGroup", scriptType = "script.SkillUIController" },
-        }
-        for _, w in ipairs(windows) do
+        for _, w in ipairs(self:GetWindowList()) do
             if w.path ~= keepPath then
                 self:CloseWindow(w.path, w.scriptType)
             end
