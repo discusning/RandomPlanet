@@ -65,12 +65,29 @@ script InventoryUIController extends Component
         return Color(1, 1, 1, 1)
     end
 
-    method Color _ScrollNeutralColor()
-        return Color(0.55, 0.42, 0.72, 1)
+    method Color _StatColor(string stat)
+        -- Classic-MapleStory stat-window color coding (STR red / DEX green / INT blue / LUK yellow)
+        -- so the 4 scroll types stay visually distinguishable even though they now all share the
+        -- same real scroll icon RUID (see ScrollIconRuid comment on Refresh - authentic MapleStory
+        -- basic scrolls of the same tier genuinely share one icon regardless of stat, differentiated
+        -- only by name/tooltip in the real game, so a flat color tint is the period-accurate way to
+        -- tell them apart at a glance instead of inventing a non-canonical distinct icon per stat).
+        if stat == "str" then return Color(0.82, 0.24, 0.22, 1)
+        elseif stat == "dex" then return Color(0.22, 0.68, 0.32, 1)
+        elseif stat == "int" then return Color(0.28, 0.48, 0.88, 1)
+        elseif stat == "luk" then return Color(0.88, 0.78, 0.16, 1)
+        end
+        return self:_ScrollSelectedColor()
     end
 
     method Color _ScrollSelectedColor()
-        return Color(0.85, 0.65, 0.18, 1)
+        -- Selected/armed state: same stat hue, lightened toward white so it visibly "pops" without
+        -- losing the stat-color identity (blended 50% toward white).
+        return Color(1, 1, 1, 1)
+    end
+
+    method Color _LightenTowardWhite(Color c)
+        return Color(c.r + (1 - c.r) * 0.55, c.g + (1 - c.g) * 0.55, c.b + (1 - c.b) * 0.55, 1)
     end
 
     method Color _MiscColor()
@@ -242,9 +259,18 @@ script InventoryUIController extends Component
                     sprite.Color = self:_GearColor()
                     nameText.Text = (tpl ~= nil) and (tpl.name .. " (" .. inst.upgradesUsed .. "/" .. tpl.maxUpgradeSlots .. ")") or "?"
                 elseif inst.scrollId ~= nil then
+                    -- Real classic MapleStory scroll icon (sprite type, no thumbnail:// prefix
+                    -- needed - see msw-sprite-ruid). Tinted by stat (see _StatColor) since the
+                    -- authentic icon is shared across all 4 stat scrolls in the real game.
                     local tpl = _EquipmentLogic:GetScrollTemplate(inst.scrollId)
-                    sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
-                    sprite.Color = (selectedIdx == entry.realIndex) and self:_ScrollSelectedColor() or self:_ScrollNeutralColor()
+                    if tpl ~= nil and tpl.ruid ~= nil and tpl.ruid ~= "" then
+                        sprite.ImageRUID = DataRef(tpl.ruid)
+                        local baseColor = self:_StatColor(tpl.stat)
+                        sprite.Color = (selectedIdx == entry.realIndex) and self:_LightenTowardWhite(baseColor) or baseColor
+                    else
+                        sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
+                        sprite.Color = self:_ScrollSelectedColor()
+                    end
                     nameText.Text = (tpl ~= nil) and tpl.name or "?"
                 else
                     sprite.ImageRUID = DataRef(self.DefaultSlotRUID)

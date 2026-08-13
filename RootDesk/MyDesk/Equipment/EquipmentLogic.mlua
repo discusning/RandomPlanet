@@ -46,6 +46,7 @@ script EquipmentLogic extends Logic
                 stat = row:GetItem("stat"),
                 amount = tonumber(row:GetItem("amount")) or 0,
                 successRate = tonumber(row:GetItem("successRate")) or 0,
+                ruid = row:GetItem("ruid"),
             }
         end
         log("EquipmentLogic: catalogs loaded, items=" .. #self:ListItemTemplates() .. " scrolls=" .. #self:ListScrollTemplates())
