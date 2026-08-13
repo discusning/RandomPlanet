@@ -23,6 +23,7 @@ script PlayerSkillComponent extends Component
     @HideFromInspector property string BuffType = ""
     @HideFromInspector property number BuffOriginalValue = 0
     @HideFromInspector property integer BuffParticleSerial = 0
+    @HideFromInspector property boolean BuffUsingSkillVfx = false
     @HideFromInspector property integer ProjectileCount = 0
 
     @ExecSpace("ServerOnly")
@@ -330,6 +331,17 @@ script PlayerSkillComponent extends Component
     method void DoBuff(table def)
         -- Only the testableEffect actually changes a real value (see SkillCatalog comments) - the
         -- rest of each buff's design is logged so the intent is visible without a fake mechanic.
+
+        -- Casting a second buff while an earlier one is still active used to leak the earlier one:
+        -- BuffParticleSerial/BuffType/BuffOriginalValue below were overwritten unconditionally, so
+        -- the first buff's attached VFX was never removed (self:RevertBuff() was only ever called
+        -- from OnUpdate's own-expiry check) and its stat change was never restored - reported as
+        -- "effects that should disappear after use are staying on screen." Revert whatever is
+        -- currently active first so every new cast starts from a clean state.
+        if self.BuffActive then
+            self:RevertBuff()
+        end
+
         if def.inertNote ~= nil then
             log("PlayerSkill: " .. def.name .. " partial effect inert - " .. def.inertNote)
         end
@@ -354,11 +366,25 @@ script PlayerSkillComponent extends Component
         self.BuffActive = true
         self.BuffExpireTime = _UtilLogic.ElapsedSeconds + def.duration
 
-        if def.auraType ~= nil then
+        -- Real MapleStory skill clip (buffVfxRuid) takes priority and is looped+attached to the
+        -- caster for the whole buff duration via PlayEffectAttached(isLoop=true) - this is the
+        -- authentic per-skill visual (magic guard's shield swirl, haste's speed-lines, etc.), not a
+        -- generic shape. Only falls back to the native BasicParticleType aura (auraType/auraColor)
+        -- when no matching skill clip exists in the resource index at all (ironbody only, as of the
+        -- 2026-08-13 audit - see SkillCatalog comments). Using BOTH at once was the previous bug:
+        -- the flat-colored generic aura loop visually drowned out the one-shot real clip that used
+        -- to play under it, so every buff still read as "a random particle blob" even after the
+        -- correct RUID was wired in.
+        if def.buffVfxRuid ~= nil then
+            self.BuffUsingSkillVfx = true
+            self.BuffParticleSerial = _EffectService:PlayEffectAttached(def.buffVfxRuid, self.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), true)
+            log("PlayerSkill: " .. def.name .. " skill VFX (looped) serial=" .. tostring(self.BuffParticleSerial))
+        elseif def.auraType ~= nil then
+            self.BuffUsingSkillVfx = false
             local particleType = self:ResolveBasicParticleType(def.auraType)
             if particleType ~= nil then
                 self.BuffParticleSerial = _ParticleService:PlayBasicParticleAttached(particleType, self.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), true, { Color = def.auraColor })
-                log("PlayerSkill: " .. def.name .. " aura serial=" .. tostring(self.BuffParticleSerial))
+                log("PlayerSkill: " .. def.name .. " generic aura fallback serial=" .. tostring(self.BuffParticleSerial))
             end
         end
     end
@@ -391,8 +417,13 @@ script PlayerSkillComponent extends Component
         end
 
         if self.BuffParticleSerial ~= 0 then
-            _ParticleService:RemoveParticle(self.BuffParticleSerial)
+            if self.BuffUsingSkillVfx then
+                _EffectService:RemoveEffect(self.BuffParticleSerial)
+            else
+                _ParticleService:RemoveParticle(self.BuffParticleSerial)
+            end
             self.BuffParticleSerial = 0
+            self.BuffUsingSkillVfx = false
         end
 
         log("PlayerSkill: buff expired, reverted " .. self.BuffType)
