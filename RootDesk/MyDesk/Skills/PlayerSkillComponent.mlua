@@ -1,9 +1,22 @@
 @Component
 script PlayerSkillComponent extends Component
-    -- 1차 스킬 1슬롯 실행기. 스킬 정의는 SkillCatalog(@Logic)에서 조회, 실제 수치는 PlayerAttack/
+    -- 전직별 스킬 보유·장착 실행기 (Docs/랜덤 플래닛 전체 기획서.md §04 "버프풀 3택1 + 공격풀 3택1
+    -- 동시 진행"). 스킬 정의는 SkillCatalog(@Logic)에서 조회, 실제 수치는 PlayerAttack/
     -- PlayerStatsComponent/MovementComponent를 그때그때 읽고 쓴다(각 스탯 공식은 그쪽이 유일한 소유자).
+    -- 8개 고정 슬롯(1~4차 x 버프/공격)에 보유 스킬을 저장하고, 그중 하나만 EquippedSkillId로 "Skill"
+    -- (Q)키에 실제 장착한다 - 전직/레벨업 3택1 선택 UI는 아직 없어(Phase 3+ 몫) 매 티어 첫 미보유
+    -- 후보를 자동 지급한다(GrantTierSkills). 캐릭터 생성 시점(1차)만 유저가 카드에서 직접 고른
+    -- skillId 하나를 받고, 나머지 1차 반대 카테고리 슬롯은 자동으로 채운다(GrantInitialSkill).
 
-    @Sync property string SkillId = ""
+    @Sync property string BuffSkill1 = ""
+    @Sync property string BuffSkill2 = ""
+    @Sync property string BuffSkill3 = ""
+    @Sync property string BuffSkill4 = ""
+    @Sync property string AtkSkill1 = ""
+    @Sync property string AtkSkill2 = ""
+    @Sync property string AtkSkill3 = ""
+    @Sync property string AtkSkill4 = ""
+    @Sync property string EquippedSkillId = ""
     @Sync @HideFromInspector property number LastUseTime = -999
     @HideFromInspector property boolean BuffActive = false
     @HideFromInspector property number BuffExpireTime = 0
@@ -20,9 +33,99 @@ script PlayerSkillComponent extends Component
     end
 
     @ExecSpace("ServerOnly")
-    method void SetSkillId(string skillId)
-        self.SkillId = skillId
-        log("PlayerSkill: equipped skillId=" .. skillId)
+    method void GrantInitialSkill(string skillId)
+        -- Called once from RequestEnterGame/SwapActiveCharacter with the single skill the player
+        -- picked on the character card (cycle-through-3 picker, still a flat mixed pool - see
+        -- SkillCatalog.RollThreeSkills). Puts it in its own category's tier-1 slot, then auto-fills
+        -- the OTHER tier-1 category slot with the first available id (no picker yet for that half -
+        -- guarantees every character starts with exactly 1 buff + 1 attack per §04's "1+1=2개").
+        if skillId == nil or skillId == "" then return end
+        local isBuff = _SkillCatalog:IsBuffSkill(skillId)
+        if isBuff then
+            self.BuffSkill1 = skillId
+            local atkChoices = _SkillCatalog:RollSkillChoices("attack", {})
+            if #atkChoices > 0 then self.AtkSkill1 = atkChoices[1] end
+        else
+            self.AtkSkill1 = skillId
+            local buffChoices = _SkillCatalog:RollSkillChoices("buff", {})
+            if #buffChoices > 0 then self.BuffSkill1 = buffChoices[1] end
+        end
+        self.EquippedSkillId = skillId
+        log("PlayerSkill: GrantInitialSkill skillId=" .. skillId .. " buff1=" .. self.BuffSkill1 .. " atk1=" .. self.AtkSkill1)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantTierSkills(integer tier)
+        -- Auto-grants one unowned buff + one unowned attack skill into the given tier's slots (2/3/4
+        -- only - tier 1 is handled by GrantInitialSkill). No 3택1 choice UI exists yet (Phase 3+), so
+        -- this always takes the first rolled candidate - see header comment.
+        if tier < 2 or tier > 4 then return end
+        local owned = self:GetOwnedSkillIds()
+        local ownedIds = {}
+        for _, entry in ipairs(owned) do
+            table.insert(ownedIds, entry.id)
+        end
+
+        local buffChoices = _SkillCatalog:RollSkillChoices("buff", ownedIds)
+        if #buffChoices > 0 then
+            self:SetTierSlot("buff", tier, buffChoices[1])
+        end
+        local atkChoices = _SkillCatalog:RollSkillChoices("attack", ownedIds)
+        if #atkChoices > 0 then
+            self:SetTierSlot("attack", tier, atkChoices[1])
+        end
+        log("PlayerSkill: GrantTierSkills tier=" .. tier .. " buff=" .. tostring(buffChoices[1]) .. " atk=" .. tostring(atkChoices[1]))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SetTierSlot(string category, integer tier, string skillId)
+        if category == "buff" then
+            if tier == 1 then self.BuffSkill1 = skillId
+            elseif tier == 2 then self.BuffSkill2 = skillId
+            elseif tier == 3 then self.BuffSkill3 = skillId
+            elseif tier == 4 then self.BuffSkill4 = skillId
+            end
+        else
+            if tier == 1 then self.AtkSkill1 = skillId
+            elseif tier == 2 then self.AtkSkill2 = skillId
+            elseif tier == 3 then self.AtkSkill3 = skillId
+            elseif tier == 4 then self.AtkSkill4 = skillId
+            end
+        end
+    end
+
+    method table GetOwnedSkillIds()
+        -- Returns { {id, tier, category}, ... } for every filled slot - the skill window's data
+        -- source (see SkillUIController.Refresh).
+        local result = {}
+        local buffSlots = { self.BuffSkill1, self.BuffSkill2, self.BuffSkill3, self.BuffSkill4 }
+        local atkSlots = { self.AtkSkill1, self.AtkSkill2, self.AtkSkill3, self.AtkSkill4 }
+        for i, id in ipairs(buffSlots) do
+            if id ~= "" then
+                table.insert(result, { id = id, tier = i, category = "buff" })
+            end
+        end
+        for i, id in ipairs(atkSlots) do
+            if id ~= "" then
+                table.insert(result, { id = id, tier = i, category = "attack" })
+            end
+        end
+        return result
+    end
+
+    @ExecSpace("Server")
+    method void RequestSetEquippedSkill(string skillId)
+        -- Client-invoked (skill window "장착" button). Only allows equipping an actually-owned
+        -- skill - rejects a spoofed/unknown id silently (no error, just a no-op + log).
+        local owned = self:GetOwnedSkillIds()
+        for _, entry in ipairs(owned) do
+            if entry.id == skillId then
+                self.EquippedSkillId = skillId
+                log("PlayerSkill: equipped " .. skillId)
+                return
+            end
+        end
+        log("PlayerSkill: RequestSetEquippedSkill rejected, not owned: " .. tostring(skillId))
     end
 
     @ExecSpace("ServerOnly")
@@ -36,8 +139,8 @@ script PlayerSkillComponent extends Component
 
     @ExecSpace("ServerOnly")
     method void UseSkill()
-        if self.SkillId == "" then return end
-        local def = _SkillCatalog:GetSkillDef(self.SkillId)
+        if self.EquippedSkillId == "" then return end
+        local def = _SkillCatalog:GetSkillDef(self.EquippedSkillId)
         if def == nil then return end
         if _UtilLogic.ElapsedSeconds - self.LastUseTime < def.cooldown then
             return
@@ -51,6 +154,20 @@ script PlayerSkillComponent extends Component
         self.LastUseTime = _UtilLogic.ElapsedSeconds
         statsComp.CurrentMp = statsComp.CurrentMp - def.mpCost
         log("PlayerSkill: use " .. def.name .. " (kind=" .. def.kind .. " mp=" .. def.mpCost .. ")")
+
+        -- Skill use and the basic attack (PlayerAttack.DoAttack) are driven by two independent,
+        -- unlinked cooldown timers - PlayerControllerComponent fires a fresh PlayerActionEvent
+        -- for the Attack key on every tick it's held (that's why DoAttack needs its own cooldown
+        -- gate at all), so a player holding Attack while tapping a skill would have their
+        -- already-elapsed AttackCooldownSeconds fire a basic attack immediately after (or during)
+        -- the skill's own near-instant resolution - reported as "some skills chain into a basic
+        -- attack afterward," really just an unsynced-timer coincidence, not a per-skill defect.
+        -- Refreshing the shared attack timer here (classic MapleStory behavior: using a skill also
+        -- resets your attack timer) closes that window.
+        local attackComp = self.Entity:GetComponent("script.PlayerAttack")
+        if isvalid(attackComp) then
+            attackComp.LastAttackTime = _UtilLogic.ElapsedSeconds
+        end
 
         -- dash already reads as a motion via its own AddForce impulse - every other kind gets a
         -- body pose here since the "Skill"(Q) action isn't part of PlayerControllerComponent's

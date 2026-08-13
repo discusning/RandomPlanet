@@ -1,0 +1,280 @@
+@Component
+script KeyBindingPopupController extends Component
+
+    property Entity dimmer = "bf62995f-7330-4263-913b-c57377356a76"
+    property Entity window = "e450795c-93e6-4616-8035-2b5d57c1c30e"
+    property Entity btnClose = "f513dcb1-00c3-493f-9d8d-b1f36acfc9f6"
+    property Entity btnReset = "3d1f9304-db68-4527-8a1b-9ac97fff4d44"
+
+    -- One Entity property per draggable action icon - kept as named properties (not a runtime
+    -- array) so the UIBuilder bind-injection step (see build_keysetting_ui.cjs) has concrete
+    -- property names to write real UUIDs into. self._T.icons (built in OnBeginPlay) is what
+    -- everything else - wiring, drag, refresh - actually iterates over, so adding a 7th action
+    -- later only means one more property line + one more self._T.icons entry, not a new copy of
+    -- every handler method the way the original 2-icon version needed.
+    property Entity iconAttack = "c367b4c7-da4a-45e6-ad6a-065705a1186b"
+    property Entity iconSkill = "ca9d8410-f17d-4de1-9690-73789ad488c0"
+    property Entity iconInventory = "03b91a10-46fb-4cf0-b1bf-1b46dea4afb2"
+    property Entity iconEquipment = "c16dcab1-1061-4651-b64c-34c6306027cc"
+    property Entity iconCharacterInfo = "00cb1532-63ec-4bfd-b8bb-788bec66d2b7"
+    property Entity iconSkillWindow = "4b24521f-fcef-4de0-a2e0-d97f6f321a6b"
+
+    property any keyToggleHandler = nil
+    property any closeHandler = nil
+    property any resetHandler = nil
+
+    property boolean isOpen = false
+
+    -- Snap-to-key distance (Window/Keyboard-local UI pixels, same space the key
+    -- layout table and the icons' anchoredPosition both live in). A dropped icon
+    -- farther than this from every key center just snaps back to its current key.
+    property number snapDistance = 40
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self.dimmer.Enable = false
+        self.window.Enable = false
+        self._T.keyLayout = self:BuildKeyLayout()
+
+        self.keyToggleHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
+        self.closeHandler = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        self.resetHandler = self.btnReset:ConnectEvent(ButtonClickEvent, self.OnResetClicked)
+
+        -- { actionName, entity, dragHandler, endDragHandler } per icon - actionName must match a
+        -- KeyBindingLogic.BuildRegistry() entry exactly (see KeyBindingLogic.mlua).
+        self._T.icons = {
+            { actionName = "Attack", entity = self.iconAttack },
+            { actionName = "Skill", entity = self.iconSkill },
+            { actionName = "Inventory", entity = self.iconInventory },
+            { actionName = "Equipment", entity = self.iconEquipment },
+            { actionName = "CharacterInfo", entity = self.iconCharacterInfo },
+            { actionName = "SkillWindow", entity = self.iconSkillWindow },
+        }
+        for _, icon in ipairs(self._T.icons) do
+            if isvalid(icon.entity) then
+                local capturedIcon = icon
+                icon.dragHandler = capturedIcon.entity:ConnectEvent(UITouchDragEvent, function(event)
+                    self:OnDrag(capturedIcon.entity, event)
+                end)
+                icon.endDragHandler = capturedIcon.entity:ConnectEvent(UITouchEndDragEvent, function()
+                    self:EndDrag(capturedIcon.entity, capturedIcon.actionName)
+                end)
+            end
+        end
+
+        self:RefreshIcons()
+        log("KeyBindingPopup: OnBeginPlay, keyLayoutCount=" .. tostring(#self._T.keyLayout) .. " iconCount=" .. tostring(#self._T.icons))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeyDown(KeyDownEvent event)
+        -- Toggles the popup. While open, keyboard focus is otherwise free (rebinding
+        -- happens purely by drag now, so no "awaiting key press" capture is needed).
+        if event.key == KeyboardKey.P then
+            self:Toggle()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Toggle()
+        if self.isOpen then
+            self:Close()
+        else
+            self:Open()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Open()
+        self.isOpen = true
+        self.dimmer.Enable = true
+        self.window.Enable = true
+        self:RefreshIcons()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Close()
+        self.isOpen = false
+        self.dimmer.Enable = false
+        self.window.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        self:Close()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnResetClicked()
+        _KeyBindingLogic:ResetToDefaults()
+        self:RefreshIcons()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnDrag(Entity icon, UITouchDragEvent event)
+        local transform = icon.UITransformComponent
+        local pos = transform.anchoredPosition
+        transform.anchoredPosition = Vector2(pos.x + event.TouchDelta.x, pos.y + event.TouchDelta.y)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void EndDrag(Entity icon, string actionName)
+        local pos = icon.UITransformComponent.anchoredPosition
+        local nearest = self:FindNearestKey(pos.x, pos.y)
+        if nearest ~= nil then
+            -- TryRebind already handles the MapleStory-style swap when the target
+            -- key currently belongs to the other action (KeyBindingLogic.mlua).
+            local ok = _KeyBindingLogic:TryRebind(actionName, nearest.key)
+            log("KeyBindingPopup: EndDrag action=" .. actionName .. " droppedOn=" .. tostring(nearest.key) .. " rebindOk=" .. tostring(ok))
+        else
+            log("KeyBindingPopup: EndDrag action=" .. actionName .. " no key in range, snapping back")
+        end
+        -- Always re-snap both icons to their (possibly just-swapped) current keys,
+        -- whether the drop landed on a valid key or missed every snap radius.
+        self:RefreshIcons()
+    end
+
+    method any FindNearestKey(number x, number y)
+        local best = nil
+        local bestDist = self.snapDistance
+        for _, entry in ipairs(self._T.keyLayout) do
+            local dx = entry.x - x
+            local dy = entry.y - y
+            local dist = math.sqrt(dx * dx + dy * dy)
+            if dist <= bestDist then
+                bestDist = dist
+                best = entry
+            end
+        end
+        return best
+    end
+
+    method any FindKeyPosition(any key)
+        for _, entry in ipairs(self._T.keyLayout) do
+            if entry.key == key then
+                return entry
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshIcons()
+        for _, icon in ipairs(self._T.icons) do
+            self:SnapIconToKey(icon.entity, _KeyBindingLogic:GetKeyForAction(icon.actionName))
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SnapIconToKey(Entity icon, any key)
+        if not isvalid(icon) then
+            return
+        end
+        local entry = self:FindKeyPosition(key)
+        if entry == nil then
+            return
+        end
+        icon.UITransformComponent.anchoredPosition = Vector2(entry.x, entry.y)
+    end
+
+    method table BuildKeyLayout()
+        -- Generated by build_keysetting_ui.cjs — keep in sync with ui/KeySettingGroup.ui.
+        -- Coordinates are Window/Keyboard-local anchoredPosition (same space IconAttack/IconSkill live in).
+        return {
+            { key = KeyboardKey.Escape, x = -555, y = 155 },
+            { key = KeyboardKey.F1, x = -462, y = 155 },
+            { key = KeyboardKey.F2, x = -400, y = 155 },
+            { key = KeyboardKey.F3, x = -338, y = 155 },
+            { key = KeyboardKey.F4, x = -276, y = 155 },
+            { key = KeyboardKey.F5, x = -183, y = 155 },
+            { key = KeyboardKey.F6, x = -121, y = 155 },
+            { key = KeyboardKey.F7, x = -59, y = 155 },
+            { key = KeyboardKey.F8, x = 3, y = 155 },
+            { key = KeyboardKey.F9, x = 96, y = 155 },
+            { key = KeyboardKey.F10, x = 158, y = 155 },
+            { key = KeyboardKey.F11, x = 220, y = 155 },
+            { key = KeyboardKey.F12, x = 282, y = 155 },
+            { key = KeyboardKey.BackQuote, x = -555, y = 93 },
+            { key = KeyboardKey.Alpha1, x = -493, y = 93 },
+            { key = KeyboardKey.Alpha2, x = -431, y = 93 },
+            { key = KeyboardKey.Alpha3, x = -369, y = 93 },
+            { key = KeyboardKey.Alpha4, x = -307, y = 93 },
+            { key = KeyboardKey.Alpha5, x = -245, y = 93 },
+            { key = KeyboardKey.Alpha6, x = -183, y = 93 },
+            { key = KeyboardKey.Alpha7, x = -121, y = 93 },
+            { key = KeyboardKey.Alpha8, x = -59, y = 93 },
+            { key = KeyboardKey.Alpha9, x = 3, y = 93 },
+            { key = KeyboardKey.Alpha0, x = 65, y = 93 },
+            { key = KeyboardKey.Minus, x = 127, y = 93 },
+            { key = KeyboardKey.Equals, x = 189, y = 93 },
+            { key = KeyboardKey.Backspace, x = 282, y = 93 },
+            { key = KeyboardKey.Tab, x = -539, y = 31 },
+            { key = KeyboardKey.Q, x = -462, y = 31 },
+            { key = KeyboardKey.W, x = -400, y = 31 },
+            { key = KeyboardKey.E, x = -338, y = 31 },
+            { key = KeyboardKey.R, x = -276, y = 31 },
+            { key = KeyboardKey.T, x = -214, y = 31 },
+            { key = KeyboardKey.Y, x = -152, y = 31 },
+            { key = KeyboardKey.U, x = -90, y = 31 },
+            { key = KeyboardKey.I, x = -28, y = 31 },
+            { key = KeyboardKey.O, x = 34, y = 31 },
+            { key = KeyboardKey.P, x = 96, y = 31 },
+            { key = KeyboardKey.LeftBracket, x = 158, y = 31 },
+            { key = KeyboardKey.RightBracket, x = 220, y = 31 },
+            { key = KeyboardKey.Backslash, x = 298, y = 31 },
+            { key = KeyboardKey.CapsLock, x = -532, y = -31 },
+            { key = KeyboardKey.A, x = -446, y = -31 },
+            { key = KeyboardKey.S, x = -384, y = -31 },
+            { key = KeyboardKey.D, x = -322, y = -31 },
+            { key = KeyboardKey.F, x = -260, y = -31 },
+            { key = KeyboardKey.G, x = -198, y = -31 },
+            { key = KeyboardKey.H, x = -136, y = -31 },
+            { key = KeyboardKey.J, x = -74, y = -31 },
+            { key = KeyboardKey.K, x = -12, y = -31 },
+            { key = KeyboardKey.L, x = 50, y = -31 },
+            { key = KeyboardKey.Semicolon, x = 112, y = -31 },
+            { key = KeyboardKey.Quote, x = 174, y = -31 },
+            { key = KeyboardKey.Return, x = 274, y = -31 },
+            { key = KeyboardKey.LeftShift, x = -516, y = -93 },
+            { key = KeyboardKey.Z, x = -415, y = -93 },
+            { key = KeyboardKey.X, x = -353, y = -93 },
+            { key = KeyboardKey.C, x = -291, y = -93 },
+            { key = KeyboardKey.V, x = -229, y = -93 },
+            { key = KeyboardKey.B, x = -167, y = -93 },
+            { key = KeyboardKey.N, x = -105, y = -93 },
+            { key = KeyboardKey.M, x = -43, y = -93 },
+            { key = KeyboardKey.Comma, x = 19, y = -93 },
+            { key = KeyboardKey.Period, x = 81, y = -93 },
+            { key = KeyboardKey.Slash, x = 143, y = -93 },
+            { key = KeyboardKey.RightShift, x = 259, y = -93 },
+            { key = KeyboardKey.LeftControl, x = -547, y = -155 },
+            { key = KeyboardKey.LeftWindows, x = -470, y = -155 },
+            { key = KeyboardKey.LeftAlt, x = -392, y = -155 },
+            { key = KeyboardKey.Space, x = -160, y = -155 },
+            { key = KeyboardKey.RightAlt, x = 73, y = -155 },
+            { key = KeyboardKey.RightWindows, x = 150, y = -155 },
+            { key = KeyboardKey.Menu, x = 228, y = -155 },
+            { key = KeyboardKey.RightControl, x = 305, y = -155 },
+            { key = KeyboardKey.UpArrow, x = 493, y = -93 },
+            { key = KeyboardKey.LeftArrow, x = 431, y = -155 },
+            { key = KeyboardKey.DownArrow, x = 493, y = -155 },
+            { key = KeyboardKey.RightArrow, x = 555, y = -155 },
+        }
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.keyToggleHandler then _InputService:DisconnectEvent(KeyDownEvent, self.keyToggleHandler) end
+        if self.closeHandler then self.btnClose:DisconnectEvent(ButtonClickEvent, self.closeHandler) end
+        if self.resetHandler then self.btnReset:DisconnectEvent(ButtonClickEvent, self.resetHandler) end
+        if self._T.icons ~= nil then
+            for _, icon in ipairs(self._T.icons) do
+                if isvalid(icon.entity) then
+                    if icon.dragHandler then icon.entity:DisconnectEvent(UITouchDragEvent, icon.dragHandler) end
+                    if icon.endDragHandler then icon.entity:DisconnectEvent(UITouchEndDragEvent, icon.endDragHandler) end
+                end
+            end
+        end
+    end
+
+end

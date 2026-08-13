@@ -2,9 +2,17 @@
 script InventoryUIController extends Component
     -- Inventory popup controller - split out of the old combined EquipmentGroup.ui (see
     -- AGENTS.md's latest UI-split request: Equipment and Inventory are now separate windows).
-    -- A 4x4 classic-MapleStory item grid. Clicking a gear slot equips it immediately (auto-routes
-    -- to its matching Equipment slot); clicking a scroll slot arms it for use in the Equipment
-    -- window (shared selection lives in EquipmentLogic.selectedInventoryIndex).
+    -- A 4x4 classic-MapleStory item grid, now split into 장비/소비/기타 (Equip/Consumable/Misc)
+    -- tabs like the real MapleStory inventory - the underlying `data.inventory` stays one flat
+    -- array (unchanged, so EquipmentLogic's index-based EquipItem/ApplyScroll keep working
+    -- untouched); only the display filters it per category and remembers each visible slot's
+    -- real flat-array index for click routing (see GetCategoryItems).
+    -- Clicking a gear slot equips it immediately (auto-routes to its matching Equipment slot);
+    -- clicking a scroll slot arms it for use in the Equipment window (shared selection lives in
+    -- EquipmentLogic.selectedInventoryIndex).
+    property Entity tabEquip = "5f243e76-9b1b-4c14-a601-14b93804a81c"
+    property Entity tabConsumable = "2c5229dd-6a9b-469a-a2c7-7253d09e0ddc"
+    property Entity tabMisc = "f9394364-644b-4aac-a183-94457fddd007"
     property Entity btnClose = "83ec823b-e7ad-4a12-8126-551b85efa6ce"
     property Entity slot1 = "7fcaaf35-8920-424b-acb3-08e80f533861"
     property Entity slot2 = "a87801e4-43ae-490c-aad8-f8edc96c9218"
@@ -65,9 +73,22 @@ script InventoryUIController extends Component
         return Color(0.85, 0.65, 0.18, 1)
     end
 
+    method Color _MiscColor()
+        return Color(0.42, 0.62, 0.55, 1)
+    end
+
+    method Color _TabActiveColor()
+        return Color(0.75, 0.55, 0.13, 1)
+    end
+
+    method Color _TabInactiveColor()
+        return Color(0.86, 0.75, 0.52, 0.55)
+    end
+
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         self._T.handlers = {}
+        self._T.activeCategory = "equip"
         self._T.slots = {
             self.slot1, self.slot2, self.slot3, self.slot4, self.slot5, self.slot6, self.slot7, self.slot8,
             self.slot9, self.slot10, self.slot11, self.slot12, self.slot13, self.slot14, self.slot15, self.slot16,
@@ -76,6 +97,7 @@ script InventoryUIController extends Component
             self.name1, self.name2, self.name3, self.name4, self.name5, self.name6, self.name7, self.name8,
             self.name9, self.name10, self.name11, self.name12, self.name13, self.name14, self.name15, self.name16,
         }
+        self._T.tabs = { { entity = self.tabEquip, category = "equip" }, { entity = self.tabConsumable, category = "consumable" }, { entity = self.tabMisc, category = "misc" } }
 
         local hClose = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
         table.insert(self._T.handlers, { entity = self.btnClose, eventType = ButtonClickEvent, eventHandler = hClose })
@@ -84,6 +106,12 @@ script InventoryUIController extends Component
             local capturedIndex = i
             local h = btn:ConnectEvent(ButtonClickEvent, function() self:OnSlotClicked(capturedIndex) end)
             table.insert(self._T.handlers, { entity = btn, eventType = ButtonClickEvent, eventHandler = h })
+        end
+
+        for _, tab in ipairs(self._T.tabs) do
+            local capturedCategory = tab.category
+            local h = tab.entity:ConnectEvent(ButtonClickEvent, function() self:SelectTab(capturedCategory) end)
+            table.insert(self._T.handlers, { entity = tab.entity, eventType = ButtonClickEvent, eventHandler = h })
         end
 
         if isvalid(self.dragHandle) then
@@ -140,6 +168,48 @@ script InventoryUIController extends Component
         return roster[activeIdx]
     end
 
+    method string GetItemCategory(table inst)
+        -- Classic-MapleStory-style 3-way split. Gear (.itemId) -> equip tab, scrolls (.scrollId)
+        -- -> consumable tab. Nothing in this project's catalog produces a 3rd shape yet, but any
+        -- future item type (quest/material items) falls into "misc" automatically with no
+        -- further changes here - the tab exists and works, just empty until such items exist.
+        if inst.itemId ~= nil then
+            return "equip"
+        elseif inst.scrollId ~= nil then
+            return "consumable"
+        end
+        return "misc"
+    end
+
+    method table GetCategoryItems(table inventory, string category)
+        -- Filters the flat inventory array down to one category, preserving each entry's real
+        -- index into that flat array (realIndex) - EquipItem/ApplyScroll/SetSelectedInventoryIndex
+        -- all key off the flat array's real index, not the visible tab's slot position, so every
+        -- click handler must resolve back through realIndex rather than the visual slot number.
+        local result = {}
+        for i, inst in ipairs(inventory) do
+            if self:GetItemCategory(inst) == category then
+                table.insert(result, { realIndex = i, inst = inst })
+            end
+        end
+        return result
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SelectTab(string category)
+        self._T.activeCategory = category
+        self:UpdateTabVisuals()
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void UpdateTabVisuals()
+        for _, tab in ipairs(self._T.tabs) do
+            local sprite = tab.entity.SpriteGUIRendererComponent
+            sprite.Color = (tab.category == self._T.activeCategory) and self:_TabActiveColor() or self:_TabInactiveColor()
+        end
+    end
+
     @ExecSpace("ClientOnly")
     method void Refresh()
         local data = self:GetActiveCharacterData()
@@ -147,45 +217,58 @@ script InventoryUIController extends Component
             self:Hide()
             return
         end
+        self:UpdateTabVisuals()
         local inventory = data.inventory or {}
+        local categoryItems = self:GetCategoryItems(inventory, self._T.activeCategory)
         local selectedIdx = _EquipmentLogic:GetSelectedInventoryIndex()
 
         for i, btn in ipairs(self._T.slots) do
-            local inst = inventory[i]
+            local entry = categoryItems[i]
             local nameText = self._T.names[i].TextGUIRendererComponent
             local sprite = btn.SpriteGUIRendererComponent
-            if inst == nil then
+            if entry == nil then
                 sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
                 sprite.Color = self:_EmptyColor()
                 nameText.Text = ""
-            elseif inst.itemId ~= nil then
-                local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
-                if tpl ~= nil and tpl.ruid ~= nil and tpl.ruid ~= "" then
-                    sprite.ImageRUID = DataRef("thumbnail://" .. tpl.ruid)
+            else
+                local inst = entry.inst
+                if inst.itemId ~= nil then
+                    local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
+                    if tpl ~= nil and tpl.ruid ~= nil and tpl.ruid ~= "" then
+                        sprite.ImageRUID = DataRef("thumbnail://" .. tpl.ruid)
+                    else
+                        sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
+                    end
+                    sprite.Color = self:_GearColor()
+                    nameText.Text = (tpl ~= nil) and (tpl.name .. " (" .. inst.upgradesUsed .. "/" .. tpl.maxUpgradeSlots .. ")") or "?"
+                elseif inst.scrollId ~= nil then
+                    local tpl = _EquipmentLogic:GetScrollTemplate(inst.scrollId)
+                    sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
+                    sprite.Color = (selectedIdx == entry.realIndex) and self:_ScrollSelectedColor() or self:_ScrollNeutralColor()
+                    nameText.Text = (tpl ~= nil) and tpl.name or "?"
                 else
                     sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
+                    sprite.Color = self:_MiscColor()
+                    nameText.Text = "?"
                 end
-                sprite.Color = self:_GearColor()
-                nameText.Text = (tpl ~= nil) and (tpl.name .. " (" .. inst.upgradesUsed .. "/" .. tpl.maxUpgradeSlots .. ")") or "?"
-            else
-                local tpl = _EquipmentLogic:GetScrollTemplate(inst.scrollId)
-                sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
-                sprite.Color = (selectedIdx == i) and self:_ScrollSelectedColor() or self:_ScrollNeutralColor()
-                nameText.Text = (tpl ~= nil) and tpl.name or "?"
             end
         end
     end
 
     @ExecSpace("ClientOnly")
-    method void OnSlotClicked(integer index)
+    method void OnSlotClicked(integer visualIndex)
         local data = self:GetActiveCharacterData()
         if data == nil then
             return
         end
-        local inst = (data.inventory or {})[index]
-        if inst == nil then
+        local inventory = data.inventory or {}
+        local categoryItems = self:GetCategoryItems(inventory, self._T.activeCategory)
+        local entry = categoryItems[visualIndex]
+        if entry == nil then
             return
         end
+        local index = entry.realIndex
+        local inst = entry.inst
 
         if inst.itemId ~= nil then
             -- Gear: single click equips immediately, auto-routed to its matching Equipment slot.
@@ -196,7 +279,7 @@ script InventoryUIController extends Component
                 self:Refresh()
                 self:RefreshEquipmentWindowIfOpen()
             end
-        else
+        elseif inst.scrollId ~= nil then
             -- Scroll: toggle arm/disarm. Applying it happens by clicking a slot in the Equipment
             -- window (shared state - see EquipmentLogic.selectedInventoryIndex).
             local current = _EquipmentLogic:GetSelectedInventoryIndex()
@@ -207,6 +290,7 @@ script InventoryUIController extends Component
             end
             self:Refresh()
         end
+        -- Misc items have no click behavior yet - nothing in the catalog produces one.
     end
 
     @ExecSpace("ClientOnly")

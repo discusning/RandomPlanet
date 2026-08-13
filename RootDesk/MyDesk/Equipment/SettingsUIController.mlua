@@ -9,6 +9,7 @@ script SettingsUIController extends Component
     -- window behavior (see AGENTS.md's window-drag request).
     property Entity dragHandle = "1e8644e5-2095-455a-a040-956fcec66d4b"
     property UITransformComponent cardTransform = "8bf82fcd-7253-4829-ab55-99b486ebbd41"
+    property Entity btnKeySetting = "61c0f86f-7ed6-47b2-ae3c-19cfe24d949f"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -18,6 +19,10 @@ script SettingsUIController extends Component
         if isvalid(self.dragHandle) then
             local hDrag = self.dragHandle:ConnectEvent(UITouchDragEvent, self.OnDrag)
             table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDragEvent, eventHandler = hDrag })
+        end
+        if isvalid(self.btnKeySetting) then
+            local hKeySetting = self.btnKeySetting:ConnectEvent(ButtonClickEvent, self.OnKeySettingClicked)
+            table.insert(self._T.handlers, { entity = self.btnKeySetting, eventType = ButtonClickEvent, eventHandler = hKeySetting })
         end
         self.Entity.Enable = false
     end
@@ -60,5 +65,21 @@ script SettingsUIController extends Component
     @ExecSpace("ClientOnly")
     method void OnCloseClicked()
         self:Hide()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeySettingClicked()
+        -- KeyBindingPopupController lives on /ui/KeySettingGroup's root (see
+        -- RootDesk/MyDesk/KeySetting/KeyBindingPopupController.mlua) - previously only reachable
+        -- via the undiscoverable P-key shortcut. This is the in-game entry point.
+        self:Hide()
+        local keySettingGroup = _EntityService:GetEntityByPath("/ui/KeySettingGroup")
+        if not isvalid(keySettingGroup) then
+            return
+        end
+        local popup = keySettingGroup:GetComponent("script.KeyBindingPopupController")
+        if isvalid(popup) then
+            popup:Open()
+        end
     end
 end

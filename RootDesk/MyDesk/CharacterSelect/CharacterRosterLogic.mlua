@@ -16,6 +16,11 @@ script CharacterRosterLogic extends Logic
         self._T.squadLinks = {}
         self._T.lastResetDate = ""
         self._T.loadComplete = false
+        -- Tracks whether the local player is actually in real gameplay (Lobby+) vs. parked on
+        -- choice_map - WindowHotkeyLogic checks this before honoring an Inventory/Equipment/
+        -- CharacterInfo/SkillWindow toggle keypress, mirroring the PlayerControllerComponent.Enable
+        -- gate already applied to combat input in Hide/ShowLocalPlayer below.
+        self._T.gameplayActive = false
 
         -- One-time per-world-session load of this player's saved roster (see RequestLoadRoster /
         -- OnRosterLoaded below). Previously this state was purely in-memory - lost on refresh/session
@@ -26,6 +31,16 @@ script CharacterRosterLogic extends Logic
     @ExecSpace("ClientOnly")
     method table GetRoster()
         return self._T.data
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsRosterLoadComplete()
+        -- OnBeginPlay seeds self._T.data as an empty {} before the async RequestLoadRoster/
+        -- OnRosterLoaded round trip resolves - any code that treats "roster[idx] == nil" as "slot
+        -- idx is genuinely empty" during that window (e.g. a standee click) will wrongly conclude
+        -- an already-owned slot is free and overwrite it with a freshly rolled character. Callers
+        -- that can create/mutate a slot from a player click must gate on this first.
+        return self._T.loadComplete == true
     end
 
     @ExecSpace("ClientOnly")
@@ -252,7 +267,7 @@ script CharacterRosterLogic extends Logic
         end
         local skillComp = player:GetComponent("script.PlayerSkillComponent")
         if isvalid(skillComp) and skillId ~= nil then
-            skillComp:SetSkillId(skillId)
+            skillComp:GrantInitialSkill(skillId)
         end
         _TeleportService:TeleportToMapPosition(player, standeePos, "Lobby")
     end
@@ -285,9 +300,20 @@ script CharacterRosterLogic extends Logic
         if isvalid(localPlayer.NameTagComponent) then
             localPlayer.NameTagComponent.Enable = false
         end
+        -- Also disable native input handling while parked on the select stage - the real
+        -- player entity (invisible, standing under the standees) was still fully controllable,
+        -- so pressing the default Jump keys (Alt/Space) or the rebindable Attack key (Ctrl by
+        -- default) fired jump/attack sound+animation with no visible character on choice_map.
+        -- PlayerControllerComponent is the single dispatcher for both movement and action-key
+        -- events (see platform.md §10's "set Enable=false to fully hand off input"), so this one
+        -- flag silences both at once.
+        if isvalid(localPlayer.PlayerControllerComponent) then
+            localPlayer.PlayerControllerComponent.Enable = false
+        end
+        self._T.gameplayActive = false
         _PlayerHUDController:Hide()
         self:SetBottomBarVisible(false)
-        log("CharacterRoster: HideLocalPlayer, hid local player avatar/nametag")
+        log("CharacterRoster: HideLocalPlayer, hid local player avatar/nametag/input")
     end
 
     @ExecSpace("ClientOnly")
@@ -311,9 +337,18 @@ script CharacterRosterLogic extends Logic
         if isvalid(localPlayer.AvatarRendererComponent) then
             localPlayer.AvatarRendererComponent.Enable = true
         end
+        if isvalid(localPlayer.PlayerControllerComponent) then
+            localPlayer.PlayerControllerComponent.Enable = true
+        end
+        self._T.gameplayActive = true
         _PlayerHUDController:Show()
         self:SetBottomBarVisible(true)
-        log("CharacterRoster: ShowLocalPlayer, restored local player avatar visibility (nametag stays hidden)")
+        log("CharacterRoster: ShowLocalPlayer, restored local player avatar visibility + input (nametag stays hidden)")
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsGameplayActive()
+        return self._T.gameplayActive == true
     end
 
     @ExecSpace("ClientOnly")

@@ -192,22 +192,15 @@ script LobbyStageController extends Component
         -- twice in practice. portal-3 still has its own PortalComponent (BoxOffset/BoxSize reused
         -- below for the "am I standing on it" check) and visible sprite - only the destination-link
         -- half of the native system is replaced.
-        if event.key == KeyboardKey.I then
-            -- Inventory UI toggle - classic MapleStory's own "I" convention (Equipment and
-            -- Inventory are now separate windows; the bottom nav bar covers both plus Character
-            -- Info/Settings, but this shortcut is kept as a bonus for the inventory specifically).
-            -- Global overlay layer (/ui/*), safe to look up fresh every press (see the
-            -- CharacterCardController.GetMapController comment for why /ui/* doesn't go stale
-            -- across map transitions the way a /maps/* reference would).
-            local invGroup = _EntityService:GetEntityByPath("/ui/InventoryGroup")
-            if isvalid(invGroup) then
-                local controller = invGroup:GetComponent("script.InventoryUIController")
-                if isvalid(controller) then
-                    controller:Toggle()
-                end
-            end
-            return
-        end
+        --
+        -- NOTE: this used to also hardcode an "I" -> Inventory toggle here. Removed (2026-08-12) -
+        -- WindowHotkeyLogic (a global @Logic) already listens to the SAME KeyDownEvent and toggles
+        -- Inventory via the rebindable KeyBindingLogic registry (default key also "I"). Both handlers
+        -- fired on every keypress, so the window toggled twice per press - net no visible change most
+        -- of the time, which is exactly the "I 키가 가끔 안 먹히는 것 같다" behavior reported and
+        -- misdiagnosed as input-simulator noise in an earlier session (see Archive/As-built.md). The
+        -- hardcoded copy here also ignored any key the player rebound Inventory to via Key Settings,
+        -- since it never consulted KeyBindingLogic. WindowHotkeyLogic is the single correct handler.
         if event.key ~= KeyboardKey.UpArrow then
             return
         end

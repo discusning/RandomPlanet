@@ -29,17 +29,20 @@ script SkillCatalog extends Logic
         --   auraType/auraColor (buff)                         - looping BasicParticle attached while active
         -- RUIDs are the real MapleStory skill-pack clips for that exact skill (found via msw-search),
         -- so magic claw actually looks like a claw swipe and arrow blow like a flying arrow, not a shared dot.
+        -- desc: 스킬창 툴팁에 그대로 노출되는 플레이어용 효과 설명. 실제로 수치가 적용되는 부분은
+        -- 구체적 수치를 명시하고(예: "명중률 +30"), inertNote로 비활성 처리된 부분은 설명에서 뺐다 -
+        -- 발동 안 하는 효과를 설명에 적어두면 플레이어에게 거짓 정보가 된다.
         local defs = {
-            powerstrike = { id = "powerstrike", name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4" },
-            ironbody = { id = "ironbody", name = "아이언 바디", job = "검사", kind = "buff", duration = 5.0, testableEffect = "none", inertNote = "방어력 상승 - 몬스터가 플레이어를 공격하는 파이프라인이 없어 비활성", cooldown = 15.0, mpCost = 15, auraType = "Aura", auraColor = Color(0.75, 0.75, 0.82, 0.9) },
-            magicclaw = { id = "magicclaw", name = "매직 클로", job = "마법사", kind = "ranged_single", coef = 1.3, magic = true, cooldown = 2.5, mpCost = 10, projectileVfxRuid = "2a0d72e836fb4862aae83087035f3d2a" },
-            magicguard = { id = "magicguard", name = "매직 가드", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "none", inertNote = "받는 피해 일부를 MP로 전환 - 몬스터 공격 파이프라인 없어 비활성", cooldown = 20.0, mpCost = 20, auraType = "Enchant", auraColor = Color(0.4, 0.6, 1.0, 0.9) },
-            arrowblow = { id = "arrowblow", name = "애로우 블로우", job = "궁수", kind = "ranged_pierce", coef = 1.2, magic = false, cooldown = 2.0, mpCost = 8, projectileVfxRuid = "64f775829e234918bd65e9d22214bb06" },
-            focus = { id = "focus", name = "포커스", job = "궁수", kind = "buff", duration = 6.0, testableEffect = "accuracy", accuracyBonus = 30, inertNote = "회피 상승 부분은 비활성(몬스터 공격 파이프라인 없음)", cooldown = 12.0, mpCost = 12, auraType = "SpinField", auraColor = Color(1.0, 0.85, 0.3, 0.9) },
-            luckyseven = { id = "luckyseven", name = "럭키 세븐", job = "도적", kind = "multi_hit", coef = 0.5, hits = 3, cooldown = 3.5, mpCost = 12, hitVfxRuid = "458e72f0720a4584a9a7fc3642b6e601" },
-            nimblebody = { id = "nimblebody", name = "님블 바디", job = "도적", kind = "buff", duration = 6.0, testableEffect = "movespeed", moveSpeedBonus = 1.5, inertNote = "회피 상승 부분은 비활성(몬스터 공격 파이프라인 없음)", cooldown = 12.0, mpCost = 10, auraType = "Buff", auraColor = Color(0.3, 1.0, 0.85, 0.9) },
-            dash = { id = "dash", name = "대시", job = "해적", kind = "dash", force = 6.0, cooldown = 4.0, mpCost = 6, dashVfxRuid = "b84c3c28e8284104b68d16b5cf0524b2" },
-            knucklebooster = { id = "knucklebooster", name = "너클 부스터", job = "해적", kind = "buff", duration = 6.0, testableEffect = "atkspeed", cooldown = 15.0, mpCost = 15, auraType = "LightningOrbSoft", auraColor = Color(1.0, 0.55, 0.15, 0.9) },
+            powerstrike = { id = "powerstrike", name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
+            ironbody = { id = "ironbody", name = "아이언 바디", job = "검사", kind = "buff", duration = 5.0, testableEffect = "none", inertNote = "방어력 상승 - 몬스터가 플레이어를 공격하는 파이프라인이 없어 비활성", cooldown = 15.0, mpCost = 15, auraType = "Aura", auraColor = Color(0.75, 0.75, 0.82, 0.9), desc = "일정 시간 몸을 단단하게 만듭니다." },
+            magicclaw = { id = "magicclaw", name = "매직 클로", job = "마법사", kind = "ranged_single", coef = 1.3, magic = true, cooldown = 2.5, mpCost = 10, projectileVfxRuid = "2a0d72e836fb4862aae83087035f3d2a", desc = "전방으로 마법 발톱을 날려 평타의 130% 마법 피해를 입힙니다." },
+            magicguard = { id = "magicguard", name = "매직 가드", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "none", inertNote = "받는 피해 일부를 MP로 전환 - 몬스터 공격 파이프라인 없어 비활성", cooldown = 20.0, mpCost = 20, auraType = "Enchant", auraColor = Color(0.4, 0.6, 1.0, 0.9), desc = "일정 시간 마나의 보호막을 두릅니다." },
+            arrowblow = { id = "arrowblow", name = "애로우 블로우", job = "궁수", kind = "ranged_pierce", coef = 1.2, magic = false, cooldown = 2.0, mpCost = 8, projectileVfxRuid = "64f775829e234918bd65e9d22214bb06", desc = "화살을 쏘아 최대 2명의 적을 관통, 각각 평타의 120% 피해를 입힙니다." },
+            focus = { id = "focus", name = "포커스", job = "궁수", kind = "buff", duration = 6.0, testableEffect = "accuracy", accuracyBonus = 30, inertNote = "회피 상승 부분은 비활성(몬스터 공격 파이프라인 없음)", cooldown = 12.0, mpCost = 12, auraType = "SpinField", auraColor = Color(1.0, 0.85, 0.3, 0.9), desc = "일정 시간 명중률이 30 증가합니다." },
+            luckyseven = { id = "luckyseven", name = "럭키 세븐", job = "도적", kind = "multi_hit", coef = 0.5, hits = 3, cooldown = 3.5, mpCost = 12, hitVfxRuid = "458e72f0720a4584a9a7fc3642b6e601", desc = "단검을 3연속으로 던져 각 타격마다 평타의 50% 피해를 입힙니다." },
+            nimblebody = { id = "nimblebody", name = "님블 바디", job = "도적", kind = "buff", duration = 6.0, testableEffect = "movespeed", moveSpeedBonus = 1.5, inertNote = "회피 상승 부분은 비활성(몬스터 공격 파이프라인 없음)", cooldown = 12.0, mpCost = 10, auraType = "Buff", auraColor = Color(0.3, 1.0, 0.85, 0.9), desc = "일정 시간 이동 속도가 증가합니다." },
+            dash = { id = "dash", name = "대시", job = "해적", kind = "dash", force = 6.0, cooldown = 4.0, mpCost = 6, dashVfxRuid = "b84c3c28e8284104b68d16b5cf0524b2", desc = "바라보는 방향으로 짧게 돌진합니다." },
+            knucklebooster = { id = "knucklebooster", name = "너클 부스터", job = "해적", kind = "buff", duration = 6.0, testableEffect = "atkspeed", cooldown = 15.0, mpCost = 15, auraType = "LightningOrbSoft", auraColor = Color(1.0, 0.55, 0.15, 0.9), desc = "일정 시간 공격 속도가 크게 증가합니다." },
         }
         return defs[skillId]
     end
@@ -54,6 +57,54 @@ script SkillCatalog extends Logic
             ids[j] = tmp
         end
         return { ids[1], ids[2], ids[3] }
+    end
+
+    method boolean IsBuffSkill(string skillId)
+        -- Category split used by PlayerSkillComponent's tier-slot grants (Docs/랜덤 플래닛 전체 기획서.md
+        -- §04 "버프풀 3택1 + 공격풀 3택1 동시 진행"). Every non-"buff" kind counts as the attack category.
+        local def = self:GetSkillDef(skillId)
+        return def ~= nil and def.kind == "buff"
+    end
+
+    method table GetSkillsByCategory(string category)
+        -- category = "buff" | "attack". Returns ids in catalog order (stable, not shuffled).
+        local ids = self:GetAllSkillIds()
+        local result = {}
+        for _, id in ipairs(ids) do
+            local isBuff = self:IsBuffSkill(id)
+            if (category == "buff" and isBuff) or (category == "attack" and not isBuff) then
+                table.insert(result, id)
+            end
+        end
+        return result
+    end
+
+    method table RollSkillChoices(string category, table excludeIds)
+        -- Up to 3 unowned ids of the given category, shuffled. Returns fewer than 3 once the
+        -- category pool (5 ids today) is mostly exhausted by earlier tier grants - callers must
+        -- handle a short list (see PlayerSkillComponent.GrantTierSkills).
+        local pool = self:GetSkillsByCategory(category)
+        local excludeLookup = {}
+        for _, id in ipairs(excludeIds) do
+            excludeLookup[id] = true
+        end
+        local candidates = {}
+        for _, id in ipairs(pool) do
+            if not excludeLookup[id] then
+                table.insert(candidates, id)
+            end
+        end
+        for i = #candidates, 2, -1 do
+            local j = _UtilLogic:RandomIntegerRange(1, i)
+            local tmp = candidates[i]
+            candidates[i] = candidates[j]
+            candidates[j] = tmp
+        end
+        local result = {}
+        for i = 1, math.min(3, #candidates) do
+            table.insert(result, candidates[i])
+        end
+        return result
     end
 
 end

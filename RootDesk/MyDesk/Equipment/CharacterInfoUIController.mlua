@@ -1,29 +1,68 @@
 @Component
 script CharacterInfoUIController extends Component
-    -- Read-only character info sheet, opened from the bottom bar's "캐릭터" button (see
-    -- AGENTS.md's latest UI-split request for a dedicated character-info window).
+    -- Character info sheet ("캐릭터 정보창") - 2-tab layout (정보/스탯) matching the depth of
+    -- Docs/랜덤 플래닛 전체 기획서.md §2-2(스탯)/§2-3(특성): 정보 탭 shows Lv/XP/HP/MP + 1차 특성
+    -- (기본 패시브 설명) + 2차 특성(3차 전직 미해금 placeholder, §2-5) + 장착 스킬 요약; 스탯 탭
+    -- shows base STR/DEX/INT/LUK with equipment-bonus breakdown + every derived combat number
+    -- (공격력/명중/공속/크리/이동속도/최대MP) + a simple 전투력(CP) score (NOT in the design doc -
+    -- an approximate DPS index added at the user's request, see As-built.md). 추가 스탯 분배(이능
+    -- 3택1)/링크 시너지 are Phase 3+/M2 - not implemented, shown as a locked note instead of a tab.
+    -- Reads the LIVE PlayerStatsComponent/PlayerAttack/MovementComponent (not the static roster
+    -- snapshot the old single-view version read) so level-up changes show immediately - the old
+    -- version went stale the moment you leveled up without re-entering the game.
     property Entity btnClose = "d1c7f6b7-2244-4be3-86bb-6a963738f266"
-    property Entity levelText = "b548eee5-933f-4f28-bd5b-1f5ef620c349"
-    property Entity traitText = "6bab7344-dc5c-4674-8005-867e4daefaae"
-    property Entity statSTR = "05d246d4-2db4-4b6e-bbf8-d9af590ab4f9"
-    property Entity statDEX = "19d96f45-b6c8-412d-8149-2f7a9c173494"
-    property Entity statINT = "0a46e2a0-0bac-44fa-bbbf-5916f57a8308"
-    property Entity statLUK = "2fcd5bfc-233b-43d8-b451-f91f4c84c54b"
-    -- Title-bar drag strip (left of the close button) + the window panel it moves - lets the
-    -- player reposition the window by mouse-down-dragging the title, matching classic MapleStory
-    -- window behavior (see AGENTS.md's window-drag request).
     property Entity dragHandle = "691c5981-6a6b-4dd5-848d-4f2bd752db33"
     property UITransformComponent cardTransform = "b03312f3-955d-465d-ad4b-c69f867ce563"
+
+    property Entity tab1Entity = "b007e120-3f71-4942-893f-5647815ade55"
+    property SpriteGUIRendererComponent tab1Sprite = "b007e120-3f71-4942-893f-5647815ade55"
+    property Entity tab2Entity = "73012b8e-a683-4af1-96fe-288652471ac3"
+    property SpriteGUIRendererComponent tab2Sprite = "73012b8e-a683-4af1-96fe-288652471ac3"
+    property Entity infoPanelEntity = "21f78616-dfd1-4467-9df9-c403d68db854"
+    property Entity statPanelEntity = "96954c49-dcaa-4ad1-a37e-2d34ee0f7486"
+
+    property TextGUIRendererComponent levelText = "9e2db884-f6c6-4b0e-8dcb-cd3b14d050e3"
+    property UITransformComponent xpFillTransform = "772fb7bf-d1e7-45fb-adf6-03abfe2bac27"
+    property UITransformComponent hpFillTransform = "8df57ccf-a7ef-4e1e-b6dd-491dfbc760d4"
+    property TextGUIRendererComponent hpText = "874d93db-ddd0-43ba-a3b3-77ef4775f706"
+    property UITransformComponent mpFillTransform = "629d53e2-0981-4785-9742-aeb01f84fb5b"
+    property TextGUIRendererComponent mpText = "5df8c235-d675-4398-932e-573f787023da"
+    property TextGUIRendererComponent trait1Title = "5d9e3406-0b51-4239-83d6-0f2d4641ab37"
+    property TextGUIRendererComponent trait1Desc = "eb2bf627-4375-40c9-9a55-b1c96296d786"
+    property TextGUIRendererComponent skillSummaryValue = "30091189-ec44-40a2-b717-264e4a7b9cbb"
+    property Entity btnOpenSkill = "3c0999b2-b3e2-48ad-9754-5fa914ea91af"
+
+    property TextGUIRendererComponent cpBadge = "d19dbf91-e53a-4efa-8219-a6175f5234af"
+    property TextGUIRendererComponent statSTRValue = "0ee1ea9a-c7b7-4108-9ccf-d6ecb5b539da"
+    property TextGUIRendererComponent statDEXValue = "b26bdcbb-3c93-432d-b1d8-7192cfdcd1e5"
+    property TextGUIRendererComponent statINTValue = "a5429a0f-d84d-41a8-8e6e-64b89a832835"
+    property TextGUIRendererComponent statLUKValue = "dcc09eb7-9825-4871-9bdd-3b15d64210d4"
+    property TextGUIRendererComponent derivedAtk = "db5a5d02-1d1e-47d0-bb2e-4379b6bf9560"
+    property TextGUIRendererComponent derivedAcc = "7daeaeba-3592-474c-beb9-08348ae0cb17"
+    property TextGUIRendererComponent derivedAtkSpd = "ad188fc1-88da-4323-8c36-107089a4c61a"
+    property TextGUIRendererComponent derivedCrit = "fdb69ad9-3d27-4ea7-8c3a-9e0987c136c9"
+    property TextGUIRendererComponent derivedCritDmg = "18185cd9-f1ca-4e76-80dc-02bab312707d"
+    property TextGUIRendererComponent derivedMoveSpd = "dd76ccdc-4544-4202-8416-8f1943a6a14d"
+    property TextGUIRendererComponent derivedMaxMp = "dca20619-c864-4162-921f-8c8193d7b879"
+
+    property number fullWidth = 380
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         self._T.handlers = {}
+        self._T.selectedTab = 1
         local h = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
         table.insert(self._T.handlers, { entity = self.btnClose, eventType = ButtonClickEvent, eventHandler = h })
         if isvalid(self.dragHandle) then
             local hDrag = self.dragHandle:ConnectEvent(UITouchDragEvent, self.OnDrag)
             table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDragEvent, eventHandler = hDrag })
         end
+        local hTab1 = self.tab1Entity:ConnectEvent(ButtonClickEvent, function() self:SelectTab(1) end)
+        table.insert(self._T.handlers, { entity = self.tab1Entity, eventType = ButtonClickEvent, eventHandler = hTab1 })
+        local hTab2 = self.tab2Entity:ConnectEvent(ButtonClickEvent, function() self:SelectTab(2) end)
+        table.insert(self._T.handlers, { entity = self.tab2Entity, eventType = ButtonClickEvent, eventHandler = hTab2 })
+        local hSkill = self.btnOpenSkill:ConnectEvent(ButtonClickEvent, self.OnOpenSkillClicked)
+        table.insert(self._T.handlers, { entity = self.btnOpenSkill, eventType = ButtonClickEvent, eventHandler = hSkill })
         self.Entity.Enable = false
     end
 
@@ -36,16 +75,35 @@ script CharacterInfoUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void OnDrag(UITouchDragEvent event)
-        -- Moves the whole window panel by the drag delta - only the title-bar strip
-        -- (dragHandle) generates this event, so clicks inside the window body are unaffected.
         if not isvalid(self.cardTransform) then return end
         local pos = self.cardTransform.anchoredPosition
         self.cardTransform.anchoredPosition = Vector2(pos.x + event.TouchDelta.x, pos.y + event.TouchDelta.y)
     end
 
     @ExecSpace("ClientOnly")
+    method void SelectTab(integer tab)
+        self._T.selectedTab = tab
+        self.infoPanelEntity.Enable = (tab == 1)
+        self.statPanelEntity.Enable = (tab == 2)
+        self.tab1Sprite.Color = (tab == 1) and Color(0.85, 0.65, 0.18, 0.95) or Color(0.29, 0.18, 0.09, 0.9)
+        self.tab2Sprite.Color = (tab == 2) and Color(0.85, 0.65, 0.18, 0.95) or Color(0.29, 0.18, 0.09, 0.9)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnOpenSkillClicked()
+        self:Hide()
+        local skillGroup = _EntityService:GetEntityByPath("/ui/SkillGroup")
+        if not isvalid(skillGroup) then return end
+        local ctrl = skillGroup:GetComponent("script.SkillUIController")
+        if isvalid(ctrl) then
+            ctrl:Show()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
     method void Show()
         self.Entity.Enable = true
+        self:SelectTab(1)
         self:Refresh()
     end
 
@@ -75,12 +133,123 @@ script CharacterInfoUIController extends Component
             self:Hide()
             return
         end
-        self.levelText.TextGUIRendererComponent.Text = "Lv. " .. tostring(data.level or 1)
-        self.traitText.TextGUIRendererComponent.Text = data.trait or ""
-        self.statSTR.TextGUIRendererComponent.Text = "STR  " .. _EquipmentLogic:GetEffectiveStat(data, "str")
-        self.statDEX.TextGUIRendererComponent.Text = "DEX  " .. _EquipmentLogic:GetEffectiveStat(data, "dex")
-        self.statINT.TextGUIRendererComponent.Text = "INT  " .. _EquipmentLogic:GetEffectiveStat(data, "int")
-        self.statLUK.TextGUIRendererComponent.Text = "LUK  " .. _EquipmentLogic:GetEffectiveStat(data, "luk")
+
+        local localPlayer = _UserService.LocalPlayer
+        local statsComp = nil
+        local attack = nil
+        local move = nil
+        local player = nil
+        local skillComp = nil
+        if isvalid(localPlayer) then
+            statsComp = localPlayer:GetComponent("script.PlayerStatsComponent")
+            attack = localPlayer:GetComponent("script.PlayerAttack")
+            move = localPlayer.MovementComponent
+            player = localPlayer.PlayerComponent
+            skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
+        end
+
+        self:RefreshInfoTab(data, statsComp, player, skillComp)
+        self:RefreshStatTab(data, statsComp, attack, move)
+    end
+
+    method void RefreshInfoTab(table data, PlayerStatsComponent statsComp, PlayerComponent player, PlayerSkillComponent skillComp)
+        local level = isvalid(statsComp) and statsComp.Level or (data.level or 1)
+        self.levelText.Text = "Lv." .. tostring(level)
+
+        if isvalid(statsComp) and statsComp.XpToNextLevel > 0 then
+            local ratio = math.max(0, math.min(1, statsComp.CurrentXp / statsComp.XpToNextLevel))
+            self.xpFillTransform.RectSize = Vector2(self.fullWidth * ratio, self.xpFillTransform.RectSize.y)
+        end
+
+        local maxHp = isvalid(player) and player.MaxHp or 0
+        local hp = isvalid(player) and player.Hp or 0
+        self.hpText.Text = tostring(math.floor(hp)) .. " / " .. tostring(math.floor(maxHp))
+        local hpRatio = maxHp > 0 and (hp / maxHp) or 0
+        self.hpFillTransform.RectSize = Vector2(self.fullWidth * hpRatio, self.hpFillTransform.RectSize.y)
+
+        local maxMp = isvalid(statsComp) and statsComp.MaxMp or 0
+        local mp = isvalid(statsComp) and statsComp.CurrentMp or 0
+        self.mpText.Text = tostring(mp) .. " / " .. tostring(maxMp)
+        local mpRatio = maxMp > 0 and (mp / maxMp) or 0
+        self.mpFillTransform.RectSize = Vector2(self.fullWidth * mpRatio, self.mpFillTransform.RectSize.y)
+
+        self.trait1Title.Text = "1차 특성 · " .. (data.trait or "-")
+        self.trait1Desc.Text = self:TraitDesc(data.trait)
+
+        self.skillSummaryValue.Text = "-"
+        if isvalid(skillComp) then
+            local eq = skillComp.EquippedSkillId
+            if eq ~= nil and eq ~= "" then
+                local def = _SkillCatalog:GetSkillDef(eq)
+                if def ~= nil then
+                    self.skillSummaryValue.Text = def.name .. " (" .. def.job .. ")"
+                end
+            end
+        end
+    end
+
+    method void RefreshStatTab(table data, PlayerStatsComponent statsComp, PlayerAttack attack, MovementComponent move)
+        -- CharacterCardController.OnPlayClicked already passes EFFECTIVE (base+equipment) values
+        -- into ApplyStats, so statsComp.Str/Dex/Intel/Luk are TOTALS, not base-only - showing
+        -- "(장비 +N)" next to that total would double-count the bonus. Base comes from the roster
+        -- snapshot directly (data.str etc, unaffected by equip) and bonus = effective - base.
+        local strTotal = isvalid(statsComp) and statsComp.Str or (data.str or 0)
+        local dexTotal = isvalid(statsComp) and statsComp.Dex or (data.dex or 0)
+        local intTotal = isvalid(statsComp) and statsComp.Intel or (data.intel or 0)
+        local lukTotal = isvalid(statsComp) and statsComp.Luk or (data.luk or 0)
+
+        local strBonus = _EquipmentLogic:GetEffectiveStat(data, "str") - (data.str or 0)
+        local dexBonus = _EquipmentLogic:GetEffectiveStat(data, "dex") - (data.dex or 0)
+        local intBonus = _EquipmentLogic:GetEffectiveStat(data, "int") - (data.intel or 0)
+        local lukBonus = _EquipmentLogic:GetEffectiveStat(data, "luk") - (data.luk or 0)
+
+        self.statSTRValue.Text = "STR  " .. tostring(strTotal) .. self:BonusSuffix(strBonus)
+        self.statDEXValue.Text = "DEX  " .. tostring(dexTotal) .. self:BonusSuffix(dexBonus)
+        self.statINTValue.Text = "INT  " .. tostring(intTotal) .. self:BonusSuffix(intBonus)
+        self.statLUKValue.Text = "LUK  " .. tostring(lukTotal) .. self:BonusSuffix(lukBonus)
+
+        local cpScore = 0
+        if isvalid(attack) then
+            self.derivedAtk.Text = "공격력  " .. tostring(math.floor(attack.AttackDamage))
+            self.derivedAcc.Text = "명중  " .. tostring(math.floor(attack.Accuracy))
+            self.derivedAtkSpd.Text = "공격 속도(재사용)  " .. string.format("%.2f", attack.AttackCooldownSeconds) .. "초"
+            self.derivedCrit.Text = "크리티컬 확률  " .. string.format("%.1f", attack.CriticalChance * 100) .. "%"
+            self.derivedCritDmg.Text = "크리티컬 데미지  " .. string.format("%.0f", attack.CritDamageMultiplier * 100) .. "%"
+
+            -- 전투력(CP) - 기획서에 없는 근사 지표(유저 요청으로 추가). 기대 DPS = 공격력 x
+            -- (1 + 크리확률 x (크리배율-1)) / 재사용시간, x10으로 스케일만 키운 표시용 숫자.
+            local expectedMult = 1 + attack.CriticalChance * (attack.CritDamageMultiplier - 1)
+            local cooldown = math.max(0.1, attack.AttackCooldownSeconds)
+            cpScore = math.floor(attack.AttackDamage * expectedMult / cooldown * 10)
+        end
+        self.cpBadge.Text = "전투력  " .. tostring(cpScore)
+
+        if isvalid(move) then
+            self.derivedMoveSpd.Text = "이동 속도  " .. string.format("%.2f", move.InputSpeed)
+        end
+
+        local maxMp = isvalid(statsComp) and statsComp.MaxMp or 0
+        self.derivedMaxMp.Text = "최대 MP  " .. tostring(maxMp)
+    end
+
+    method string BonusSuffix(number bonus)
+        if bonus > 0 then
+            return " (장비 +" .. tostring(math.floor(bonus)) .. ")"
+        end
+        return ""
+    end
+
+    method string TraitDesc(string trait)
+        -- MVP 특성 풀(6종, CharacterSelectStageController.InitRandomPools) 기본 패시브 설명 -
+        -- Docs/랜덤 플래닛 전체 기획서.md §2-3 그대로. 링크 패시브·나머지 108종은 Phase 3+/M2.
+        if trait == "상인" then return "아이템 드랍률 2배"
+        elseif trait == "버서크" then return "초당 체력 3% 감소, 체력이 낮을수록 공격력 상승, 타격 시 흡혈 (회복 아이템 사용 불가)"
+        elseif trait == "단단함" then return "방어력 소폭 증가"
+        elseif trait == "날렵함" then return "이동 속도 소폭 증가"
+        elseif trait == "균형" then return "모든 스탯 소폭 증가"
+        elseif trait == "절약가" then return "스킬 MP 소모 감소"
+        end
+        return ""
     end
 
     @ExecSpace("ClientOnly")

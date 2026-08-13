@@ -66,14 +66,22 @@ script PlayerHUDController extends Logic
 
         local skill = localPlayer:GetComponent("script.PlayerSkillComponent")
         if isvalid(skill) then
-            if skill.SkillId == "" then
+            if skill.EquippedSkillId == "" then
                 self.skillNameText.Text = "(no skill)"
                 self.skillStatusText.Text = ""
             else
-                local def = _SkillCatalog:GetSkillDef(skill.SkillId)
+                local def = _SkillCatalog:GetSkillDef(skill.EquippedSkillId)
                 if def ~= nil then
                     self.skillNameText.Text = "[Q] " .. def.name
-                    local remaining = def.cooldown - (_UtilLogic.ElapsedSeconds - skill.LastUseTime)
+                    -- skill.LastUseTime is stamped server-side (PlayerSkillComponent.UseSkill,
+                    -- ServerOnly) using the server's own ElapsedSeconds - this Tick runs ClientOnly,
+                    -- where plain ElapsedSeconds is a SEPARATE client-local clock (confirmed via
+                    -- maker_execute_script: client ElapsedSeconds and server ElapsedSeconds differ by
+                    -- roughly a second, not synced). Comparing a client clock against a server
+                    -- timestamp made the countdown drift from the real cooldown. ServerElapsedSeconds
+                    -- is the server's clock as replicated to the client, matching what LastUseTime was
+                    -- stamped with.
+                    local remaining = def.cooldown - (_UtilLogic.ServerElapsedSeconds - skill.LastUseTime)
                     if remaining > 0 then
                         self.skillStatusText.Text = string.format("%.1f", remaining)
                         self.skillStatusText.FontColor = Color(1, 0.4, 0.4, 1)

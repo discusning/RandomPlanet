@@ -1,16 +1,19 @@
 @Component
 script PlayerAttack extends AttackComponent
 
-    property number AttackDamage = 50
-    property number CriticalChance = 0.3
+    -- @Sync required: PlayerStatsComponent.RecalculateDerived writes these ServerOnly, and
+    -- CharacterInfoUIController reads them ClientOnly for the CP display. Without @Sync the client
+    -- keeps the script's declared defaults forever, so every character showed identical CP.
+    @Sync property number AttackDamage = 50
+    @Sync property number CriticalChance = 0.3
     -- Secondary/primary stat values driven by PlayerStatsComponent.RecalculateDerived, matching
     -- Docs/랜덤 플래닛 전체 기획서.md §2-2/§8-1's official STR/DEX/INT/LUK effect table:
     -- LUK -> crit payoff, DEX -> attack rate + accuracy (vs a defender's Evasion), STR -> knockback
     -- resistance (defender-side; stored here as a convenience mirror, applied on the player's own
     -- incoming-hit path once that exists - see KnockbackResistance note below).
-    property number CritDamageMultiplier = 1.5
-    property number AttackCooldownSeconds = 0.6
-    property number Accuracy = 91
+    @Sync property number CritDamageMultiplier = 1.5
+    @Sync property number AttackCooldownSeconds = 0.6
+    @Sync property number Accuracy = 91
     @HideFromInspector property any Shape = nil
     @HideFromInspector property number LastAttackTime = -999
 

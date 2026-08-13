@@ -1,0 +1,309 @@
+@Component
+script SkillUIController extends Component
+    -- Skill window ("스킬창") - classic MapleStory-style 1~4차 탭 브라우저. Each tab shows the
+    -- player's buff/attack slot for that job-promotion tier (Docs/랜덤 플래닛 전체 기획서.md §04) -
+    -- owned skills render as clickable icons, an un-promoted tier shows a locked placeholder.
+    -- Clicking an owned skill fills the detail panel; "장착" binds it to the "Skill"(Q) action key
+    -- (PlayerSkillComponent.EquippedSkillId). Data source: PlayerSkillComponent.GetOwnedSkillIds().
+    property Entity btnClose = "62504d0c-23e7-439a-ad42-96b9f58f202c"
+    property Entity dragHandle = "f4765af0-287e-4d2b-b094-f816fce08c62"
+    property UITransformComponent cardTransform = "a576b606-5c3b-4ffa-bcd8-7c202695b3b0"
+    property Entity btnOpenKeySetting = "685991ef-4874-411e-a50b-ec0b2832fa61"
+
+    property Entity tab1Entity = "d96fa85b-d206-48f1-9f19-ed7acb1c1655"
+    property SpriteGUIRendererComponent tab1Sprite = "d96fa85b-d206-48f1-9f19-ed7acb1c1655"
+    property Entity tab2Entity = "0ecf6b4e-bd97-4aa5-82f0-5f35404a3b96"
+    property SpriteGUIRendererComponent tab2Sprite = "0ecf6b4e-bd97-4aa5-82f0-5f35404a3b96"
+    property Entity tab3Entity = "c3ceebc6-83ee-4f1a-a179-44cdb8564349"
+    property SpriteGUIRendererComponent tab3Sprite = "c3ceebc6-83ee-4f1a-a179-44cdb8564349"
+    property Entity tab4Entity = "a15fed7f-c529-4f15-9073-911d3d3ed562"
+    property SpriteGUIRendererComponent tab4Sprite = "a15fed7f-c529-4f15-9073-911d3d3ed562"
+
+    property Entity buffSlotEntity = "3b36d0b0-1b02-46a5-920f-02ba186c46fd"
+    property SpriteGUIRendererComponent buffSlotSprite = "3b36d0b0-1b02-46a5-920f-02ba186c46fd"
+    property TextGUIRendererComponent buffSlotText = "3b36d0b0-1b02-46a5-920f-02ba186c46fd"
+    property Entity atkSlotEntity = "645a1913-7a41-4039-90f6-8579993eed77"
+    property SpriteGUIRendererComponent atkSlotSprite = "645a1913-7a41-4039-90f6-8579993eed77"
+    property TextGUIRendererComponent atkSlotText = "645a1913-7a41-4039-90f6-8579993eed77"
+    property Entity lockedTextEntity = "b7db6eda-9ff2-43e0-a58a-6f083e755a35"
+
+    property TextGUIRendererComponent detailName = "07091083-bb39-4e65-a64e-fd7823ac1f3c"
+    property TextGUIRendererComponent detailInfo = "90769341-fb8c-4c26-aa10-b792bd92d1cf"
+    property TextGUIRendererComponent detailDesc = "90db5fcc-3968-42a1-a74b-b4d5d70ede4f"
+    property Entity btnEquipEntity = "9b709512-46db-4ef4-a093-aece0af5c4de"
+    property Entity equippedBadgeEntity = "42859164-04c7-4658-b61e-2724b16871b1"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.handlers = {}
+        self._T.selectedTier = 1
+        self._T.selectedSkillId = ""
+
+        local hClose = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        table.insert(self._T.handlers, { entity = self.btnClose, eventType = ButtonClickEvent, eventHandler = hClose })
+        if isvalid(self.dragHandle) then
+            local hDrag = self.dragHandle:ConnectEvent(UITouchDragEvent, self.OnWindowDrag)
+            table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDragEvent, eventHandler = hDrag })
+        end
+        if isvalid(self.btnOpenKeySetting) then
+            local hKS = self.btnOpenKeySetting:ConnectEvent(ButtonClickEvent, self.OnOpenKeySettingClicked)
+            table.insert(self._T.handlers, { entity = self.btnOpenKeySetting, eventType = ButtonClickEvent, eventHandler = hKS })
+        end
+
+        local tabEntities = { self.tab1Entity, self.tab2Entity, self.tab3Entity, self.tab4Entity }
+        for i, tabEntity in ipairs(tabEntities) do
+            local tierIndex = i
+            local h = tabEntity:ConnectEvent(ButtonClickEvent, function() self:OnTabClicked(tierIndex) end)
+            table.insert(self._T.handlers, { entity = tabEntity, eventType = ButtonClickEvent, eventHandler = h })
+        end
+
+        local hBuff = self.buffSlotEntity:ConnectEvent(ButtonClickEvent, function() self:OnSlotClicked("buff") end)
+        table.insert(self._T.handlers, { entity = self.buffSlotEntity, eventType = ButtonClickEvent, eventHandler = hBuff })
+        local hAtk = self.atkSlotEntity:ConnectEvent(ButtonClickEvent, function() self:OnSlotClicked("attack") end)
+        table.insert(self._T.handlers, { entity = self.atkSlotEntity, eventType = ButtonClickEvent, eventHandler = hAtk })
+        local hEquip = self.btnEquipEntity:ConnectEvent(ButtonClickEvent, self.OnEquipClicked)
+        table.insert(self._T.handlers, { entity = self.btnEquipEntity, eventType = ButtonClickEvent, eventHandler = hEquip })
+
+        -- Hover preview (메이플식 툴팁) - separate from the click-to-select/equip flow below. Only
+        -- overwrites the 3 text fields, never btnEquipEntity/equippedBadgeEntity, so it can never
+        -- race with a click's Refresh() and leave the equip button pointing at the wrong skill.
+        local hBuffHover = self.buffSlotEntity:ConnectEvent(ButtonStateChangeEvent, function(event) self:OnSlotHoverStateChanged("buff", event) end)
+        table.insert(self._T.handlers, { entity = self.buffSlotEntity, eventType = ButtonStateChangeEvent, eventHandler = hBuffHover })
+        local hAtkHover = self.atkSlotEntity:ConnectEvent(ButtonStateChangeEvent, function(event) self:OnSlotHoverStateChanged("attack", event) end)
+        table.insert(self._T.handlers, { entity = self.atkSlotEntity, eventType = ButtonStateChangeEvent, eventHandler = hAtkHover })
+
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(rec.eventType, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnWindowDrag(UITouchDragEvent event)
+        if not isvalid(self.cardTransform) then return end
+        local pos = self.cardTransform.anchoredPosition
+        self.cardTransform.anchoredPosition = Vector2(pos.x + event.TouchDelta.x, pos.y + event.TouchDelta.y)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        self:Hide()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnOpenKeySettingClicked()
+        self:Hide()
+        local keySettingGroup = _EntityService:GetEntityByPath("/ui/KeySettingGroup")
+        if not isvalid(keySettingGroup) then
+            return
+        end
+        local popup = keySettingGroup:GetComponent("script.KeyBindingPopupController")
+        if isvalid(popup) then
+            popup:Open()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnTabClicked(integer tier)
+        self._T.selectedTier = tier
+        self._T.selectedSkillId = ""
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotClicked(string category)
+        local owned = self:GetOwnedForCurrentTier()
+        local skillId = owned[category]
+        if skillId == nil or skillId == "" then return end
+        self._T.selectedSkillId = skillId
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotHoverStateChanged(string category, ButtonStateChangeEvent event)
+        -- 메이플식 마우스오버 툴팁 - 클릭해서 선택하지 않아도 스킬 위에 마우스를 올리면 바로 상세
+        -- 설명이 보인다. PreviewSkill은 텍스트 3줄만 갈아치우고 장착 버튼/뱃지는 절대 건드리지
+        -- 않으므로, 클릭 직후 버튼 상태가 다시 Hover로 튀어도 장착 흐름과 절대 충돌하지 않는다.
+        if event.state == ButtonState.Hover then
+            local owned = self:GetOwnedForCurrentTier()
+            local skillId = owned[category]
+            if skillId ~= nil and skillId ~= "" then
+                self:PreviewSkill(skillId)
+            end
+        elseif event.state == ButtonState.Normal then
+            self:RefreshDetailText()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PreviewSkill(string skillId)
+        local def = _SkillCatalog:GetSkillDef(skillId)
+        if def == nil then return end
+        self.detailName.Text = def.name .. " (" .. def.job .. ")"
+        self.detailInfo.Text = self:KindLabel(def.kind) .. "  ·  재사용 " .. tostring(def.cooldown) .. "초  ·  MP " .. tostring(def.mpCost)
+        self.detailDesc.Text = def.desc or ""
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEquipClicked()
+        if self._T.selectedSkillId == "" then return end
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return end
+        local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
+        if not isvalid(skillComp) then return end
+        skillComp:RequestSetEquippedSkill(self._T.selectedSkillId)
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        self.Entity.Enable = true
+        self._T.selectedTier = 1
+        self._T.selectedSkillId = ""
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Toggle()
+        if self.Entity.Enable then
+            self:Hide()
+        else
+            self:Show()
+        end
+    end
+
+    method table GetOwnedForCurrentTier()
+        -- { buff = id|nil, attack = id|nil } for self._T.selectedTier, read fresh from the local
+        -- player's PlayerSkillComponent every call (cheap - 8 string compares).
+        local result = { buff = nil, attack = nil }
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return result end
+        local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
+        if not isvalid(skillComp) then return result end
+        local owned = skillComp:GetOwnedSkillIds()
+        for _, entry in ipairs(owned) do
+            if entry.tier == self._T.selectedTier then
+                result[entry.category] = entry.id
+            end
+        end
+        return result
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        local tabEntities = { self.tab1Entity, self.tab2Entity, self.tab3Entity, self.tab4Entity }
+        local tabSprites = { self.tab1Sprite, self.tab2Sprite, self.tab3Sprite, self.tab4Sprite }
+        for i, sprite in ipairs(tabSprites) do
+            if i == self._T.selectedTier then
+                sprite.Color = Color(0.85, 0.65, 0.18, 0.95)
+            else
+                sprite.Color = Color(0.29, 0.18, 0.09, 0.9)
+            end
+        end
+
+        local owned = self:GetOwnedForCurrentTier()
+        local tierUnlocked = (owned.buff ~= nil) or (owned.attack ~= nil)
+        self.lockedTextEntity.Enable = not tierUnlocked
+        self.buffSlotEntity.Enable = tierUnlocked
+        self.atkSlotEntity.Enable = tierUnlocked
+
+        if tierUnlocked then
+            self:RefreshSlot(self.buffSlotSprite, self.buffSlotText, owned.buff)
+            self:RefreshSlot(self.atkSlotSprite, self.atkSlotText, owned.attack)
+        end
+
+        self:RefreshDetailText()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshDetailText()
+        -- Renders the click-selected skill (self._T.selectedSkillId) into the detail panel,
+        -- including the equip button/badge. Separate from PreviewSkill (hover) so a hover-exit can
+        -- restore this exact state without re-deriving tab/slot data.
+        if self._T.selectedSkillId == "" then
+            self.detailName.Text = "스킬을 선택하세요"
+            self.detailInfo.Text = ""
+            self.detailDesc.Text = ""
+            self.btnEquipEntity.Enable = false
+            self.equippedBadgeEntity.Enable = false
+            return
+        end
+
+        local def = _SkillCatalog:GetSkillDef(self._T.selectedSkillId)
+        if def == nil then
+            self.detailName.Text = "알 수 없는 스킬"
+            self.detailInfo.Text = ""
+            self.detailDesc.Text = ""
+            self.btnEquipEntity.Enable = false
+            self.equippedBadgeEntity.Enable = false
+            return
+        end
+
+        self.detailName.Text = def.name .. " (" .. def.job .. ")"
+        self.detailInfo.Text = self:KindLabel(def.kind) .. "  ·  재사용 " .. tostring(def.cooldown) .. "초  ·  MP " .. tostring(def.mpCost)
+        self.detailDesc.Text = def.desc or ""
+
+        local localPlayer = _UserService.LocalPlayer
+        local isEquipped = false
+        if isvalid(localPlayer) then
+            local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
+            if isvalid(skillComp) then
+                isEquipped = (skillComp.EquippedSkillId == self._T.selectedSkillId)
+            end
+        end
+        self.btnEquipEntity.Enable = not isEquipped
+        self.equippedBadgeEntity.Enable = isEquipped
+    end
+
+    method void RefreshSlot(SpriteGUIRendererComponent sprite, TextGUIRendererComponent text, string skillId)
+        if skillId == nil or skillId == "" then
+            text.Text = "-"
+            sprite.Color = Color(0.3, 0.26, 0.2, 0.4)
+            return
+        end
+        local def = _SkillCatalog:GetSkillDef(skillId)
+        if def == nil then
+            text.Text = "?"
+            sprite.Color = Color(0.3, 0.26, 0.2, 0.4)
+            return
+        end
+        -- string.sub is byte-based, not codepoint-based - Korean UTF-8 glyphs are 3 bytes each, so
+        -- (1,2) truncates mid-glyph into an invalid sequence (renders as nothing/mojibake). (1,6)
+        -- safely captures up to 2 full Korean characters for every skill name in the catalog.
+        text.Text = string.sub(def.name, 1, 6)
+        sprite.Color = self:ColorForKind(def.kind)
+    end
+
+    method Color ColorForKind(string kind)
+        if kind == "melee_single" or kind == "multi_hit" then
+            return Color(0.75, 0.16, 0.14, 0.85)
+        elseif kind == "ranged_single" or kind == "ranged_pierce" then
+            return Color(0.14, 0.34, 0.75, 0.85)
+        elseif kind == "buff" then
+            return Color(0.2, 0.62, 0.32, 0.85)
+        elseif kind == "dash" then
+            return Color(0.85, 0.52, 0.14, 0.85)
+        end
+        return Color(0.5, 0.5, 0.5, 0.85)
+    end
+
+    method string KindLabel(string kind)
+        if kind == "melee_single" then return "근접"
+        elseif kind == "ranged_single" then return "원거리"
+        elseif kind == "ranged_pierce" then return "관통"
+        elseif kind == "multi_hit" then return "다단히트"
+        elseif kind == "dash" then return "대시"
+        elseif kind == "buff" then return "버프"
+        end
+        return kind
+    end
+end

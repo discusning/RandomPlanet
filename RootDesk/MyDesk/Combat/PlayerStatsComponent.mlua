@@ -61,8 +61,26 @@ script PlayerStatsComponent extends Component
             self.Luk = self.Luk + 1
             self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
             log("PlayerStats: level up -> " .. self.Level)
+            self:GrantSkillTierIfMilestone(self.Level)
         end
         self:RecalculateDerived()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantSkillTierIfMilestone(integer level)
+        -- 전직 레벨(기획서 §2-5: 5/13/18)에 도달하면 다음 스킬 티어를 자동 지급 - 실제 3택1 전직
+        -- 팝업(Phase 3+)이 없어서 GrantTierSkills가 각 카테고리 첫 후보를 자동 선택한다(PlayerSkillComponent
+        -- 참고). 2차=5, 3차=13, 4차=18.
+        local tier = 0
+        if level == 5 then tier = 2
+        elseif level == 13 then tier = 3
+        elseif level == 18 then tier = 4
+        end
+        if tier == 0 then return end
+        local skillComp = self.Entity:GetComponent("script.PlayerSkillComponent")
+        if isvalid(skillComp) then
+            skillComp:GrantTierSkills(tier)
+        end
     end
 
     method integer ComputeXpToNextLevel(integer level)

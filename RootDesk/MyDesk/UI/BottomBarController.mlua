@@ -8,6 +8,7 @@ script BottomBarController extends Component
     property Entity btnInventory = "795efb46-1da8-43d2-89da-c68816636fc4"
     property Entity btnEquipment = "40dbcbd6-cbc0-426d-9a0a-a58d5937dcbe"
     property Entity btnSettings = "53330b64-ec9c-4a55-b746-fa331a9ab80c"
+    property Entity btnSkill = "0a2fbdde-e798-46a7-bf34-a49214449f9e"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -20,6 +21,10 @@ script BottomBarController extends Component
         table.insert(self._T.handlers, { entity = self.btnEquipment, eventHandler = hE })
         local hS = self.btnSettings:ConnectEvent(ButtonClickEvent, self.OnSettingsClicked)
         table.insert(self._T.handlers, { entity = self.btnSettings, eventHandler = hS })
+        if isvalid(self.btnSkill) then
+            local hK = self.btnSkill:ConnectEvent(ButtonClickEvent, self.OnSkillClicked)
+            table.insert(self._T.handlers, { entity = self.btnSkill, eventHandler = hK })
+        end
         self.Entity.Enable = false
     end
 
@@ -43,6 +48,7 @@ script BottomBarController extends Component
         self:CloseWindow("/ui/InventoryGroup", "script.InventoryUIController")
         self:CloseWindow("/ui/EquipmentGroup", "script.EquipmentUIController")
         self:CloseWindow("/ui/SettingsGroup", "script.SettingsUIController")
+        self:CloseWindow("/ui/SkillGroup", "script.SkillUIController")
     end
 
     @ExecSpace("ClientOnly")
@@ -79,6 +85,7 @@ script BottomBarController extends Component
             { path = "/ui/InventoryGroup", scriptType = "script.InventoryUIController" },
             { path = "/ui/EquipmentGroup", scriptType = "script.EquipmentUIController" },
             { path = "/ui/SettingsGroup", scriptType = "script.SettingsUIController" },
+            { path = "/ui/SkillGroup", scriptType = "script.SkillUIController" },
         }
         for _, w in ipairs(windows) do
             if w.path ~= keepPath then
@@ -109,5 +116,11 @@ script BottomBarController extends Component
     method void OnSettingsClicked()
         self:CloseOtherWindows("/ui/SettingsGroup")
         self:ToggleWindow("/ui/SettingsGroup", "script.SettingsUIController")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSkillClicked()
+        self:CloseOtherWindows("/ui/SkillGroup")
+        self:ToggleWindow("/ui/SkillGroup", "script.SkillUIController")
     end
 end

@@ -1,0 +1,331 @@
+@Logic
+script KeyBindingLogic extends Logic
+
+    property string StorageName = "KeyBinding"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self:EnsureInitialized()
+        self:RequestLoadBindings()
+    end
+
+    method void EnsureInitialized()
+        -- Defends against call order between this Logic's OnBeginPlay and
+        -- PlayerInputBinding's Component OnBeginPlay (Logic vs Component
+        -- OnBeginPlay order across different entities is not guaranteed) -
+        -- every public method routes through this instead of assuming
+        -- OnBeginPlay already ran.
+        if self._T.registry ~= nil then
+            return
+        end
+        self._T.registry = self:BuildRegistry()
+        self._T.currentKeys = {}
+        for _, entry in ipairs(self._T.registry) do
+            self._T.currentKeys[entry.actionName] = entry.defaultKey
+        end
+        self._T.loadComplete = false
+    end
+
+    method table BuildRegistry()
+        -- Rebindable actions, split by kind:
+        --   "controllerAction" - flows through the native PlayerControllerComponent:SetActionKey
+        --     pipeline (PlayerInputBinding.mlua). Only Attack/Skill so far, unlike Jump/Crouch/Sit/
+        --     EnterPortal which this project has never explicitly bound and whose current-key
+        --     behavior is unverified - scoped out of the rebind UI for now.
+        --   "uiToggle" - window open/close shortcuts (Inventory/Equipment/CharacterInfo/SkillWindow).
+        --     These have no native action-key equivalent - WindowHotkeyLogic polls
+        --     GetUiToggleActionForKey() on every KeyDownEvent instead of going through
+        --     PlayerControllerComponent, since that pipeline is combat-action-only.
+        return {
+            { actionName = "Attack", displayName = "공격", defaultKey = KeyboardKey.LeftControl, kind = "controllerAction" },
+            { actionName = "Skill", displayName = "스킬1", defaultKey = KeyboardKey.Q, kind = "controllerAction" },
+            { actionName = "Inventory", displayName = "인벤토리", defaultKey = KeyboardKey.I, kind = "uiToggle" },
+            { actionName = "Equipment", displayName = "장비", defaultKey = KeyboardKey.E, kind = "uiToggle" },
+            { actionName = "CharacterInfo", displayName = "캐릭터정보", defaultKey = KeyboardKey.C, kind = "uiToggle" },
+            { actionName = "SkillWindow", displayName = "스킬창", defaultKey = KeyboardKey.K, kind = "uiToggle" },
+        }
+    end
+
+    method any GetRegistryEntry(string actionName)
+        self:EnsureInitialized()
+        for _, entry in ipairs(self._T.registry) do
+            if entry.actionName == actionName then
+                return entry
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetUiToggleActionForKey(any key)
+        -- Used by WindowHotkeyLogic on every KeyDownEvent to check whether the pressed key is
+        -- currently bound to one of the uiToggle actions (Inventory/Equipment/CharacterInfo/
+        -- SkillWindow) - these never touch PlayerControllerComponent, so there is no native lookup
+        -- for them the way GetActionName(key) works for Attack/Skill.
+        self:EnsureInitialized()
+        if key == nil or key == KeyboardKey.None then
+            return nil
+        end
+        for _, entry in ipairs(self._T.registry) do
+            if entry.kind == "uiToggle" and self._T.currentKeys[entry.actionName] == key then
+                return entry.actionName
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method table GetRegistry()
+        self:EnsureInitialized()
+        return self._T.registry
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetKeyForAction(string actionName)
+        self:EnsureInitialized()
+        return self._T.currentKeys[actionName]
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsLoadComplete()
+        self:EnsureInitialized()
+        return self._T.loadComplete
+    end
+
+    method boolean IsValidRebindKey(any key)
+        -- Mouse buttons never reach this as a keyboard rebind target; Enter/Escape
+        -- are reserved (Escape cancels the popup's "awaiting key" capture).
+        if key == nil or key == KeyboardKey.None then
+            return false
+        end
+        if key == KeyboardKey.Mouse0 or key == KeyboardKey.Mouse1 or key == KeyboardKey.Mouse2 then
+            return false
+        end
+        if key == KeyboardKey.Return or key == KeyboardKey.KeypadEnter then
+            return false
+        end
+        if key == KeyboardKey.Escape then
+            return false
+        end
+        return true
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean TryRebind(string actionName, any newKey)
+        self:EnsureInitialized()
+
+        if self._T.currentKeys[actionName] == nil then
+            return false
+        end
+        if not self:IsValidRebindKey(newKey) then
+            return false
+        end
+
+        local oldKey = self._T.currentKeys[actionName]
+        if oldKey == newKey then
+            return true
+        end
+
+        -- MapleStory-style swap: if newKey is already bound to another action we manage
+        -- (of EITHER kind - controllerAction or uiToggle), the two actions trade keys instead of
+        -- one silently losing its binding. Conflict detection is purely against our own
+        -- currentKeys table now (not controller:GetActionName), since uiToggle actions
+        -- (Inventory/Equipment/CharacterInfo/SkillWindow) have no native controller entry at all -
+        -- currentKeys is the single source of truth for every action regardless of kind.
+        local conflictAction = nil
+        for name, key in pairs(self._T.currentKeys) do
+            if name ~= actionName and key == newKey then
+                conflictAction = name
+                break
+            end
+        end
+
+        self._T.currentKeys[actionName] = newKey
+        if conflictAction ~= nil then
+            self._T.currentKeys[conflictAction] = oldKey
+        end
+
+        self:ApplyControllerBindingForAction(actionName)
+        if conflictAction ~= nil then
+            self:ApplyControllerBindingForAction(conflictAction)
+        end
+
+        self:SaveBindings()
+        return true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ApplyControllerBindingForAction(string actionName)
+        -- Only controllerAction-kind entries touch the native PlayerControllerComponent - uiToggle
+        -- actions are tracked purely in currentKeys and read by WindowHotkeyLogic on each
+        -- KeyDownEvent (see GetUiToggleActionForKey), since SetActionKey's PlayerActionEvent
+        -- pipeline is combat-action-only, not a general hotkey system.
+        local entry = self:GetRegistryEntry(actionName)
+        if entry == nil or entry.kind ~= "controllerAction" then
+            return
+        end
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then
+            return
+        end
+        local controller = localPlayer.PlayerControllerComponent
+        if not isvalid(controller) then
+            return
+        end
+        -- Uses RemoveAllActionKeyByActionName (by action, not by tracked oldKey) because
+        -- SetActionKey is additive - it does not clear a previous key bound to the same action.
+        -- ApplyBindingsToLocalPlayer calls this twice per session (fresh defaults immediately, then
+        -- again once the async load resolves), so a leftover key can be bound to an action that
+        -- currentKeys never recorded. Clearing by action name keeps the native controller and
+        -- currentKeys in sync regardless.
+        controller:RemoveAllActionKeyByActionName(actionName)
+        controller:SetActionKey(self._T.currentKeys[actionName], actionName)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ResetToDefaults()
+        self:EnsureInitialized()
+        for _, entry in ipairs(self._T.registry) do
+            self:TryRebind(entry.actionName, entry.defaultKey)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ApplyBindingsToLocalPlayer(Entity playerEntity)
+        self:EnsureInitialized()
+        if not isvalid(playerEntity) then
+            return
+        end
+        local controller = playerEntity.PlayerControllerComponent
+        if not isvalid(controller) then
+            return
+        end
+        for _, entry in ipairs(self._T.registry) do
+            if entry.kind == "controllerAction" then
+                local key = self._T.currentKeys[entry.actionName] or entry.defaultKey
+                -- Called twice per session (defaults immediately, then again once
+                -- the async load resolves) - clear any previously bound key for
+                -- this action first so re-application never leaves two keys
+                -- pointing at the same action (see ApplyControllerBindingForAction).
+                controller:RemoveAllActionKeyByActionName(entry.actionName)
+                controller:SetActionKey(key, entry.actionName)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method string GetSymbol(any key)
+        if key == nil or key == KeyboardKey.None then
+            return "-"
+        end
+        local symbolTable = {
+            [KeyboardKey.Return] = "Enter",
+            [KeyboardKey.Escape] = "ESC",
+            [KeyboardKey.Space] = "Space",
+            [KeyboardKey.UpArrow] = "Up",
+            [KeyboardKey.DownArrow] = "Down",
+            [KeyboardKey.LeftArrow] = "Left",
+            [KeyboardKey.RightArrow] = "Right",
+            [KeyboardKey.LeftControl] = "Ctrl",
+            [KeyboardKey.RightControl] = "Ctrl",
+            [KeyboardKey.LeftShift] = "Shift",
+            [KeyboardKey.RightShift] = "Shift",
+            [KeyboardKey.LeftAlt] = "Alt",
+            [KeyboardKey.RightAlt] = "Alt",
+        }
+        local sym = symbolTable[key]
+        if sym ~= nil then
+            return sym
+        end
+        return tostring(key)
+    end
+
+    @ExecSpace("Server")
+    method void RequestLoadBindings()
+        -- Mirrors CharacterRosterLogic.RequestLoadRoster's proven load pattern
+        -- (GetUserDataStorage keyed by ProfileCode, NotFound=1000002 treated as
+        -- "new player, use defaults").
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local profileCode = player.PlayerComponent.ProfileCode
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local errorCode, raw = storage:GetAndWait(self.StorageName)
+
+        -- Values stay as plain strings (KeyboardKey Name, e.g. "LeftControl") here -
+        -- KeyboardKey itself is an engine enum and cannot cross the Server->Client
+        -- RPC boundary (LEA-3036 InvalidCast). Only the client converts back via
+        -- KeyboardKey.CastFrom, after the value has already arrived locally.
+        local keys = {}
+        if errorCode == 0 and raw ~= nil and raw ~= "" then
+            local decoded = _HttpService:JSONDecode(raw)
+            for actionName, keyName in pairs(decoded or {}) do
+                keys[actionName] = keyName
+            end
+        elseif errorCode ~= 0 and errorCode ~= 1000002 then
+            log_error("KeyBinding: RequestLoadBindings GetAndWait failed, errorCode=" .. tostring(errorCode))
+        end
+
+        self:OnBindingsLoaded(keys, senderUserId)
+    end
+
+    @ExecSpace("Client")
+    method void OnBindingsLoaded(table savedKeys)
+        self:EnsureInitialized()
+        for actionName, keyName in pairs(savedKeys) do
+            if self._T.currentKeys[actionName] ~= nil then
+                local key = KeyboardKey.CastFrom(keyName)
+                if key ~= nil then
+                    self._T.currentKeys[actionName] = key
+                end
+            end
+        end
+        self._T.loadComplete = true
+
+        local localPlayer = _UserService.LocalPlayer
+        if isvalid(localPlayer) then
+            self:ApplyBindingsToLocalPlayer(localPlayer)
+        end
+        log("KeyBinding: OnBindingsLoaded, hadSavedData=" .. tostring(next(savedKeys) ~= nil))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SaveBindings()
+        self:EnsureInitialized()
+        if not self._T.loadComplete then
+            log_warning("KeyBinding: SaveBindings skipped, load not complete yet")
+            return
+        end
+        -- Convert KeyboardKey -> string (Name) here, client-side, before crossing
+        -- to the server - KeyboardKey is an engine enum and cannot cross the
+        -- Client->Server RPC boundary directly (LEA-3036 InvalidCast).
+        local payload = {}
+        for actionName, key in pairs(self._T.currentKeys) do
+            payload[actionName] = tostring(key)
+        end
+        self:RequestSaveBindings(payload)
+    end
+
+    @ExecSpace("Server")
+    method void RequestSaveBindings(table keys)
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local profileCode = player.PlayerComponent.ProfileCode
+
+        if next(keys) == nil then
+            return
+        end
+
+        local json = _HttpService:JSONEncode(keys)
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        storage:SetAsync(self.StorageName, json, function(errorCode, key)
+            if errorCode ~= 0 then
+                log_error("KeyBinding: RequestSaveBindings SetAsync failed, errorCode=" .. tostring(errorCode))
+            end
+        end)
+    end
+
+end

@@ -50,6 +50,14 @@ script ProjectileComponent extends Component
                 local dx = mPos.x - myPos.x
                 local dy = mPos.y - myPos.y
                 if math.sqrt(dx * dx + dy * dy) <= self.HitRadius then
+                    -- Mark this monster hit BEFORE calling OnHit - without this, a Pierce
+                    -- projectile (e.g. arrowblow) re-hits the same still-overlapping monster on
+                    -- every subsequent OnUpdate tick until it moves out of HitRadius, instead of
+                    -- the intended "one hit per pierced target" (confirmed via direct repro: a
+                    -- slow-moving target took 2 hits worth of damage from a single cast before
+                    -- this fix). A non-Pierce shot never reached this bug since it destroys itself
+                    -- (and returns) on its first hit.
+                    self._T.hitList[monsterEntity.Name] = true
                     self:OnHit()
                     if not self.Pierce then return end
                 end

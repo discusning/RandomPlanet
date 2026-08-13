@@ -124,6 +124,20 @@ script CharacterSelectStageController extends Component
             return
         end
 
+        -- CRITICAL: roster load is an async server round trip (see CharacterRosterLogic.OnBeginPlay);
+        -- self._T.data (via GetRoster()) reads as an empty {} until it resolves. Without this guard,
+        -- a click landing in that window sees every slot as "empty" and CreateCharacter happily
+        -- overwrites an already-owned slot with a freshly rolled character - reproduced live via
+        -- maker_execute_script (forced loadComplete=false, touched slot 1, got a brand new character
+        -- with a different trait). The overwrite's own SaveRoster is itself guarded and no-ops while
+        -- load is still pending, so nothing is lost yet at that instant - but the corrupted local
+        -- roster keeps living in memory, and the FIRST later save the player triggers during normal
+        -- play (equip, level up, swap) persists it for real, permanently replacing the original
+        -- character. Simplest fix: don't let a touch reach CreateCharacter at all until load is done.
+        if not _CharacterRosterLogic:IsRosterLoadComplete() then
+            return
+        end
+
         local roster = _CharacterRosterLogic:GetRoster()
         local worldPos = _UILogic:ScreenToWorldPosition(event.TouchPoint)
         for i, standee in ipairs(self._T.standees) do
@@ -186,6 +200,11 @@ script CharacterSelectStageController extends Component
         -- Rolls a fully random character (stats/trait/look) into slot idx (if empty and under the
         -- daily cap) and applies the look to that standee's avatar right away - costume equips are
         -- a one-time cost per creation, not repeated on every RefreshStage.
+        -- Second layer of the same guard as OnScreenTouched (see its comment) - belt-and-suspenders
+        -- against any other future caller reaching this before the roster has actually loaded.
+        if not _CharacterRosterLogic:IsRosterLoadComplete() then
+            return
+        end
         local roster = _CharacterRosterLogic:GetRoster()
         if roster[idx] ~= nil then
             return
@@ -361,7 +380,7 @@ script CharacterSelectStageController extends Component
 
         local skillComp = player:GetComponent("script.PlayerSkillComponent")
         if isvalid(skillComp) and skillId ~= nil then
-            skillComp:SetSkillId(skillId)
+            skillComp:GrantInitialSkill(skillId)
         end
 
         -- NOTE: undoing HideLocalPlayer's visibility hide does NOT happen here. Component.Enable is

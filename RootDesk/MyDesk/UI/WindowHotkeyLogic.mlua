@@ -1,0 +1,77 @@
+@Logic
+script WindowHotkeyLogic extends Logic
+    -- Global listener for the uiToggle-kind actions in KeyBindingLogic's registry (Inventory/
+    -- Equipment/CharacterInfo/SkillWindow). These have no native PlayerControllerComponent action -
+    -- that pipeline is combat-action-only (Attack/Skill) - so this Logic is the single place that
+    -- turns "a rebindable key was pressed" into "toggle the matching bottom-bar window", routed
+    -- through BottomBarController so the existing CloseOtherWindows mutual-exclusivity still applies
+    -- whether the window was opened by mouse click or by hotkey.
+
+    property any keyHandler = nil
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self.keyHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeyDown(KeyDownEvent event)
+        -- Mirrors the PlayerControllerComponent.Enable gate in CharacterRosterLogic.Hide/
+        -- ShowLocalPlayer - windows should not be openable while parked on choice_map (the bottom
+        -- bar itself is hidden there too, via SetBottomBarVisible(false)).
+        if not _CharacterRosterLogic:IsGameplayActive() then
+            return
+        end
+        local actionName = _KeyBindingLogic:GetUiToggleActionForKey(event.key)
+        if actionName == nil then
+            return
+        end
+        self:ToggleWindowForAction(actionName)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ToggleWindowForAction(string actionName)
+        local bar = self:GetBottomBar()
+        if not isvalid(bar) then
+            return
+        end
+        local target = self:ResolveWindow(actionName)
+        if target == nil then
+            return
+        end
+        bar:CloseOtherWindows(target.path)
+        bar:ToggleWindow(target.path, target.scriptType)
+    end
+
+    method any ResolveWindow(string actionName)
+        -- Single-table return (not a Lua multi-return) - this workspace's mlua compiler flags
+        -- `return a, b` from a declared single-value method (LWA-1111), so the two fields travel
+        -- together in one table instead.
+        if actionName == "Inventory" then
+            return { path = "/ui/InventoryGroup", scriptType = "script.InventoryUIController" }
+        elseif actionName == "Equipment" then
+            return { path = "/ui/EquipmentGroup", scriptType = "script.EquipmentUIController" }
+        elseif actionName == "CharacterInfo" then
+            return { path = "/ui/CharacterInfoGroup", scriptType = "script.CharacterInfoUIController" }
+        elseif actionName == "SkillWindow" then
+            return { path = "/ui/SkillGroup", scriptType = "script.SkillUIController" }
+        end
+        return nil
+    end
+
+    method any GetBottomBar()
+        local barGroup = _EntityService:GetEntityByPath("/ui/BottomBarGroup")
+        if not isvalid(barGroup) then
+            return nil
+        end
+        return barGroup:GetComponent("script.BottomBarController")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.keyHandler then
+            _InputService:DisconnectEvent(KeyDownEvent, self.keyHandler)
+        end
+    end
+
+end
