@@ -12,7 +12,7 @@ script SkillCatalog extends Logic
 
     method table GetAllSkillIds()
         return {
-            "powerstrike", "ironbody",
+            "powerstrike", "slashblast", "ironbody",
             "magicclaw", "magicguard",
             "arrowblow", "focus",
             "luckyseven", "nimblebody",
@@ -85,11 +85,25 @@ script SkillCatalog extends Logic
         -- reinterpreted (not literal defense/damage-to-MP conversion) since that would still require the
         -- not-yet-built monster-attacks-player pipeline to be observable at all; these substitutes are
         -- fully observable today with existing systems (HP bar, MP bar).
+        -- 2026-08-16 (same session): user asked to check for missing 1차 액티브 스킬 (Adventurer tier-1
+        -- active skills) against the real classic MapleStory kit. Verified per job via msw-search +
+        -- pack-membership checks: 마법사(Magic Claw)/궁수(Arrow Blow)/해적(Dash) genuinely have only 1
+        -- offensive/active 1차 skill each in real MapleStory (2nd job is where they branch out) - nothing
+        -- missing there. 검사(Warrior) was missing its real 2nd 1차 active, **슬래시 블러스트**(Slash
+        -- Blast, `skill/100.img/skill/1001005` - same genuine 1차 Warrior family as ironbody's real
+        -- "아이언 바디" pack) - added as `wide=true` melee_single (see PlayerSkillComponent.DoMeleeSingle
+        -- - reuses the same AttackFast-over-a-shape pipeline with a much wider box, since AttackFast
+        -- already resolves against every overlapping entity, not just one - no new `kind` needed for a
+        -- frontal AoE). 도적(Thief)'s other 1차 actives (Disorder/Dark Sight) are non-damage utility
+        -- (enemy debuff / self-stealth) with no current consumer (no monster-attacks-player pipeline, no
+        -- enemy stat fields to debuff) - left out for now rather than adding another day-one-inert skill;
+        -- revisit once that pipeline exists.
         -- desc: 스킬창 툴팁에 그대로 노출되는 플레이어용 효과 설명. 실제로 수치가 적용되는 부분은
         -- 구체적 수치를 명시하고(예: "명중률 +30"), inertNote로 비활성 처리된 부분은 설명에서 뺐다 -
         -- 발동 안 하는 효과를 설명에 적어두면 플레이어에게 거짓 정보가 된다.
         local defs = {
             powerstrike = { id = "powerstrike", name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
+            slashblast = { id = "slashblast", name = "슬래시 블러스트", job = "검사", kind = "melee_single", coef = 1.0, wide = true, cooldown = 4.0, mpCost = 10, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", desc = "전방의 넓은 범위를 베어 그 안의 모든 적에게 평타의 100% 피해를 입힙니다." },
             ironbody = { id = "ironbody", name = "아이언 바디", job = "검사", kind = "buff", duration = 5.0, testableEffect = "maxhp", maxHpBonusPercent = 0.3, cooldown = 15.0, mpCost = 15, auraType = "Aura", auraColor = Color(0.75, 0.75, 0.82, 0.9), buffVfxRuid = "e9c90ecd65224980b56903dba89ef856", desc = "일정 시간 최대 체력이 30% 증가합니다." },
             magicclaw = { id = "magicclaw", name = "매직 클로", job = "마법사", kind = "ranged_single", coef = 1.3, magic = true, cooldown = 2.5, mpCost = 10, projectileVfxRuid = "2a0d72e836fb4862aae83087035f3d2a", desc = "전방으로 마법 발톱을 날려 평타의 130% 마법 피해를 입힙니다." },
             magicguard = { id = "magicguard", name = "매직 가드", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "mpfree", cooldown = 20.0, mpCost = 20, auraType = "Enchant", auraColor = Color(0.4, 0.6, 1.0, 0.9), buffVfxRuid = "3878fb0f62bf43a48cd9f43332490315", desc = "일정 시간 스킬 MP 소모가 없어집니다." },

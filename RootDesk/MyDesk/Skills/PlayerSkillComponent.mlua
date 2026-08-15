@@ -227,7 +227,11 @@ script PlayerSkillComponent extends Component
         local dir = controller.LookDirectionX
         if dir == 0 then dir = 1 end
         local pos = transform.WorldPosition
-        local shape = BoxShape(Vector2(pos.x + 0.7 * dir, pos.y + 0.5), Vector2(1.5, 1.4), 0)
+        -- def.wide (slashblast) uses a much wider frontal box than the default single-target zone -
+        -- AttackFast already resolves against every entity overlapping the shape (not just one), so
+        -- a plain wider BoxShape is enough to turn this into a real frontal AoE - no new "kind" needed.
+        local boxSize = def.wide and Vector2(2.6, 1.6) or Vector2(1.5, 1.4)
+        local shape = BoxShape(Vector2(pos.x + 0.7 * dir, pos.y + 0.5), boxSize, 0)
 
         local originalDamage = attack.AttackDamage
         attack.AttackDamage = math.floor(originalDamage * def.coef)
