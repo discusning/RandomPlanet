@@ -147,14 +147,21 @@ script PlayerSkillComponent extends Component
             return
         end
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
-        if not isvalid(statsComp) or statsComp.CurrentMp < def.mpCost then
-            log("PlayerSkill: not enough MP for " .. def.name)
-            return
+        -- magicguard (testableEffect="mpfree") makes skill MP cost free for its own duration - see
+        -- DoBuff/RevertBuff. Check/deduction below is skipped entirely while it's active.
+        local mpFreeActive = self.BuffActive and self.BuffType == "mpfree"
+        if not mpFreeActive then
+            if not isvalid(statsComp) or statsComp.CurrentMp < def.mpCost then
+                log("PlayerSkill: not enough MP for " .. def.name)
+                return
+            end
         end
 
         self.LastUseTime = _UtilLogic.ElapsedSeconds
-        statsComp.CurrentMp = statsComp.CurrentMp - def.mpCost
-        log("PlayerSkill: use " .. def.name .. " (kind=" .. def.kind .. " mp=" .. def.mpCost .. ")")
+        if not mpFreeActive then
+            statsComp.CurrentMp = statsComp.CurrentMp - def.mpCost
+        end
+        log("PlayerSkill: use " .. def.name .. " (kind=" .. def.kind .. " mp=" .. def.mpCost .. (mpFreeActive and " [mpfree]" or "") .. ")")
 
         -- Skill use and the basic attack (PlayerAttack.DoAttack) are driven by two independent,
         -- unlinked cooldown timers - PlayerControllerComponent fires a fresh PlayerActionEvent
@@ -351,6 +358,7 @@ script PlayerSkillComponent extends Component
 
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         local move = self.Entity.MovementComponent
+        local player = self.Entity.PlayerComponent
 
         if def.testableEffect == "accuracy" and isvalid(attack) then
             self.BuffOriginalValue = attack.Accuracy
@@ -361,6 +369,22 @@ script PlayerSkillComponent extends Component
         elseif def.testableEffect == "atkspeed" and isvalid(attack) then
             self.BuffOriginalValue = attack.AttackCooldownSeconds
             attack.AttackCooldownSeconds = attack.AttackCooldownSeconds * 0.4
+        elseif def.testableEffect == "maxhp" and isvalid(player) then
+            -- ironbody (2026-08-16 completion) - real Iron Body's defense boost has no observable
+            -- effect yet (no monster-attacks-player pipeline), so this grants a temporary MaxHp
+            -- increase instead - "몸이 단단해진다" stays true to the theme and is immediately visible
+            -- on the HP bar. Store the bonus (not the pre-buff MaxHp) so a mid-buff level-up's MaxHp
+            -- change isn't clobbered by RevertBuff.
+            local bonus = math.floor(player.MaxHp * def.maxHpBonusPercent)
+            self.BuffOriginalValue = bonus
+            player.MaxHp = player.MaxHp + bonus
+            player.Hp = player.Hp + bonus
+        elseif def.testableEffect == "mpfree" then
+            -- magicguard (2026-08-16 completion) - real Magic Guard converts incoming HP damage to MP
+            -- loss, same missing-pipeline blocker as ironbody. Reinterpreted as free skill MP cost for
+            -- the buff's duration ("마나가 보호막처럼 스킬 비용을 대신 막아준다") - see UseSkill's
+            -- mpFreeActive check. Nothing to store; RevertBuff just clears BuffType/BuffActive.
+            self.BuffOriginalValue = 0
         else
             self.BuffOriginalValue = 0
         end
@@ -410,6 +434,7 @@ script PlayerSkillComponent extends Component
     method void RevertBuff()
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         local move = self.Entity.MovementComponent
+        local player = self.Entity.PlayerComponent
 
         if self.BuffType == "accuracy" and isvalid(attack) then
             attack.Accuracy = self.BuffOriginalValue
@@ -417,7 +442,12 @@ script PlayerSkillComponent extends Component
             move.InputSpeed = self.BuffOriginalValue
         elseif self.BuffType == "atkspeed" and isvalid(attack) then
             attack.AttackCooldownSeconds = self.BuffOriginalValue
+        elseif self.BuffType == "maxhp" and isvalid(player) then
+            player.MaxHp = math.max(1, player.MaxHp - self.BuffOriginalValue)
+            player.Hp = math.min(player.Hp, player.MaxHp)
         end
+        -- "mpfree" (magicguard) has no stat to restore - UseSkill's mpFreeActive check already
+        -- stops reading it the instant BuffActive/BuffType are cleared below.
 
         if self.BuffParticleSerial ~= 0 then
             if self.BuffUsingSkillVfx then
