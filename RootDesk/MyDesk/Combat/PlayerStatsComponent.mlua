@@ -128,9 +128,11 @@ script PlayerStatsComponent extends Component
         end
 
         -- DEX secondary: 이동 속도 (no official per-point number in the design doc - tuned value).
+        -- Base lowered 3.0->1.5 (2026-08-16, user request: engine default is 1.0 and 3.0 felt too
+        -- fast in actual play - skill VFX visibly couldn't keep up with the character at that speed).
         local move = self.Entity.MovementComponent
         if isvalid(move) then
-            move.InputSpeed = 3.0 + self.Dex * 0.08
+            move.InputSpeed = 1.5 + self.Dex * 0.08
         end
 
         local attackDamage = isvalid(attack) and attack.AttackDamage or -1

@@ -322,7 +322,10 @@ script PlayerSkillComponent extends Component
         body:AddForce(Vector2(dir * def.force, 0))
 
         if def.dashVfxRuid ~= nil then
-            local serial = _EffectService:PlayEffect(def.dashVfxRuid, self.Entity, self.Entity.TransformComponent.WorldPosition, 0, Vector3(1, 1, 1), false)
+            -- Attached (not a fixed-position PlayEffect) so the clip travels with the caster during
+            -- the dash impulse instead of being left behind at the cast position - a fixed-position
+            -- one-shot visibly failed to keep up the moment AddForce fired (2026-08-16, user report).
+            local serial = _EffectService:PlayEffectAttached(def.dashVfxRuid, self.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), false)
             log("PlayerSkill: " .. def.name .. " dash VFX serial=" .. tostring(serial))
         end
     end
