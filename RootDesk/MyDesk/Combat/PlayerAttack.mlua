@@ -64,6 +64,19 @@ script PlayerAttack extends AttackComponent
         return self.CritDamageMultiplier
     end
 
+    method void OnAttack(Entity defender)
+        -- 버서크(1차 특성) 흡혈 - 명중한 공격마다 현재 AttackDamage(버서크 자체 보정이 이미 반영된
+        -- 값, PlayerStatsComponent.OnUpdate 참고)의 15%를 회복. 파라미터에 실제로 적용된 데미지값이
+        -- 없어(OnAttack은 defender만 받음) 정확한 실피해가 아닌 AttackDamage 근사치를 쓴다 - 이
+        -- 프로젝트의 CP 지표 자체도 같은 수준의 근사이므로 일관된 선택.
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        if not isvalid(statsComp) or statsComp.Trait ~= "버서크" then return end
+        local player = self.Entity.PlayerComponent
+        if not isvalid(player) or player.Hp <= 0 then return end
+        local heal = self.AttackDamage * 0.15
+        player.Hp = math.min(player.MaxHp, player.Hp + heal)
+    end
+
     method boolean IsAttackTarget(Entity defender, string attackInfo)
         -- DEX primary effect (명중/accuracy): rolls a hit chance against the defender's own Evasion
         -- stat (Monster.Evasion, LUK's 회피 secondary once a monster-attacks-player pipeline exists

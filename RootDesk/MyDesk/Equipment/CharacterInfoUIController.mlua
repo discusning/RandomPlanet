@@ -149,7 +149,7 @@ script CharacterInfoUIController extends Component
         end
 
         self:RefreshInfoTab(data, statsComp, player, skillComp)
-        self:RefreshStatTab(data, statsComp, attack, move)
+        self:RefreshStatTab(data, statsComp, attack, move, player)
     end
 
     method void RefreshInfoTab(table data, PlayerStatsComponent statsComp, PlayerComponent player, PlayerSkillComponent skillComp)
@@ -188,7 +188,7 @@ script CharacterInfoUIController extends Component
         end
     end
 
-    method void RefreshStatTab(table data, PlayerStatsComponent statsComp, PlayerAttack attack, MovementComponent move)
+    method void RefreshStatTab(table data, PlayerStatsComponent statsComp, PlayerAttack attack, MovementComponent move, PlayerComponent player)
         -- CharacterCardController.OnPlayClicked already passes EFFECTIVE (base+equipment) values
         -- into ApplyStats, so statsComp.Str/Dex/Intel/Luk are TOTALS, not base-only - showing
         -- "(장비 +N)" next to that total would double-count the bonus. Base comes from the roster
@@ -218,9 +218,16 @@ script CharacterInfoUIController extends Component
 
             -- 전투력(CP) - 기획서에 없는 근사 지표(유저 요청으로 추가). 기대 DPS = 공격력 x
             -- (1 + 크리확률 x (크리배율-1)) / 재사용시간, x10으로 스케일만 키운 표시용 숫자.
+            -- 2026-08-16: 특성 시너지 반영 - 단단함의 DamageReductionPercent를 생존 배율로 곱해
+            -- 넣어서 공격 계열이 아닌 특성도 전투력에 실제로 기여하게 함(버서크는 이미
+            -- attack.AttackDamage 자체가 PlayerStatsComponent.OnUpdate에서 실시간 갱신되므로 별도
+            -- 처리 불필요 - 체력이 낮을수록 전투력도 함께 오른다). 날렵함(이동속도)/절약가(MP효율)/
+            -- 상인(드랍률)은 순수 유틸·경제 스탯이라 의도적으로 전투력 산식에서 제외(다른 게임의
+            -- "전투력"도 보통 비전투 스탯은 반영하지 않음) - 대신 실제 효과는 각자 소비처에서 작동.
             local expectedMult = 1 + attack.CriticalChance * (attack.CritDamageMultiplier - 1)
             local cooldown = math.max(0.1, attack.AttackCooldownSeconds)
-            cpScore = math.floor(attack.AttackDamage * expectedMult / cooldown * 10)
+            local survivalMult = 1 + (isvalid(statsComp) and statsComp.DamageReductionPercent or 0)
+            cpScore = math.floor(attack.AttackDamage * expectedMult / cooldown * survivalMult * 10)
         end
         self.cpBadge.Text = "전투력  " .. tostring(cpScore)
 
@@ -242,12 +249,15 @@ script CharacterInfoUIController extends Component
     method string TraitDesc(string trait)
         -- MVP 특성 풀(6종, CharacterSelectStageController.InitRandomPools) 기본 패시브 설명 -
         -- Docs/랜덤 플래닛 전체 기획서.md §2-3 그대로. 링크 패시브·나머지 108종은 Phase 3+/M2.
-        if trait == "상인" then return "아이템 드랍률 2배"
-        elseif trait == "버서크" then return "초당 체력 3% 감소, 체력이 낮을수록 공격력 상승, 타격 시 흡혈 (회복 아이템 사용 불가)"
-        elseif trait == "단단함" then return "방어력 소폭 증가"
-        elseif trait == "날렵함" then return "이동 속도 소폭 증가"
-        elseif trait == "균형" then return "모든 스탯 소폭 증가"
-        elseif trait == "절약가" then return "스킬 MP 소모 감소"
+        -- 2026-08-16: 실제 수치로 갱신(PlayerStatsComponent/PlayerAttack/PlayerSkillComponent에서
+        -- 전부 실제 작동 확인됨) - "발동 안 하는 효과는 수치 없이 플레이버만" 원칙 유지, 상인은
+        -- 여전히 완전 미구현(루팅 시스템 없음)이라 수치 없이 그대로.
+        if trait == "상인" then return "아이템 드랍률 2배 (루팅 시스템 미구현으로 아직 비활성)"
+        elseif trait == "버서크" then return "초당 최대체력 3% 감소, 체력이 낮을수록 공격력 최대 +50% 상승(전투력에 실시간 반영), 타격 시 데미지의 15% 흡혈 (회복 아이템 사용 불가는 회복 아이템 자체가 아직 없어 자연 충족)"
+        elseif trait == "단단함" then return "전투력 산정 시 생존 배율 +12% (실제 피해 경감은 몬스터 공격 파이프라인 도입 후 적용 예정)"
+        elseif trait == "날렵함" then return "이동 속도 +0.6"
+        elseif trait == "균형" then return "STR/DEX/INT/LUK 전부 +1 (공격력·명중·크리·이동속도 등 모든 파생 스탯에 함께 반영)"
+        elseif trait == "절약가" then return "스킬 MP 소모 30% 감소"
         end
         return ""
     end

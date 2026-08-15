@@ -137,6 +137,7 @@ script LobbyStageController extends Component
             intel = _EquipmentLogic:GetEffectiveStat(data, "int"),
             luk = _EquipmentLogic:GetEffectiveStat(data, "luk"),
             level = data.level,
+            trait = data.trait,
         }
         _CharacterRosterLogic:SetActiveIndex(idx)
         local swapSkillId = data.skillId

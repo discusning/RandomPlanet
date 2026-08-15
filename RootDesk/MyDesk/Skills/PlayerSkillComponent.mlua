@@ -147,11 +147,17 @@ script PlayerSkillComponent extends Component
             return
         end
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        -- 절약가(1차 특성) - 스킬 MP 소모 30% 감소(상시, magicguard의 시전형 mpfree와 별개). 순수
+        -- 유틸 스탯이라 CP에는 반영하지 않지만(PlayerStatsComponent 참고) 실제로 MP 차감에 반영된다.
+        local mpCost = def.mpCost
+        if isvalid(statsComp) and statsComp.Trait == "절약가" then
+            mpCost = math.floor(mpCost * 0.7)
+        end
         -- magicguard (testableEffect="mpfree") makes skill MP cost free for its own duration - see
         -- DoBuff/RevertBuff. Check/deduction below is skipped entirely while it's active.
         local mpFreeActive = self.BuffActive and self.BuffType == "mpfree"
         if not mpFreeActive then
-            if not isvalid(statsComp) or statsComp.CurrentMp < def.mpCost then
+            if not isvalid(statsComp) or statsComp.CurrentMp < mpCost then
                 log("PlayerSkill: not enough MP for " .. def.name)
                 return
             end
@@ -159,9 +165,9 @@ script PlayerSkillComponent extends Component
 
         self.LastUseTime = _UtilLogic.ElapsedSeconds
         if not mpFreeActive then
-            statsComp.CurrentMp = statsComp.CurrentMp - def.mpCost
+            statsComp.CurrentMp = statsComp.CurrentMp - mpCost
         end
-        log("PlayerSkill: use " .. def.name .. " (kind=" .. def.kind .. " mp=" .. def.mpCost .. (mpFreeActive and " [mpfree]" or "") .. ")")
+        log("PlayerSkill: use " .. def.name .. " (kind=" .. def.kind .. " mp=" .. mpCost .. (mpFreeActive and " [mpfree]" or "") .. ")")
 
         -- Skill use and the basic attack (PlayerAttack.DoAttack) are driven by two independent,
         -- unlinked cooldown timers - PlayerControllerComponent fires a fresh PlayerActionEvent

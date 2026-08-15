@@ -24,6 +24,18 @@ script PlayerStatsComponent extends Component
     @Sync property number EvasionPercent = 0
     @Sync property number KnockbackResistance = 0
 
+    -- 1차 특성(MVP 6종, CharacterSelectStageController.InitRandomPools의 traitPool과 매칭) - 2026-08-16
+    -- 유저 요청으로 순수 표시문구에서 실제 효과로 승격, 전투력(CP, CharacterInfoUIController) 산식에도
+    -- 반영. 상인(아이템 드랍률)은 이 프로젝트에 루팅 시스템 자체가 없어 여전히 미구현 - 정직하게 비워둠.
+    @Sync property string Trait = ""
+    -- 단단함 전용 - 실제 "받는 피해 감소" 자체는 몬스터->플레이어 공격 파이프라인이 없어 아직
+    -- 관측 불가하지만, CP 산식에는 배율로 실제 반영된다(생존형 특성도 전투력에 기여하라는 요청).
+    @Sync property number DamageReductionPercent = 0
+    -- 버서크 전용 - 체력 비율에 반비례해 실시간으로 갱신되는 공격력 보너스(OnUpdate). CP에 그대로
+    -- 반영되므로 체력이 낮을수록 전투력 수치도 함께 오른다("살수록 약해지고 다치수록 강해진다").
+    @Sync property number BerserkDamageBonusPercent = 0
+    @HideFromInspector property number BaseAttackDamage = 0
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- Seeds sane combat defaults before the real roster stats arrive via ApplyStats
@@ -33,18 +45,21 @@ script PlayerStatsComponent extends Component
 
     @ExecSpace("ServerOnly")
     method void ApplyStats(table stats)
-        -- stats = { str, dex, intel, luk, level } - effective (base + equipment bonus) values
+        -- stats = { str, dex, intel, luk, level, trait } - effective (base + equipment bonus) values
         -- computed client-side by EquipmentLogic:GetEffectiveStat, crossed over the
-        -- RequestEnterGame / SwapActiveCharacter RPC boundary alongside look/equipment.
+        -- RequestEnterGame / SwapActiveCharacter RPC boundary alongside look/equipment. `trait`
+        -- piggybacks on this same table (CharacterCardController/LobbyStageController pass
+        -- data.trait) rather than adding a new RPC parameter.
         self.Str = stats.str
         self.Dex = stats.dex
         self.Intel = stats.intel
         self.Luk = stats.luk
         self.Level = stats.level
+        self.Trait = stats.trait or ""
         self.CurrentXp = 0
         self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
         self:RecalculateDerived()
-        log("PlayerStats: ApplyStats str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " level=" .. self.Level)
+        log("PlayerStats: ApplyStats str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " level=" .. self.Level .. " trait=" .. self.Trait)
     end
 
     @ExecSpace("ServerOnly")
@@ -100,31 +115,48 @@ script PlayerStatsComponent extends Component
             player.Hp = maxHp
         end
 
+        -- 균형(1차 특성) - 4스탯 전부 +1, self.Str 등 원본은 건드리지 않고(장비 보너스 표기 로직과
+        -- 충돌 방지) 아래 파생 공식에만 로컬 변수로 흘려보낸다 - 공격력/크리/명중/공속/이동속도까지
+        -- 전부 자연히 함께 오르는 실제 "시너지"(단일 수치가 아니라 캐릭터 전체 파생 스탯에 전파).
+        local traitStatBonus = (self.Trait == "균형") and 1 or 0
+        local effStr = self.Str + traitStatBonus
+        local effDex = self.Dex + traitStatBonus
+        local effInt = self.Intel + traitStatBonus
+        local effLuk = self.Luk + traitStatBonus
+
         -- INT primary: 최대 MP +3/pt (real resource). Skill damage bonus is inert until Phase 3.
-        self.MaxMp = 20 + self.Intel * 3
+        self.MaxMp = 20 + effInt * 3
         self.CurrentMp = self.MaxMp
-        self.SkillDamageBonus = self.Intel * 0.015
+        self.SkillDamageBonus = effInt * 0.015
         -- INT secondary: 스킬 쿨다운 감소 - inert until Phase 3 (no skill system yet).
-        self.SkillCooldownReduction = math.min(0.5, self.Intel * 0.01)
+        self.SkillCooldownReduction = math.min(0.5, effInt * 0.01)
         -- STR secondary: 넉백 저항 - inert until a monster-attacks-player pipeline exists.
-        self.KnockbackResistance = math.min(0.8, self.Str * 0.02)
+        self.KnockbackResistance = math.min(0.8, effStr * 0.02)
         -- LUK secondary: 회피 +0.2%/pt - inert until a monster-attacks-player pipeline exists.
-        self.EvasionPercent = self.Luk * 0.002
+        self.EvasionPercent = effLuk * 0.002
+
+        -- 단단함(1차 특성) - 방어력 소폭 증가. 실제 피격 파이프라인이 없어 아직 데미지 경감 자체는
+        -- 관측 불가하지만, CP 산식(CharacterInfoUIController)에는 배율로 실제 반영된다.
+        self.DamageReductionPercent = (self.Trait == "단단함") and 0.12 or 0
+        -- 버서크 보너스는 여기서 0으로 리셋 - 버서크가 아니면 OnUpdate가 다시 채우지 않으므로
+        -- 특성을 바꾼(캐릭터 교체) 경우에도 이전 버서크 보정이 남지 않는다.
+        self.BerserkDamageBonusPercent = 0
 
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if isvalid(attack) then
             -- STR primary: 물리 공격력. 기획서 원안은 +2/pt이지만, STR이 캡 없는 선형 증가인 반면
             -- DEX(공격속도, 상한+100%)/LUK(크리확률, 상한60%)는 %기반+상한이 있어 몰빵 시 순수 DPS가
             -- 2.8~3배까지 벌어짐(실측 2026-08-06) - 사용자 결정에 따라 +1.5/pt로 소폭 완화.
-            attack.AttackDamage = 10 + self.Str * 1.5
+            attack.AttackDamage = 10 + effStr * 1.5
+            self.BaseAttackDamage = attack.AttackDamage
             -- LUK primary: 크리 확률 +0.3%/pt (상한 60%), 크리 데미지 +0.5%/pt.
-            attack.CriticalChance = math.min(0.6, 0.05 + self.Luk * 0.003)
-            attack.CritDamageMultiplier = math.min(3.0, 1.5 + self.Luk * 0.005)
+            attack.CriticalChance = math.min(0.6, 0.05 + effLuk * 0.003)
+            attack.CritDamageMultiplier = math.min(3.0, 1.5 + effLuk * 0.005)
             -- DEX primary: 공격 속도 +0.5%/pt (상한 +100%) -> cooldown shrinks proportionally.
-            local attackSpeedBonus = math.min(1.0, self.Dex * 0.005)
+            local attackSpeedBonus = math.min(1.0, effDex * 0.005)
             attack.AttackCooldownSeconds = 0.6 / (1 + attackSpeedBonus)
             -- DEX primary: 명중 +1/pt.
-            attack.Accuracy = 90 + self.Dex * 1
+            attack.Accuracy = 90 + effDex * 1
         end
 
         -- DEX secondary: 이동 속도 (no official per-point number in the design doc - tuned value).
@@ -132,7 +164,12 @@ script PlayerStatsComponent extends Component
         -- fast in actual play - skill VFX visibly couldn't keep up with the character at that speed).
         local move = self.Entity.MovementComponent
         if isvalid(move) then
-            move.InputSpeed = 1.5 + self.Dex * 0.08
+            move.InputSpeed = 1.5 + effDex * 0.08
+            -- 날렵함(1차 특성) - 이동 속도 직접 가산. 순수 유틸 스탯이라 CP에는 반영하지 않음(다른
+            -- 게임의 "전투력"도 보통 이동속도는 제외 - §"현재 전투력 공식" 참고).
+            if self.Trait == "날렵함" then
+                move.InputSpeed = move.InputSpeed + 0.6
+            end
         end
 
         local attackDamage = isvalid(attack) and attack.AttackDamage or -1
@@ -143,6 +180,26 @@ script PlayerStatsComponent extends Component
         local inputSpeed = isvalid(move) and move.InputSpeed or -1
         local maxHp = isvalid(player) and player.MaxHp or -1
         log("PlayerStats: RecalculateDerived maxHp=" .. maxHp .. " maxMp=" .. self.MaxMp .. " attackDamage=" .. attackDamage .. " critChance=" .. critChance .. " critMult=" .. critMult .. " cooldown=" .. cooldown .. " accuracy=" .. accuracy .. " inputSpeed=" .. inputSpeed)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        -- 버서크(1차 특성) 전용 - 초당 최대체력 3%를 스스로 소모하고, 체력 비율에 반비례해 공격력을
+        -- 실시간으로 끌어올린다(최대 +50%, 체력 1일 때). 이 자해는 몬스터의 공격이 아니라 스스로에게
+        -- 거는 효과라 몬스터->플레이어 공격 파이프라인이 없어도 완전히 작동한다(흡혈은
+        -- PlayerAttack.OnAttack에서 처리). BaseAttackDamage(RecalculateDerived가 매번 갱신)를
+        -- 기준으로 매 프레임 곱해서 세팅하므로 스탯 재계산과 충돌하거나 값이 누적 드리프트하지 않는다.
+        if self.Trait ~= "버서크" then return end
+        local player = self.Entity.PlayerComponent
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 then return end
+
+        if player.Hp > 1 then
+            player.Hp = math.max(1, player.Hp - player.MaxHp * 0.03 * delta)
+        end
+        local hpRatio = player.Hp / player.MaxHp
+        self.BerserkDamageBonusPercent = (1 - hpRatio) * 0.5
+        attack.AttackDamage = self.BaseAttackDamage * (1 + self.BerserkDamageBonusPercent)
     end
 
 end

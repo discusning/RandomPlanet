@@ -228,6 +228,7 @@ script CharacterCardController extends Component
                 intel = _EquipmentLogic:GetEffectiveStat(self._T.characterData, "int"),
                 luk = _EquipmentLogic:GetEffectiveStat(self._T.characterData, "luk"),
                 level = self._T.characterData.level,
+                trait = self._T.characterData.trait,
             }
             controller:RequestEnterGame(self._T.look, self._T.equipment, stats, self._T.characterData.skillId)
         end
