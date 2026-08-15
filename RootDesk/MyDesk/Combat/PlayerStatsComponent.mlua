@@ -31,10 +31,15 @@ script PlayerStatsComponent extends Component
     -- 단단함 전용 - 실제 "받는 피해 감소" 자체는 몬스터->플레이어 공격 파이프라인이 없어 아직
     -- 관측 불가하지만, CP 산식에는 배율로 실제 반영된다(생존형 특성도 전투력에 기여하라는 요청).
     @Sync property number DamageReductionPercent = 0
-    -- 버서크 전용 - 체력 비율에 반비례해 실시간으로 갱신되는 공격력 보너스(OnUpdate). CP에 그대로
+    -- 버서크 전용 - 체력 비율에 반비례해 실시간으로 갱신되는 공격력 보너스(BerserkTick). CP에 그대로
     -- 반영되므로 체력이 낮을수록 전투력 수치도 함께 오른다("살수록 약해지고 다치수록 강해진다").
     @Sync property number BerserkDamageBonusPercent = 0
     @HideFromInspector property number BaseAttackDamage = 0
+    -- 버서크 자해 DoT 튜닝값 - 1초마다 최대체력의 이 비율만큼 깎이되, 최대체력의 25% 밑으로는
+    -- 내려가지 않는다(예전엔 Hp가 1까지 깎여 사실상 상시 빈사 상태였음 - 유저 피드백으로 바닥 추가).
+    @HideFromInspector property number BerserkDrainPercent = 0.03
+    @HideFromInspector property number BerserkHpFloorPercent = 0.25
+    @HideFromInspector property integer BerserkTimerId = 0
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
@@ -59,6 +64,7 @@ script PlayerStatsComponent extends Component
         self.CurrentXp = 0
         self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
         self:RecalculateDerived()
+        self:UpdateBerserkZoneState()
         log("PlayerStats: ApplyStats str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " level=" .. self.Level .. " trait=" .. self.Trait)
     end
 
@@ -138,8 +144,8 @@ script PlayerStatsComponent extends Component
         -- 단단함(1차 특성) - 방어력 소폭 증가. 실제 피격 파이프라인이 없어 아직 데미지 경감 자체는
         -- 관측 불가하지만, CP 산식(CharacterInfoUIController)에는 배율로 실제 반영된다.
         self.DamageReductionPercent = (self.Trait == "단단함") and 0.12 or 0
-        -- 버서크 보너스는 여기서 0으로 리셋 - 버서크가 아니면 OnUpdate가 다시 채우지 않으므로
-        -- 특성을 바꾼(캐릭터 교체) 경우에도 이전 버서크 보정이 남지 않는다.
+        -- 버서크 보너스는 여기서 0으로 리셋 - 버서크가 아니면 BerserkTick 타이머가 애초에 돌지
+        -- 않으므로(UpdateBerserkZoneState) 특성을 바꾼(캐릭터 교체) 경우에도 이전 보정이 남지 않는다.
         self.BerserkDamageBonusPercent = 0
 
         local attack = self.Entity:GetComponent("script.PlayerAttack")
@@ -183,19 +189,76 @@ script PlayerStatsComponent extends Component
     end
 
     @ExecSpace("ServerOnly")
-    method void OnUpdate(number delta)
-        -- 버서크(1차 특성) 전용 - 초당 최대체력 3%를 스스로 소모하고, 체력 비율에 반비례해 공격력을
-        -- 실시간으로 끌어올린다(최대 +50%, 체력 1일 때). 이 자해는 몬스터의 공격이 아니라 스스로에게
-        -- 거는 효과라 몬스터->플레이어 공격 파이프라인이 없어도 완전히 작동한다(흡혈은
-        -- PlayerAttack.OnAttack에서 처리). BaseAttackDamage(RecalculateDerived가 매번 갱신)를
-        -- 기준으로 매 프레임 곱해서 세팅하므로 스탯 재계산과 충돌하거나 값이 누적 드리프트하지 않는다.
-        if self.Trait ~= "버서크" then return end
+    method void OnMapEnter(Entity mapEntity)
+        -- 맵 이동마다(마을<->전투 지형) 버서크 자해 DoT를 켜고 끄기 위한 판정 갱신.
+        self:UpdateBerserkZoneState()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnMapLeave(Entity mapEntity)
+        -- 다음 맵의 OnMapEnter가 다시 판정하므로, 여기서는 일단 타이머만 멈춰 전 맵의 DoT가
+        -- 새 맵으로 새는 것을 막는다(전투 지형->전투 지형 이동이어도 OnMapEnter가 바로 재시작함).
+        self:StopBerserkTimer()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        self:StopBerserkTimer()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void UpdateBerserkZoneState()
+        -- 마을(Lobby)·캐릭터 선택(choice_map)은 비전투 지형이라 버서크 자해 DoT를 끈다. 아직 실제로
+        -- 연결된 전투 맵이 없어(토벌전장1~3은 RootDesk/MyDesk/test/에 검증만 된 상태, 유저의 Task 1
+        -- 작업 대기 중) 화이트리스트가 아닌 "안전지대 목록에 없으면 전투 지형"으로 판정 - 나중에 실제
+        -- 전투 맵이 연결돼도 코드 수정 없이 자동으로 전투 지형 취급된다.
+        local map = self.Entity.CurrentMap
+        local mapName = isvalid(map) and map.Name or ""
+        local inSafeZone = (mapName == "Lobby") or (mapName == "choice_map")
+
+        if self.Trait == "버서크" and not inSafeZone then
+            self:StartBerserkTimer()
+        else
+            self:StopBerserkTimer()
+            -- 안전지대에서는 자해로 깎인 공격력 보정을 즉시 되돌려 항상 기본 공격력으로 되돌아오게
+            -- 한다(전투 지형에서 빠져나온 순간 페널티만 남아있는 것을 방지).
+            self.BerserkDamageBonusPercent = 0
+            local attack = self.Entity:GetComponent("script.PlayerAttack")
+            if isvalid(attack) then
+                attack.AttackDamage = self.BaseAttackDamage
+            end
+        end
+        log("PlayerStats: UpdateBerserkZoneState map=" .. mapName .. " safe=" .. tostring(inSafeZone) .. " trait=" .. self.Trait .. " timerActive=" .. tostring(self.BerserkTimerId ~= 0))
+    end
+
+    method void StartBerserkTimer()
+        -- 이미 돌고 있으면 중복 시작하지 않는다(맵 재판정이 여러 경로에서 호출될 수 있음).
+        if self.BerserkTimerId ~= 0 then return end
+        self.BerserkTimerId = _TimerService:SetTimerRepeat(self.BerserkTick, 1.0)
+    end
+
+    method void StopBerserkTimer()
+        if self.BerserkTimerId ~= 0 then
+            _TimerService:ClearTimer(self.BerserkTimerId)
+            self.BerserkTimerId = 0
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void BerserkTick()
+        -- 실제 경과 1초마다 정확히 한 번 호출된다(예전엔 OnUpdate의 delta 누적이 Maker Play 세션에서
+        -- 비정상적으로 빨리 흘러 - 실측 5초 만에 Hp 98->1 - 순식간에 빈사 상태가 됐던 문제를
+        -- SetTimerRepeat 기반으로 교체해 해결). 최대체력의 3%를 깎되 25% 밑으로는 내려가지 않아
+        -- 상시 1까지 몰리는 대신 일정 수준에서 안정된다. 체력 비율에 반비례해 공격력을 끌어올리는
+        -- 것(최대 +37.5%, 바닥 25%일 때)은 기존과 동일 - BaseAttackDamage(RecalculateDerived가 매번
+        -- 갱신) 기준으로 매번 곱해서 세팅하므로 스탯 재계산과 충돌하거나 값이 누적 드리프트하지 않는다.
         local player = self.Entity.PlayerComponent
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 then return end
 
-        if player.Hp > 1 then
-            player.Hp = math.max(1, player.Hp - player.MaxHp * 0.03 * delta)
+        local floor = player.MaxHp * self.BerserkHpFloorPercent
+        if player.Hp > floor then
+            player.Hp = math.max(floor, player.Hp - player.MaxHp * self.BerserkDrainPercent)
         end
         local hpRatio = player.Hp / player.MaxHp
         self.BerserkDamageBonusPercent = (1 - hpRatio) * 0.5
