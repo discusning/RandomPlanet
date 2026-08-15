@@ -40,6 +40,10 @@ script PlayerStatsComponent extends Component
     @HideFromInspector property number BerserkDrainPercent = 0.03
     @HideFromInspector property number BerserkHpFloorPercent = 0.25
     @HideFromInspector property integer BerserkTimerId = 0
+    -- 마을(안전지대) 자동 체력 회복 - 특성과 무관하게 전원 적용. 1초마다 최대체력의 이 비율만큼
+    -- 회복(유저 요청: "Hp도 마을에서는 자동으로 회복되게 해줘").
+    @HideFromInspector property number TownRegenPercent = 0.08
+    @HideFromInspector property integer TownRegenTimerId = 0
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
@@ -64,7 +68,7 @@ script PlayerStatsComponent extends Component
         self.CurrentXp = 0
         self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
         self:RecalculateDerived()
-        self:UpdateBerserkZoneState()
+        self:UpdateZoneState()
         log("PlayerStats: ApplyStats str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " level=" .. self.Level .. " trait=" .. self.Trait)
     end
 
@@ -190,28 +194,32 @@ script PlayerStatsComponent extends Component
 
     @ExecSpace("ServerOnly")
     method void OnMapEnter(Entity mapEntity)
-        -- 맵 이동마다(마을<->전투 지형) 버서크 자해 DoT를 켜고 끄기 위한 판정 갱신.
-        self:UpdateBerserkZoneState()
+        -- 맵 이동마다(마을<->전투 지형) 버서크 자해 DoT·마을 자동 회복을 켜고 끄기 위한 판정 갱신.
+        self:UpdateZoneState()
     end
 
     @ExecSpace("ServerOnly")
     method void OnMapLeave(Entity mapEntity)
-        -- 다음 맵의 OnMapEnter가 다시 판정하므로, 여기서는 일단 타이머만 멈춰 전 맵의 DoT가
-        -- 새 맵으로 새는 것을 막는다(전투 지형->전투 지형 이동이어도 OnMapEnter가 바로 재시작함).
+        -- 다음 맵의 OnMapEnter가 다시 판정하므로, 여기서는 일단 두 타이머를 모두 멈춰 전 맵의
+        -- 효과가 새 맵으로 새는 것을 막는다(전투 지형->전투 지형 이동이어도 OnMapEnter가 바로
+        -- 재시작함).
         self:StopBerserkTimer()
+        self:StopTownRegenTimer()
     end
 
     @ExecSpace("ServerOnly")
     method void OnEndPlay()
         self:StopBerserkTimer()
+        self:StopTownRegenTimer()
     end
 
     @ExecSpace("ServerOnly")
-    method void UpdateBerserkZoneState()
-        -- 마을(Lobby)·캐릭터 선택(choice_map)은 비전투 지형이라 버서크 자해 DoT를 끈다. 아직 실제로
-        -- 연결된 전투 맵이 없어(토벌전장1~3은 RootDesk/MyDesk/test/에 검증만 된 상태, 유저의 Task 1
-        -- 작업 대기 중) 화이트리스트가 아닌 "안전지대 목록에 없으면 전투 지형"으로 판정 - 나중에 실제
-        -- 전투 맵이 연결돼도 코드 수정 없이 자동으로 전투 지형 취급된다.
+    method void UpdateZoneState()
+        -- 마을(Lobby)·캐릭터 선택(choice_map)은 비전투 지형이라 버서크 자해 DoT를 끄고 대신 자동
+        -- 체력 회복을 켠다. 아직 실제로 연결된 전투 맵이 없어(토벌전장1~3은 RootDesk/MyDesk/test/에
+        -- 검증만 된 상태, 유저의 Task 1 작업 대기 중) 화이트리스트가 아닌 "안전지대 목록에 없으면
+        -- 전투 지형"으로 판정 - 나중에 실제 전투 맵이 연결돼도 코드 수정 없이 자동으로 전투 지형
+        -- 취급된다.
         local map = self.Entity.CurrentMap
         local mapName = isvalid(map) and map.Name or ""
         local inSafeZone = (mapName == "Lobby") or (mapName == "choice_map")
@@ -228,7 +236,13 @@ script PlayerStatsComponent extends Component
                 attack.AttackDamage = self.BaseAttackDamage
             end
         end
-        log("PlayerStats: UpdateBerserkZoneState map=" .. mapName .. " safe=" .. tostring(inSafeZone) .. " trait=" .. self.Trait .. " timerActive=" .. tostring(self.BerserkTimerId ~= 0))
+
+        if inSafeZone then
+            self:StartTownRegenTimer()
+        else
+            self:StopTownRegenTimer()
+        end
+        log("PlayerStats: UpdateZoneState map=" .. mapName .. " safe=" .. tostring(inSafeZone) .. " trait=" .. self.Trait .. " berserkTimerActive=" .. tostring(self.BerserkTimerId ~= 0) .. " regenTimerActive=" .. tostring(self.TownRegenTimerId ~= 0))
     end
 
     method void StartBerserkTimer()
@@ -241,6 +255,19 @@ script PlayerStatsComponent extends Component
         if self.BerserkTimerId ~= 0 then
             _TimerService:ClearTimer(self.BerserkTimerId)
             self.BerserkTimerId = 0
+        end
+    end
+
+    method void StartTownRegenTimer()
+        -- 이미 돌고 있으면 중복 시작하지 않는다(맵 재판정이 여러 경로에서 호출될 수 있음).
+        if self.TownRegenTimerId ~= 0 then return end
+        self.TownRegenTimerId = _TimerService:SetTimerRepeat(self.TownRegenTick, 1.0)
+    end
+
+    method void StopTownRegenTimer()
+        if self.TownRegenTimerId ~= 0 then
+            _TimerService:ClearTimer(self.TownRegenTimerId)
+            self.TownRegenTimerId = 0
         end
     end
 
@@ -263,6 +290,20 @@ script PlayerStatsComponent extends Component
         local hpRatio = player.Hp / player.MaxHp
         self.BerserkDamageBonusPercent = (1 - hpRatio) * 0.5
         attack.AttackDamage = self.BaseAttackDamage * (1 + self.BerserkDamageBonusPercent)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TownRegenTick()
+        -- 안전지대(마을)에 있는 동안 실제 1초마다 정확히 한 번, 특성과 무관하게 최대체력의 8%를
+        -- 회복시킨다(유저 요청). 버서크가 마을 진입 즉시 타이머를 끄고 공격력만 리셋하지만 체력
+        -- 자체는 손대지 않으므로(전투 지형에서 낮아진 체력이 남아있음) 이 타이머가 그걸 서서히
+        -- 채워준다. MaxHp에서 이미 꽉 찼으면 그냥 클램프만 될 뿐이라 타이머를 계속 돌려도 무해하다.
+        local player = self.Entity.PlayerComponent
+        if not isvalid(player) or player.MaxHp <= 0 then return end
+        if player.Hp < player.MaxHp then
+            player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * self.TownRegenPercent)
+            log("PlayerStats: TownRegenTick healed to Hp=" .. player.Hp .. "/" .. player.MaxHp)
+        end
     end
 
 end
