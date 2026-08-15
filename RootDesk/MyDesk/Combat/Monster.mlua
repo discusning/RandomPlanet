@@ -13,6 +13,8 @@ script Monster extends Component
     -- Docs/랜덤 플래닛 전체 기획서.md §2-2 (민첩 -> 명중). 0 for a basic monster like this test slime;
     -- future tougher/evasive monster types can raise it.
     property number Evasion = 0
+    @Sync @HideFromInspector property boolean DisorderActive = false
+    @HideFromInspector property number DisorderOriginalEvasion = 0
 
     method void OnBeginPlay()
         -- Initializes HP and wires the defender-side damage skin id.
@@ -60,6 +62,25 @@ script Monster extends Component
         if self.RespawnOn then
             _TimerService:SetTimerOnce(function() self:Respawn() end, self.RespawnDelay)
         end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyDisorder(number evasionReduction, number duration)
+        -- 도적 1차 액티브 "디스에이블" 대상 - 진짜 원본 효과(적 회피 감소) 그대로, 이미 살아있는
+        -- Evasion 소비처(PlayerAttack.IsAttackTarget의 명중 굴림)를 재사용하므로 새 파이프라인
+        -- 불필요. 재시전으로 값이 누적되지 않도록 활성 중이면 먼저 원래 값으로 되돌린 뒤 다시 적용.
+        if self.DisorderActive then
+            self.Evasion = self.DisorderOriginalEvasion
+        end
+        self.DisorderOriginalEvasion = self.Evasion
+        self.Evasion = self.Evasion - evasionReduction
+        self.DisorderActive = true
+        _TimerService:SetTimerOnce(function()
+            if isvalid(self.Entity) then
+                self.Evasion = self.DisorderOriginalEvasion
+                self.DisorderActive = false
+            end
+        end, duration)
     end
 
     @ExecSpace("ServerOnly")

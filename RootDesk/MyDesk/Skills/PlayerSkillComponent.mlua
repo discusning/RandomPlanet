@@ -193,6 +193,8 @@ script PlayerSkillComponent extends Component
             self:DoMultiHit(def)
         elseif def.kind == "dash" then
             self:DoDash(def)
+        elseif def.kind == "debuff" then
+            self:DoDisorder(def)
         elseif def.kind == "buff" then
             self:DoBuff(def)
         end
@@ -342,6 +344,50 @@ script PlayerSkillComponent extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void DoDisorder(table def)
+        -- 도적 1차 액티브 "디스에이블" - 데미지 없이 전방 가장 가까운 몬스터 1체의 Evasion을 일시
+        -- 감소시킨다. AttackComponent 파이프라인을 타지 않고 직접 Monster 스크립트를 찾아 호출하는
+        -- 이유: Attack/AttackFast는 항상 HitEvent(데미지 0이라도)를 발생시켜 데미지 스킨에 "0"이
+        -- 뜨는 등 순수 디버프 스킬의 연출과 안 맞음 - ProjectileComponent 등에서 이미 쓰는
+        -- GetChildComponentsByTypeName 기반 근접 탐색 패턴을 재사용.
+        local transform = self.Entity.TransformComponent
+        local controller = self.Entity.PlayerControllerComponent
+        local map = self.Entity.CurrentMap
+        if not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+        local range = 3.0
+
+        local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
+        local nearest = nil
+        local nearestDist = range + 1
+        for _, m in ipairs(monsters) do
+            if isvalid(m) and isvalid(m.Entity) and not m.IsDead then
+                local mpos = m.Entity.TransformComponent.WorldPosition
+                local dx = mpos.x - pos.x
+                if dx * dir >= 0 and math.abs(dx) <= range and math.abs(dx) < nearestDist then
+                    nearestDist = math.abs(dx)
+                    nearest = m
+                end
+            end
+        end
+
+        if nearest == nil then
+            log("PlayerSkill: " .. def.name .. " no target in range")
+            return
+        end
+
+        nearest:ApplyDisorder(def.evasionReduction, def.duration)
+        log("PlayerSkill: " .. def.name .. " applied to " .. nearest.Entity.Name)
+        if def.hitVfxRuid ~= nil then
+            local mpos = nearest.Entity.TransformComponent.WorldPosition
+            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, mpos, 0, Vector3(1, 1, 1), false)
+            log("PlayerSkill: " .. def.name .. " VFX serial=" .. tostring(serial))
+        end
+    end
+
+    @ExecSpace("ServerOnly")
     method void DoBuff(table def)
         -- Only the testableEffect actually changes a real value (see SkillCatalog comments) - the
         -- rest of each buff's design is logged so the intent is visible without a fake mechanic.
@@ -373,6 +419,12 @@ script PlayerSkillComponent extends Component
         elseif def.testableEffect == "atkspeed" and isvalid(attack) then
             self.BuffOriginalValue = attack.AttackCooldownSeconds
             attack.AttackCooldownSeconds = attack.AttackCooldownSeconds * 0.4
+        elseif def.testableEffect == "critchance" and isvalid(attack) then
+            -- darksight (2026-08-16) - real Dark Sight is a stealth/evasion skill with no consumer
+            -- yet (no monster-attacks-player pipeline), reinterpreted as "strike from the shadows"
+            -- bonus crit chance instead - immediately observable via CalcCritical's real roll.
+            self.BuffOriginalValue = attack.CriticalChance
+            attack.CriticalChance = math.min(1.0, attack.CriticalChance + def.critChanceBonus)
         elseif def.testableEffect == "maxhp" and isvalid(player) then
             -- ironbody (2026-08-16 completion) - real Iron Body's defense boost has no observable
             -- effect yet (no monster-attacks-player pipeline), so this grants a temporary MaxHp
@@ -446,6 +498,8 @@ script PlayerSkillComponent extends Component
             move.InputSpeed = self.BuffOriginalValue
         elseif self.BuffType == "atkspeed" and isvalid(attack) then
             attack.AttackCooldownSeconds = self.BuffOriginalValue
+        elseif self.BuffType == "critchance" and isvalid(attack) then
+            attack.CriticalChance = self.BuffOriginalValue
         elseif self.BuffType == "maxhp" and isvalid(player) then
             player.MaxHp = math.max(1, player.MaxHp - self.BuffOriginalValue)
             player.Hp = math.min(player.Hp, player.MaxHp)
