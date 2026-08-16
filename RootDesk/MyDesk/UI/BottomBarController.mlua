@@ -97,6 +97,16 @@ script BottomBarController extends Component
                 self:CloseWindow(w.path, w.scriptType)
             end
         end
+        -- The key-setting popup isn't one of the 5 bottom-bar windows (it's opened both by its own
+        -- global P-key toggle and from inside Settings/Skill), but it renders as a full card on top
+        -- of everything the same way - without this, opening e.g. Inventory while it was already
+        -- open left both stacked on screen (KeyBindingPopupController.Hide is a thin alias for its
+        -- own Close()).
+        self:CloseWindow("/ui/KeySettingGroup", "script.KeyBindingPopupController")
+        -- Same story for the squad-formation card (opened from the Lobby NPC, not a bottom-bar
+        -- button) - it also renders as a full-screen card and was never part of this mutual
+        -- exclusion set, so it could stack behind/in front of any bottom-bar window too.
+        self:CloseWindow("/ui/SquadFormationGroup", "script.SquadFormationController")
     end
 
     @ExecSpace("ClientOnly")

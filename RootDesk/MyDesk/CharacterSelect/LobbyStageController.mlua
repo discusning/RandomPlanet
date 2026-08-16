@@ -157,6 +157,18 @@ script LobbyStageController extends Component
         -- playable = whichever character is currently being played; links = up to 2 more picked
         -- from the other owned characters. Moved here from CharacterSelectStageController since the
         -- squad popup is only ever opened from this Lobby NPC now (see GDD §9 revision log).
+        --
+        -- Touching this NPC while a bottom-bar window (inventory/equipment/etc.) or the key-setting
+        -- popup is already open used to stack this card on top of it (no mutual exclusion) - close
+        -- everything else first, mirroring BottomBarController's own single-window pattern.
+        local bottomBarEntity = _EntityService:GetEntityByPath("/ui/BottomBarGroup")
+        if isvalid(bottomBarEntity) then
+            local bottomBar = bottomBarEntity:GetComponent("script.BottomBarController")
+            if isvalid(bottomBar) then
+                bottomBar:CloseOtherWindows("")
+            end
+        end
+
         local roster = _CharacterRosterLogic:GetRoster()
         local activeIdx = _CharacterRosterLogic:GetActiveIndex()
         if activeIdx == nil then

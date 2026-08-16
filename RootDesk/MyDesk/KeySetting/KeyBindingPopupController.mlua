@@ -86,6 +86,19 @@ script KeyBindingPopupController extends Component
 
     @ExecSpace("ClientOnly")
     method void Open()
+        -- Closes the 5 bottom-bar windows first (Settings/Skill's own "키 설정" buttons already
+        -- did this by calling Hide() on themselves before Open(), but the global P-key toggle
+        -- (OnKeyDown below) called Open() directly and skipped it - so opening this popup while
+        -- e.g. the skill window was open left both rendered stacked on screen at once). Mirrors
+        -- BottomBarController's own CloseOtherWindows mutual-exclusion pattern.
+        local bottomBarEntity = _EntityService:GetEntityByPath("/ui/BottomBarGroup")
+        if isvalid(bottomBarEntity) then
+            local bottomBar = bottomBarEntity:GetComponent("script.BottomBarController")
+            if isvalid(bottomBar) then
+                bottomBar:CloseOtherWindows("")
+            end
+        end
+
         self.isOpen = true
         self.dimmer.Enable = true
         self.window.Enable = true
@@ -97,6 +110,13 @@ script KeyBindingPopupController extends Component
         self.isOpen = false
         self.dimmer.Enable = false
         self.window.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        -- Alias so BottomBarController.CloseWindow (shared by all 5 bottom-bar windows) can close
+        -- this popup too, using the same c:Hide() call it already makes on every other window.
+        self:Close()
     end
 
     @ExecSpace("ClientOnly")
