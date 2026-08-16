@@ -254,27 +254,60 @@ script PlayerSkillComponent extends Component
 
     @ExecSpace("ServerOnly")
     method void DoMultiHit(table def)
-        -- Fires def.hits instant hits back-to-back (no stagger yet - simple MVP version, each hit
-        -- independently resolved so multiple overlapping monsters each take every hit).
+        -- Lucky Seven (currently the only multi_hit skill) - real classic MapleStory throws daggers a
+        -- short distance rather than swinging like a melee weapon (2026-08-16 usage-location audit:
+        -- the previous instant frontal-box version read identically to a sword swing). Spawns def.hits
+        -- real short-range projectiles staggered ~0.09s apart (a visible "rapid throw" instead of one
+        -- simultaneous flash) via FireThrownDagger, reusing DoRanged's spawn/override pattern but with
+        -- a short MaxLifetime so each dagger only travels a few units before disappearing.
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         local transform = self.Entity.TransformComponent
         local controller = self.Entity.PlayerControllerComponent
-        if not isvalid(attack) or not isvalid(transform) or not isvalid(controller) then return end
+        local map = self.Entity.CurrentMap
+        if not isvalid(attack) or not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
         local dir = controller.LookDirectionX
         if dir == 0 then dir = 1 end
         local pos = transform.WorldPosition
-        local shape = BoxShape(Vector2(pos.x + 0.6 * dir, pos.y + 0.5), Vector2(1.2, 1.2), 0)
+        local damage = math.floor(attack.AttackDamage * def.coef)
+        local critChance = attack.CriticalChance
+        local critMult = attack.CritDamageMultiplier
 
-        local originalDamage = attack.AttackDamage
-        attack.AttackDamage = math.floor(originalDamage * def.coef)
         for i = 1, def.hits do
-            attack:AttackFast(shape, "skill." .. def.id, CollisionGroups.Monster)
+            local delay = (i - 1) * 0.09
+            _TimerService:SetTimerOnce(function()
+                self:FireThrownDagger(def, dir, pos, map, damage, critChance, critMult)
+            end, delay)
         end
-        attack.AttackDamage = originalDamage
+    end
 
-        if def.hitVfxRuid ~= nil then
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, Vector3(pos.x + 0.6 * dir, pos.y + 0.5, pos.z), 0, Vector3(1, 1, 1), false)
-            log("PlayerSkill: " .. def.name .. " hit VFX serial=" .. tostring(serial))
+    @ExecSpace("ServerOnly")
+    method void FireThrownDagger(table def, integer dir, Vector3 pos, Entity map, integer damage, number critChance, number critMult)
+        -- One thrown dagger for Lucky Seven's DoMultiHit above - short travel distance (Speed*MaxLifetime
+        -- ~= 3 units) so it visibly leaves the caster's hand and lands nearby instead of an instant hit.
+        self.ProjectileCount = self.ProjectileCount + 1
+        local name = "skillproj_" .. tostring(self.ProjectileCount)
+        -- Same-Y spawn as DoRanged (not +0.5) - ProjectileComponent's HitRadius circular check has no
+        -- vertical tolerance beyond its radius; a raised spawn flies clean over a same-level monster.
+        local proj = _SpawnService:SpawnByModelId("projectile", name, Vector3(pos.x + 0.4 * dir, pos.y, pos.z), map)
+        if not isvalid(proj) then return end
+
+        if def.projectileVfxRuid ~= nil and isvalid(proj.SpriteRendererComponent) then
+            proj.SpriteRendererComponent.SpriteRUID = def.projectileVfxRuid
+        end
+
+        local projComp = proj:GetComponent("script.ProjectileComponent")
+        local projAttack = proj:GetComponent("script.ProjectileAttackComponent")
+        if isvalid(projAttack) then
+            projAttack.Damage = damage
+            projAttack.CriticalChance = critChance
+            projAttack.CritDamageMultiplier = critMult
+        end
+        if isvalid(projComp) then
+            projComp.Speed = 10
+            projComp.MaxLifetime = 0.3
+            projComp.HitRadius = 0.4
+            projComp.Pierce = false
+            projComp:Fire(dir, 0)
         end
     end
 

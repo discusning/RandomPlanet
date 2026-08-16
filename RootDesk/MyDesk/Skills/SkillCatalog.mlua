@@ -6,7 +6,7 @@ script SkillCatalog extends Logic
     --   melee_single  { coef }                      - 전방 근접 단일 히트, PlayerAttack.AttackDamage*coef
     --   ranged_single { coef, magic }                - 투사체 단일 히트. magic=true면 INT의 SkillDamageBonus 추가 적용
     --   ranged_pierce { coef, magic }                - 투사체 관통(최대 2체)
-    --   multi_hit     { coef, hits }                 - 즉시 다단 히트(히트당 coef, hits회)
+    --   multi_hit     { coef, hits }                 - 짧은 사거리를 실제로 날아가는 투사체를 hits회 연속 투척(히트당 coef) - PlayerSkillComponent.DoMultiHit
     --   dash          { force }                      - 데미지 없는 순간 돌진(AddForce)
     --   debuff        { evasionReduction, duration }  - 전방 근처 몬스터 1체의 Evasion을 일시 감소(Monster.ApplyDisorder) - 데미지 없음
     --   buff          { duration, testableEffect, inertNote } - 지속시간 버프. testableEffect만 실제 적용, 나머지는 로그만 남김(비활성)
@@ -108,9 +108,22 @@ script SkillCatalog extends Logic
             ironbody = { id = "ironbody", name = "아이언 바디", job = "검사", kind = "buff", duration = 5.0, testableEffect = "maxhp", maxHpBonusPercent = 0.3, cooldown = 15.0, mpCost = 15, auraType = "Aura", auraColor = Color(0.75, 0.75, 0.82, 0.9), buffVfxRuid = "e9c90ecd65224980b56903dba89ef856", desc = "일정 시간 최대 체력이 30% 증가합니다." },
             magicclaw = { id = "magicclaw", name = "매직 클로", job = "마법사", kind = "ranged_single", coef = 1.3, magic = true, cooldown = 2.5, mpCost = 10, projectileVfxRuid = "2a0d72e836fb4862aae83087035f3d2a", desc = "전방으로 마법 발톱을 날려 평타의 130% 마법 피해를 입힙니다." },
             magicguard = { id = "magicguard", name = "매직 가드", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "mpfree", cooldown = 20.0, mpCost = 20, auraType = "Enchant", auraColor = Color(0.4, 0.6, 1.0, 0.9), buffVfxRuid = "3878fb0f62bf43a48cd9f43332490315", desc = "일정 시간 스킬 MP 소모가 없어집니다." },
-            arrowblow = { id = "arrowblow", name = "애로우 블로우", job = "궁수", kind = "ranged_pierce", coef = 1.2, magic = false, cooldown = 2.0, mpCost = 8, projectileVfxRuid = "64f775829e234918bd65e9d22214bb06", desc = "화살을 쏘아 최대 2명의 적을 관통, 각각 평타의 120% 피해를 입힙니다." },
+            -- 애로우 블로우 (2026-08-16 사용위치 검증 후 수정): 실제 클래식 메이플스토리의 애로우
+            -- 블로우는 궁수 계열 중 유일하게 활로 직접 근접 타격하는 스킬 - 원거리 발사도, 관통도
+            -- 아니다. 기존 ranged_pierce(투사체 관통)는 실제 스킬 성격과 반대였음 - melee_single로
+            -- 교체(다른 근접 단일히트 스킬과 동일 파이프라인, PlayerSkillComponent.DoMeleeSingle).
+            -- hitVfxRuid는 실제 "애로우 블로우" 팩(skill/300.img/skill/3001004, findPacksContaining로
+            -- 재확인)의 hit/0 요소 - 기존 "ball"(투사체용 화살 그래픽)은 더 이상 맞지 않아 교체.
+            arrowblow = { id = "arrowblow", name = "애로우 블로우", job = "궁수", kind = "melee_single", coef = 1.2, cooldown = 2.0, mpCost = 8, hitVfxRuid = "84a473e004a34fdea67aa74a87dc75c6", desc = "활로 전방의 적을 강하게 가격해 평타의 120% 피해를 입힙니다." },
             focus = { id = "focus", name = "포커스", job = "궁수", kind = "buff", duration = 6.0, testableEffect = "accuracy", accuracyBonus = 30, inertNote = "회피 상승 부분은 비활성(몬스터 공격 파이프라인 없음)", cooldown = 12.0, mpCost = 12, auraType = "SpinField", auraColor = Color(1.0, 0.85, 0.3, 0.9), buffVfxRuid = "0d68db29ec2046f4bb2a64e6f03b745b", desc = "일정 시간 명중률이 30 증가합니다." },
-            luckyseven = { id = "luckyseven", name = "럭키 세븐", job = "도적", kind = "multi_hit", coef = 0.5, hits = 3, cooldown = 3.5, mpCost = 12, hitVfxRuid = "458e72f0720a4584a9a7fc3642b6e601", desc = "단검을 3연속으로 던져 각 타격마다 평타의 50% 피해를 입힙니다." },
+            -- 럭키 세븐 (2026-08-16 사용위치 검증 후 수정): 실제 클래식 메이플스토리의 럭키 세븐은
+            -- 단검을 짧게 투척하는 스킬 - 기존 구현은 검사류 근접 스윙과 동일한 즉발 박스 판정이라
+            -- "던지는" 느낌이 전혀 없었음. PlayerSkillComponent.DoMultiHit을 짧은 사거리를 실제로
+            -- 날아가는 투사체 3발 연속 투척으로 교체(간격 0.09초). projectileVfxRuid는 실제 "럭키
+            -- 세븐" 팩(skill/400.img/skill/4001344, findPacksContaining로 재확인)의 effect 요소 -
+            -- 이 팩엔 애로우 블로우의 "ball" 같은 전용 비행 스프라이트가 없어(effect/hit/0 뿐) 투척
+            -- 궤적용으로 가장 가까운 대체.
+            luckyseven = { id = "luckyseven", name = "럭키 세븐", job = "도적", kind = "multi_hit", coef = 0.5, hits = 3, cooldown = 3.5, mpCost = 12, projectileVfxRuid = "0ae88fa494e743158da6ddb81c0c55f2", desc = "단검을 3연속으로 투척해 각 타격마다 평타의 50% 피해를 입힙니다." },
             disable = { id = "disable", name = "디스에이블", job = "도적", kind = "debuff", evasionReduction = 40, duration = 8.0, cooldown = 10.0, mpCost = 10, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", desc = "전방의 적 하나를 약화시켜 일정 시간 회피가 크게 감소합니다." },
             darksight = { id = "darksight", name = "다크 사이트", job = "도적", kind = "buff", duration = 5.0, testableEffect = "critchance", critChanceBonus = 0.25, cooldown = 12.0, mpCost = 10, buffVfxRuid = "abdf05be0b3e4146a6271c4ee1f3b1b1", desc = "일정 시간 그림자에 숨어 치명타 확률이 25% 증가합니다." },
             nimblebody = { id = "nimblebody", name = "님블 바디", job = "도적", kind = "buff", duration = 6.0, testableEffect = "movespeed", moveSpeedBonus = 1.5, inertNote = "회피 상승 부분은 비활성(몬스터 공격 파이프라인 없음)", cooldown = 12.0, mpCost = 10, auraType = "Buff", auraColor = Color(0.3, 1.0, 0.85, 0.9), buffVfxRuid = "372fdc6781974004bfb08edd5b5f9914", desc = "일정 시간 이동 속도가 증가합니다." },
