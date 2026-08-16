@@ -346,6 +346,12 @@ script PlayerSkillComponent extends Component
         if def.projectileVfxRuid ~= nil and isvalid(proj.SpriteRendererComponent) then
             proj.SpriteRendererComponent.SpriteRUID = def.projectileVfxRuid
             log("PlayerSkill: " .. def.name .. " projectile sprite -> " .. def.projectileVfxRuid)
+            -- Color-multiply tint for a clip whose source art doesn't match this skill's real color
+            -- (e.g. magicclaw's closest-shape-match substitute is orange, real Magic Claw is
+            -- green/yellow - see SkillCatalog comment). Only applied when the def sets one.
+            if def.projectileTintColor ~= nil then
+                proj.SpriteRendererComponent.Color = def.projectileTintColor
+            end
         end
 
         local projComp = proj:GetComponent("script.ProjectileComponent")

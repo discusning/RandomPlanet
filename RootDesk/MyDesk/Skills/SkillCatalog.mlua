@@ -106,7 +106,18 @@ script SkillCatalog extends Logic
             powerstrike = { id = "powerstrike", name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
             slashblast = { id = "slashblast", name = "슬래시 블러스트", job = "검사", kind = "melee_single", coef = 1.0, wide = true, cooldown = 4.0, mpCost = 10, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", desc = "전방의 넓은 범위를 베어 그 안의 모든 적에게 평타의 100% 피해를 입힙니다." },
             ironbody = { id = "ironbody", name = "아이언 바디", job = "검사", kind = "buff", duration = 5.0, testableEffect = "maxhp", maxHpBonusPercent = 0.3, cooldown = 15.0, mpCost = 15, auraType = "Aura", auraColor = Color(0.75, 0.75, 0.82, 0.9), buffVfxRuid = "e9c90ecd65224980b56903dba89ef856", desc = "일정 시간 최대 체력이 30% 증가합니다." },
-            magicclaw = { id = "magicclaw", name = "매직 클로", job = "마법사", kind = "ranged_single", coef = 1.3, magic = true, cooldown = 2.5, mpCost = 10, projectileVfxRuid = "2a0d72e836fb4862aae83087035f3d2a", desc = "전방으로 마법 발톱을 날려 평타의 130% 마법 피해를 입힙니다." },
+            -- 매직 클로 (2026-08-17 유저 재지적 후 수정): 기존 projectileVfxRuid("2a0d72e8...")는
+            -- "매직 클로"라는 이름의 리소스 팩(skill/800032.img/skill/80003294)에서 가져왔지만,
+            -- 유저가 실제 플레이 경험상 "이펙트 자체가 원래 매직 클로와 다르다"고 지적 - 실제로
+            -- 그 팩의 effect 클립은 파란 초승달 모양이라 실제 매직 클로(초록/노랑 계열, 발톱으로
+            -- 할퀸 3갈래 자국)와 색·형태 둘 다 불일치했다(같은 "매직 클로"라는 한글명을 쓰는 리소스가
+            -- 이 라이브러리에 최소 2개 존재 - 800032/800016 두 팩 다 검증했으나 둘 다 아이콘·이펙트가
+            -- 실제 스킬과 어긋남, 원본 매직클로 리소스가 인덱스에 없는 것으로 판단). 유저와 함께
+            -- 형태가 일치하는 대체 리소스를 탐색 - "魔力爪"(skill/1200.img/skill/12001003, 한글명
+            -- 미태깅)의 hit/0 요소가 실제 발톱으로 할퀸 3갈래 자국 형태와 정확히 일치(유저 확인),
+            -- 다만 원본 색이 주황 계열이라 유저 요청대로 SpriteRendererComponent.Color 틴트로
+            -- 초록/노랑 계열로 보정(PlayerSkillComponent.DoRanged가 projectileTintColor를 적용).
+            magicclaw = { id = "magicclaw", name = "매직 클로", job = "마법사", kind = "ranged_single", coef = 1.3, magic = true, cooldown = 2.5, mpCost = 10, projectileVfxRuid = "64096440f11f4c9b9c96df38e0e3852e", projectileTintColor = Color(0.55, 1.0, 0.25, 1.0), desc = "전방으로 마법 발톱을 날려 평타의 130% 마법 피해를 입힙니다." },
             magicguard = { id = "magicguard", name = "매직 가드", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "mpfree", cooldown = 20.0, mpCost = 20, auraType = "Enchant", auraColor = Color(0.4, 0.6, 1.0, 0.9), buffVfxRuid = "3878fb0f62bf43a48cd9f43332490315", desc = "일정 시간 스킬 MP 소모가 없어집니다." },
             -- 애로우 블로우 (2026-08-16 사용위치 검증 후 수정): 실제 클래식 메이플스토리의 애로우
             -- 블로우는 궁수 계열 중 유일하게 활로 직접 근접 타격하는 스킬 - 원거리 발사도, 관통도
