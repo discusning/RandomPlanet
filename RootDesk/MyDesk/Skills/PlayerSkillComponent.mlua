@@ -247,7 +247,12 @@ script PlayerSkillComponent extends Component
         attack.AttackDamage = originalDamage
 
         if def.hitVfxRuid ~= nil then
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, Vector3(pos.x + 0.7 * dir, pos.y + 0.5, pos.z), 0, Vector3(1, 1, 1), false)
+            -- FlipX must be set explicitly per cast - PlayEffect never inherits the caster's
+            -- current facing on its own (2026-08-17 user report: "매직 클로가 이상하게 날아다닌다"
+            -- traced to this exact gap on the ranged projectile below; melee hit clips have the same
+            -- gap even though it's less visible for a roughly-symmetric burst shape). Source art
+            -- faces left by default (msw-search convention), so dir>0 (facing right) needs FlipX=true.
+            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, Vector3(pos.x + 0.7 * dir, pos.y + 0.5, pos.z), 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
             log("PlayerSkill: " .. def.name .. " hit VFX serial=" .. tostring(serial))
         end
     end
@@ -293,6 +298,9 @@ script PlayerSkillComponent extends Component
 
         if def.projectileVfxRuid ~= nil and isvalid(proj.SpriteRendererComponent) then
             proj.SpriteRendererComponent.SpriteRUID = def.projectileVfxRuid
+            -- Source art faces left by default - a projectile fired while facing right (dir>0)
+            -- renders backwards without this (2026-08-17 user report, same root cause as DoRanged).
+            proj.SpriteRendererComponent.FlipX = dir > 0
         end
 
         local projComp = proj:GetComponent("script.ProjectileComponent")
@@ -345,6 +353,11 @@ script PlayerSkillComponent extends Component
         -- sharing the same generic placeholder bullet baked into Models/Skills/Projectile.model.
         if def.projectileVfxRuid ~= nil and isvalid(proj.SpriteRendererComponent) then
             proj.SpriteRendererComponent.SpriteRUID = def.projectileVfxRuid
+            -- Source art faces left by default (msw-search convention) - without this the
+            -- projectile always renders in its left-facing default regardless of travel
+            -- direction, so a right-facing cast (dir>0, the common case) looks backwards -
+            -- reported 2026-08-17 as "매직 클로가 병신같이 날아다닌다."
+            proj.SpriteRendererComponent.FlipX = dir > 0
             log("PlayerSkill: " .. def.name .. " projectile sprite -> " .. def.projectileVfxRuid)
             -- Color-multiply tint for a clip whose source art doesn't match this skill's real color
             -- (e.g. magicclaw's closest-shape-match substitute is orange, real Magic Claw is
@@ -383,7 +396,7 @@ script PlayerSkillComponent extends Component
             -- Attached (not a fixed-position PlayEffect) so the clip travels with the caster during
             -- the dash impulse instead of being left behind at the cast position - a fixed-position
             -- one-shot visibly failed to keep up the moment AddForce fired (2026-08-16, user report).
-            local serial = _EffectService:PlayEffectAttached(def.dashVfxRuid, self.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), false)
+            local serial = _EffectService:PlayEffectAttached(def.dashVfxRuid, self.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
             log("PlayerSkill: " .. def.name .. " dash VFX serial=" .. tostring(serial))
         end
     end
@@ -427,7 +440,7 @@ script PlayerSkillComponent extends Component
         log("PlayerSkill: " .. def.name .. " applied to " .. nearest.Entity.Name)
         if def.hitVfxRuid ~= nil then
             local mpos = nearest.Entity.TransformComponent.WorldPosition
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, mpos, 0, Vector3(1, 1, 1), false)
+            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, mpos, 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
             log("PlayerSkill: " .. def.name .. " VFX serial=" .. tostring(serial))
         end
     end
@@ -505,7 +518,10 @@ script PlayerSkillComponent extends Component
         -- correct RUID was wired in.
         if def.buffVfxRuid ~= nil then
             self.BuffUsingSkillVfx = true
-            self.BuffParticleSerial = _EffectService:PlayEffectAttached(def.buffVfxRuid, self.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), true)
+            -- SyncFlip (not a manual dir snapshot) so the looped clip keeps following the caster's
+            -- facing for the whole buff duration, not just whichever way they faced at cast time -
+            -- same "player-attached effect must follow facing" rule as msw-combat-system SKILL.md §4.
+            self.BuffParticleSerial = _EffectService:PlayEffectAttached(def.buffVfxRuid, self.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), true, { SyncFlip = true })
             log("PlayerSkill: " .. def.name .. " skill VFX (looped) serial=" .. tostring(self.BuffParticleSerial))
         elseif def.auraType ~= nil then
             self.BuffUsingSkillVfx = false
