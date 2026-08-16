@@ -22,11 +22,30 @@ script WindowHotkeyLogic extends Logic
         if not _CharacterRosterLogic:IsGameplayActive() then
             return
         end
+        if event.key == KeyboardKey.Escape then
+            self:CloseAnyOpenWindow()
+            return
+        end
         local actionName = _KeyBindingLogic:GetUiToggleActionForKey(event.key)
         if actionName == nil then
             return
         end
         self:ToggleWindowForAction(actionName)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void CloseAnyOpenWindow()
+        -- Classic MapleStory ESC behavior - closes whichever popup card is currently on screen
+        -- (inventory/equipment/character info/settings/skill, plus the key-setting and squad-
+        -- formation "link passive" cards). CloseOtherWindows("") with no path to keep closes every
+        -- one of them - the exact same mutual-exclusion sweep a bottom-bar click or hotkey already
+        -- triggers before opening its own target, just with no new window opened afterward. Safe to
+        -- call with nothing open (each window's Hide()/Close() is idempotent).
+        local bar = self:GetBottomBar()
+        if not isvalid(bar) then
+            return
+        end
+        bar:CloseOtherWindows("")
     end
 
     @ExecSpace("ClientOnly")

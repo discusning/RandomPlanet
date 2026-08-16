@@ -14,6 +14,8 @@ script CharacterCardController extends Component
     property Entity btnConfirmDelete = "da7dabeb-aa8c-4dfa-ac06-7bfeaee1a360"
     property Entity btnCancelDelete = "f32e4b77-fb62-4daa-8fa9-ffcd3fdb6936"
 
+    property any keyHandler = nil
+
     @ExecSpace("ClientOnly")
     method Entity GetMapController()
         -- Looks up choice_map's root fresh every call instead of caching an Entity property to it.
@@ -43,8 +45,24 @@ script CharacterCardController extends Component
         table.insert(self._T.handlers, { entity = self.btnConfirmDelete, eventHandler = hConfirmDelete })
         local hCancelDelete = self.btnCancelDelete:ConnectEvent(ButtonClickEvent, self.OnCancelDeleteClicked)
         table.insert(self._T.handlers, { entity = self.btnCancelDelete, eventHandler = hCancelDelete })
+        self.keyHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
         self.deleteConfirmGroup.Enable = false
         self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeyDown(KeyDownEvent event)
+        -- Classic MapleStory ESC behavior. Backs out one level at a time: if the delete-confirm
+        -- dialog is open, ESC just cancels it (mirrors OnCancelDeleteClicked - a stray ESC should
+        -- never double as "confirm delete"); otherwise, if the card itself is open, ESC closes it.
+        if event.key ~= KeyboardKey.Escape then
+            return
+        end
+        if self.deleteConfirmGroup.Enable then
+            self:OnCancelDeleteClicked()
+        elseif self.Entity.Enable then
+            self:HideCard()
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -53,6 +71,9 @@ script CharacterCardController extends Component
         self:ClearRevealTimers()
         for _, rec in ipairs(self._T.handlers) do
             rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+        end
+        if self.keyHandler then
+            _InputService:DisconnectEvent(KeyDownEvent, self.keyHandler)
         end
     end
 
