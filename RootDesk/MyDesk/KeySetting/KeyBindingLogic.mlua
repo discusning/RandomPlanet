@@ -43,6 +43,15 @@ script KeyBindingLogic extends Logic
             { actionName = "Equipment", displayName = "장비", defaultKey = KeyboardKey.E, kind = "uiToggle" },
             { actionName = "CharacterInfo", displayName = "캐릭터정보", defaultKey = KeyboardKey.C, kind = "uiToggle" },
             { actionName = "SkillWindow", displayName = "스킬창", defaultKey = KeyboardKey.K, kind = "uiToggle" },
+            -- "fieldAction" - not a controllerAction (no PlayerControllerComponent equivalent) and
+            -- not a uiToggle (doesn't open a bottom-bar window) - Field/BattlefieldReturnLogic reads
+            -- GetKeyForAction("ReturnToLobby") directly instead of going through
+            -- GetUiToggleActionForKey. Still participates in TryRebind's swap-on-conflict logic
+            -- (that loop scans currentKeys regardless of kind) and is stored/restored the same way
+            -- as every other action, but has no drag-icon in the Key Setting popup yet - add one
+            -- there (see KeyBindingPopupController's icon-per-action comment) if it should become
+            -- player-rebindable through that UI too.
+            { actionName = "ReturnToLobby", displayName = "귀환(토벌전장)", defaultKey = KeyboardKey.B, kind = "fieldAction" },
         }
     end
 

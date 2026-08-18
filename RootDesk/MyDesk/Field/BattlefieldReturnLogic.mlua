@@ -1,0 +1,132 @@
+@Logic
+script BattlefieldReturnLogic extends Logic
+
+    property number ChannelSeconds = 3.0
+    property Entity hudGroup = "43095031-9b38-47a9-959b-80a2d79f7c1e"
+    property TextGUIRendererComponent hudText = "c1b57bb2-304f-40d6-a3a0-20013efbcfab"
+
+    @HideFromInspector property any keyHandler = nil
+    @HideFromInspector property any tickTimerId = nil
+    -- 토벌전장은 원하면 언제든 나갈 수 있어야 한다는 유저 요청(2026-08-18)에 따른 기능 - 사망시
+    -- 캐릭터 삭제라는 이 게임의 핵심 특징 때문에, 카오스게이트(추후 구현 예정, 자율 이탈 불가로
+    -- 설계 중)와 대비되는 "안전하게 빠질 수 있는 콘텐츠"로 토벌전장을 구분짓는다. 순간이동이
+    -- 아니라 짧은 채널링(귀환 스크롤 방식)으로 만든 이유: 전투 중 위험할 때 패닉성 즉시 탈출로
+    -- 웨이브 압박감이 무의미해지는 것을 막기 위함 - 채널 중 피격 시 자동 취소(PlayerHit.mlua
+    -- HandleHitEvent 참고)되므로, 실제로 안전한 순간에만 귀환이 완료된다.
+    @Sync @HideFromInspector property boolean IsChanneling = false
+    @Sync @HideFromInspector property number ChannelRemaining = 0
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self.hudGroup.Enable = false
+        self.keyHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
+        self.tickTimerId = _TimerService:SetTimerRepeat(self.ClientTick, 1 / 10)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.keyHandler then
+            _InputService:DisconnectEvent(KeyDownEvent, self.keyHandler)
+        end
+        if self.tickTimerId then
+            _TimerService:ClearTimer(self.tickTimerId)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeyDown(KeyDownEvent event)
+        -- Same gameplay-active gate as WindowHotkeyLogic (blocks the hotkey while parked on
+        -- choice_map). Toggling requires currently standing in one of the 3 battlefield maps -
+        -- pressing the key anywhere else (Lobby, choice_map) does nothing.
+        if not _CharacterRosterLogic:IsGameplayActive() then
+            return
+        end
+        if event.key ~= _KeyBindingLogic:GetKeyForAction("ReturnToLobby") then
+            return
+        end
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then
+            return
+        end
+        if not self:IsBattlefieldMap(localPlayer.CurrentMapName) then
+            return
+        end
+        self:RequestToggleReturn()
+    end
+
+    method boolean IsBattlefieldMap(string mapName)
+        return mapName == "토벌전장1" or mapName == "토벌전장2" or mapName == "토벌전장3"
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ClientTick()
+        -- Polls the @Sync channel state at 10Hz - same cadence as PlayerHUDController's Tick, cheap
+        -- local reads only.
+        self.hudGroup.Enable = self.IsChanneling
+        if self.IsChanneling then
+            self.hudText.Text = "귀환 중... " .. string.format("%.1f", math.max(0, self.ChannelRemaining)) .. "초  (피격 시 취소)"
+        end
+    end
+
+    @ExecSpace("Server")
+    method void RequestToggleReturn()
+        -- Client->server toggle: press once to start channeling, press again to cancel
+        -- voluntarily. Re-validates the map server-side (never trust the client's own check).
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        if self._T.channeling == true then
+            self:CancelChannel("플레이어 취소")
+            return
+        end
+        if not self:IsBattlefieldMap(player.CurrentMapName) then
+            return
+        end
+        self._T.channeling = true
+        self._T.channelPlayer = player
+        self.IsChanneling = true
+        self.ChannelRemaining = self.ChannelSeconds
+        log("BattlefieldReturn: channel started")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        -- Session-relative countdown (see msw-scripting §13's per-session-timer trap) - never
+        -- anchored on raw ElapsedSeconds.
+        if self._T.channeling ~= true then
+            return
+        end
+        self.ChannelRemaining = self.ChannelRemaining - delta
+        if self.ChannelRemaining <= 0 then
+            self:CompleteReturn()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void CompleteReturn()
+        -- Lands the player back at the same portal-1 spot the battlefield-select popup is opened
+        -- from (Lobby's 1F 3-story portal stack), mirroring RequestEnterBattlefield's teleport
+        -- pattern in the reverse direction.
+        local player = self._T.channelPlayer
+        self._T.channeling = false
+        self.IsChanneling = false
+        if isvalid(player) then
+            _TeleportService:TeleportToMapPosition(player, Vector3(88.33, -0.87, 0), "Lobby")
+            log("BattlefieldReturn: returned to Lobby")
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void CancelChannel(string reason)
+        -- Called both for voluntary re-press cancellation and for the on-hit interrupt
+        -- (Combat/PlayerHit.mlua's HandleHitEvent).
+        if self._T.channeling ~= true then
+            return
+        end
+        self._T.channeling = false
+        self.IsChanneling = false
+        log("BattlefieldReturn: cancelled (" .. reason .. ")")
+    end
+
+end

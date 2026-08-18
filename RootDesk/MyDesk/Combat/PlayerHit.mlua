@@ -32,6 +32,10 @@ script PlayerHit extends Component
         -- here - each monster's own MonsterAttack timer interval already spaces out its hits.
         local player = self.Entity.PlayerComponent
         if not isvalid(player) then return end
+        -- Interrupts an in-progress battlefield-return channel (Field/BattlefieldReturnLogic) -
+        -- taking a hit cancels the "return scroll" so it can't be used to panic-escape a losing
+        -- fight risk-free.
+        _BattlefieldReturnLogic:CancelChannel("피격")
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
         local reduction = isvalid(statsComp) and statsComp.DamageReductionPercent or 0
         local dmg = math.floor(event.TotalDamage * (1 - reduction))
