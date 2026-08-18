@@ -12,9 +12,17 @@ script FieldWaveSpawner extends Component
     property integer MaxAlive = 10
     property integer BaseAlivePerWaveCap = 4
     property integer AliveCapGrowthPerWave = 1
+    property integer BaseKillTarget = 6
+    property integer KillTargetGrowthPerWave = 2
 
     @HideFromInspector property integer TimerId = 0
-    @HideFromInspector property integer WaveNumber = 1
+    -- 카오스 던전 참고 - "웨이브 N" + "작전 진행도"(처치수/목표) 두 값 모두 클라이언트 HUD가
+    -- 읽어야 하므로 @Sync. 목표치를 채우면 남은 시간과 무관하게 즉시 다음 웨이브로 넘어간다
+    -- (AdvanceWave의 시간 기반 트리거와 동일한 함수를 공유 - 카오스 던전의 "제한시간 내 100%"를
+    -- 이 프로젝트의 상시 웨이브 구조에 맞게 "더 빨리 잡을수록 다음 웨이브가 더 빨리 온다"로 변형).
+    @Sync @HideFromInspector property integer WaveNumber = 1
+    @Sync @HideFromInspector property integer WaveKillCount = 0
+    @Sync @HideFromInspector property integer WaveKillTarget = 6
     @HideFromInspector property number WaveTimer = 0
     @HideFromInspector property integer SpawnIndex = 0
     @HideFromInspector property boolean SpawnLeftNext = true
@@ -22,6 +30,8 @@ script FieldWaveSpawner extends Component
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- Starts wave 1 immediately at BaseSpawnInterval; AdvanceWave takes over the timer from here.
+        self._T.tracked = {}
+        self.WaveKillTarget = self.BaseKillTarget
         self.WaveTimer = self.WaveDurationSeconds
         self.TimerId = _TimerService:SetTimerRepeat(function() self:TrySpawn() end, self.BaseSpawnInterval)
     end
@@ -39,6 +49,11 @@ script FieldWaveSpawner extends Component
     method void OnUpdate(number delta)
         -- Session-relative countdown (never anchored on raw ElapsedSeconds - see
         -- msw-scripting §13's per-session-timer trap) that rolls into the next wave.
+        self:ScanTrackedKills()
+        if self.WaveKillCount >= self.WaveKillTarget then
+            self:AdvanceWave()
+            return
+        end
         self.WaveTimer = self.WaveTimer - delta
         if self.WaveTimer <= 0 then
             self:AdvanceWave()
@@ -46,18 +61,44 @@ script FieldWaveSpawner extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void ScanTrackedKills()
+        -- Counts a kill the moment a spawned monster's Monster.IsDead flips true or the entity is
+        -- fully gone (destroyed) - whichever is observed first - rather than re-deriving kills from
+        -- alive-count deltas, which would double count on the DestroyDelay window. Bounded by
+        -- MaxAlive (small), so an O(n) scan every frame is cheap.
+        local tracked = self._T.tracked
+        local remaining = {}
+        for _, e in ipairs(tracked) do
+            if not isvalid(e) then
+                self.WaveKillCount = self.WaveKillCount + 1
+            else
+                local monster = e:GetComponent("script.Monster")
+                if isvalid(monster) and monster.IsDead then
+                    self.WaveKillCount = self.WaveKillCount + 1
+                else
+                    table.insert(remaining, e)
+                end
+            end
+        end
+        self._T.tracked = remaining
+    end
+
+    @ExecSpace("ServerOnly")
     method void AdvanceWave()
-        -- Escalates by shortening the spawn interval and raising the concurrent-monster cap each
-        -- wave (both floor/ceiling-clamped) - a steady trickle that speeds up, rather than sudden
-        -- crowd bursts, matching a classic wave-defense difficulty curve.
+        -- Escalates by shortening the spawn interval, raising the concurrent-monster cap, and
+        -- raising the next wave's kill target (all floor/ceiling-clamped) - a steady trickle that
+        -- speeds up, rather than sudden crowd bursts, matching a classic wave-defense difficulty
+        -- curve. Resets the kill-progress gauge for the new wave.
         self.WaveNumber = self.WaveNumber + 1
         self.WaveTimer = self.WaveDurationSeconds
+        self.WaveKillCount = 0
+        self.WaveKillTarget = self.BaseKillTarget + (self.WaveNumber - 1) * self.KillTargetGrowthPerWave
         local interval = math.max(self.MinSpawnInterval, self.BaseSpawnInterval - (self.WaveNumber - 1) * self.IntervalDecayPerWave)
         if self.TimerId ~= 0 then
             _TimerService:ClearTimer(self.TimerId)
         end
         self.TimerId = _TimerService:SetTimerRepeat(function() self:TrySpawn() end, interval)
-        log("FieldWaveSpawner(" .. self.ModelId .. "): wave " .. self.WaveNumber .. " started, interval=" .. string.format("%.2f", interval))
+        log("FieldWaveSpawner(" .. self.ModelId .. "): wave " .. self.WaveNumber .. " started, interval=" .. string.format("%.2f", interval) .. " killTarget=" .. self.WaveKillTarget)
     end
 
     @ExecSpace("ServerOnly")
@@ -90,6 +131,8 @@ script FieldWaveSpawner extends Component
         local e = _SpawnService:SpawnByModelId(self.ModelId, name, pos, map)
         if e == nil then
             log_error("FieldWaveSpawner: SpawnByModelId returned nil for modelId=" .. self.ModelId)
+        else
+            table.insert(self._T.tracked, e)
         end
     end
 

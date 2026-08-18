@@ -1,0 +1,63 @@
+@Logic
+script BattlefieldProgressHUDController extends Logic
+
+    property Entity hudGroup = "e0dca177-a207-4c49-a46f-641160dc90a5"
+    property TextGUIRendererComponent waveBadge = "3de6307c-3fbf-49aa-838b-eed52d920f84"
+    property UITransformComponent fillTransform = "45374010-365f-45f6-90b9-383c6ac210f9"
+    property TextGUIRendererComponent countText = "adef6757-d807-486e-8c7a-b48334a72d45"
+    property number fullWidth = 360
+    property any timerId = nil
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- Hidden by default; Tick shows it only while the local player is actually standing in one
+        -- of the 3 battlefield maps (mirrors PlayerHUDController's polling pattern, but this Logic
+        -- also owns its own visibility instead of being toggled externally, since "which map am I
+        -- on" is the only real trigger and no other script needs to know about it).
+        self.hudGroup.Enable = false
+        self.timerId = _TimerService:SetTimerRepeat(self.Tick, 1 / 4)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.timerId then
+            _TimerService:ClearTimer(self.timerId)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Tick()
+        -- 카오스 던전의 "작전 진행도" 게이지 참고 - 처치수/목표치 비율을 채워서 보여준다. 4Hz면
+        -- 몬스터 처치 직후 반영까지 최대 0.25초 지연 - 체감상 즉시로 느껴지는 수준.
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then
+            self.hudGroup.Enable = false
+            return
+        end
+        local mapName = localPlayer.CurrentMapName
+        if mapName ~= "토벌전장1" and mapName ~= "토벌전장2" and mapName ~= "토벌전장3" then
+            self.hudGroup.Enable = false
+            return
+        end
+        local mapEntity = _EntityService:GetEntityByPath("/maps/" .. mapName)
+        if not isvalid(mapEntity) then
+            self.hudGroup.Enable = false
+            return
+        end
+        local spawner = mapEntity:GetComponent("script.FieldWaveSpawner")
+        if not isvalid(spawner) then
+            self.hudGroup.Enable = false
+            return
+        end
+        self.hudGroup.Enable = true
+        self.waveBadge.Text = "웨이브 " .. tostring(spawner.WaveNumber)
+        local ratio = 0
+        if spawner.WaveKillTarget > 0 then
+            ratio = math.max(0, math.min(1, spawner.WaveKillCount / spawner.WaveKillTarget))
+        end
+        local size = self.fillTransform.RectSize
+        self.fillTransform.RectSize = Vector2(self.fullWidth * ratio, size.y)
+        self.countText.Text = tostring(spawner.WaveKillCount) .. " / " .. tostring(spawner.WaveKillTarget)
+    end
+
+end

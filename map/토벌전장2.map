@@ -2101,7 +2101,9 @@
               "MaxAlive": 8,
               "BaseAlivePerWaveCap": 4,
               "AliveCapGrowthPerWave": 1,
-              "@type": "script.FieldWaveSpawner"
+              "@type": "script.FieldWaveSpawner",
+              "BaseKillTarget": 10,
+              "KillTargetGrowthPerWave": 3
             }
           ],
           "@version": 1
