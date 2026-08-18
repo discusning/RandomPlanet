@@ -1,0 +1,96 @@
+@Component
+script FieldWaveSpawner extends Component
+
+    property string ModelId = "fieldmonster1"
+    property number LeftSpawnX = -8.5
+    property number RightSpawnX = 8.5
+    property number SpawnY = -2.9
+    property number BaseSpawnInterval = 4.0
+    property number MinSpawnInterval = 1.2
+    property number IntervalDecayPerWave = 0.25
+    property number WaveDurationSeconds = 30
+    property integer MaxAlive = 10
+    property integer BaseAlivePerWaveCap = 4
+    property integer AliveCapGrowthPerWave = 1
+
+    @HideFromInspector property integer TimerId = 0
+    @HideFromInspector property integer WaveNumber = 1
+    @HideFromInspector property number WaveTimer = 0
+    @HideFromInspector property integer SpawnIndex = 0
+    @HideFromInspector property boolean SpawnLeftNext = true
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- Starts wave 1 immediately at BaseSpawnInterval; AdvanceWave takes over the timer from here.
+        self.WaveTimer = self.WaveDurationSeconds
+        self.TimerId = _TimerService:SetTimerRepeat(function() self:TrySpawn() end, self.BaseSpawnInterval)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        -- Releases the spawn timer.
+        if self.TimerId ~= 0 then
+            _TimerService:ClearTimer(self.TimerId)
+            self.TimerId = 0
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        -- Session-relative countdown (never anchored on raw ElapsedSeconds - see
+        -- msw-scripting §13's per-session-timer trap) that rolls into the next wave.
+        self.WaveTimer = self.WaveTimer - delta
+        if self.WaveTimer <= 0 then
+            self:AdvanceWave()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void AdvanceWave()
+        -- Escalates by shortening the spawn interval and raising the concurrent-monster cap each
+        -- wave (both floor/ceiling-clamped) - a steady trickle that speeds up, rather than sudden
+        -- crowd bursts, matching a classic wave-defense difficulty curve.
+        self.WaveNumber = self.WaveNumber + 1
+        self.WaveTimer = self.WaveDurationSeconds
+        local interval = math.max(self.MinSpawnInterval, self.BaseSpawnInterval - (self.WaveNumber - 1) * self.IntervalDecayPerWave)
+        if self.TimerId ~= 0 then
+            _TimerService:ClearTimer(self.TimerId)
+        end
+        self.TimerId = _TimerService:SetTimerRepeat(function() self:TrySpawn() end, interval)
+        log("FieldWaveSpawner(" .. self.ModelId .. "): wave " .. self.WaveNumber .. " started, interval=" .. string.format("%.2f", interval))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TrySpawn()
+        -- Alternates left/right portal spawn points; skips entirely while nobody is on this map
+        -- (no point piling up monsters in an empty field) and once the current wave's alive cap
+        -- is reached.
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then
+            return
+        end
+        local mapComp = map.MapComponent
+        if not isvalid(mapComp) then
+            return
+        end
+        local users = _UserService:GetUsersByMapComponent(mapComp)
+        if users == nil or #users == 0 then
+            return
+        end
+        local cap = math.min(self.MaxAlive, self.BaseAlivePerWaveCap + (self.WaveNumber - 1) * self.AliveCapGrowthPerWave)
+        local alive = map:GetChildComponentsByTypeName("script.Monster", false)
+        if alive ~= nil and #alive >= cap then
+            return
+        end
+        self.SpawnIndex = self.SpawnIndex + 1
+        local x = self.SpawnLeftNext and self.LeftSpawnX or self.RightSpawnX
+        self.SpawnLeftNext = not self.SpawnLeftNext
+        local pos = Vector3(x, self.SpawnY, 0)
+        local name = "FieldMob_" .. tostring(self.SpawnIndex)
+        local e = _SpawnService:SpawnByModelId(self.ModelId, name, pos, map)
+        if e == nil then
+            log_error("FieldWaveSpawner: SpawnByModelId returned nil for modelId=" .. self.ModelId)
+        end
+    end
+
+end

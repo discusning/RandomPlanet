@@ -1,0 +1,60 @@
+@Component
+script MonsterAttack extends AttackComponent
+
+    property number AttackDamage = 10
+    property number AttackInterval = 1.5
+    property number AttackRange = 1.0
+    @HideFromInspector property any Shape = nil
+    @HideFromInspector property integer TimerId = 0
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- Reusable contact hitbox, centered on the monster and re-positioned each tick in TryAttack.
+        self.Shape = BoxShape(Vector2.zero, Vector2(self.AttackRange, self.AttackRange), 0)
+        self.TimerId = _TimerService:SetTimerRepeat(function() self:TryAttack() end, self.AttackInterval)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        -- Releases the attack timer.
+        if self.TimerId ~= 0 then
+            _TimerService:ClearTimer(self.TimerId)
+            self.TimerId = 0
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TryAttack()
+        -- Timer-driven contact swing (no facing/state change) - matches msw-combat-system's
+        -- MonsterAttack description: damages nearby players without touching StateComponent.
+        local monster = self.Entity:GetComponent("script.Monster")
+        if isvalid(monster) and monster.IsDead then
+            return
+        end
+        local transform = self.Entity.TransformComponent
+        if not isvalid(transform) then
+            return
+        end
+        local pos = transform.WorldPosition
+        self.Shape.Position = Vector2(pos.x, pos.y + 0.5)
+        self.Shape.Size = Vector2(self.AttackRange, self.AttackRange)
+        self.Shape.Angle = 0
+        -- This project has no "Player" collision group (Monster HitComponents already claim
+        -- "Monster" - see Snail.model) - PlayerHit.mlua tags the player's HitComponent with
+        -- "Default" instead, so target that here.
+        self:AttackFast(self.Shape, "monster.contact", CollisionGroups.Default)
+    end
+
+    method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
+        return math.floor(self.AttackDamage)
+    end
+
+    method boolean IsAttackTarget(Entity defender, string attackInfo)
+        -- Parent has no @ExecSpace (=All) on IsAttackTarget - do not annotate (LEA-3014).
+        if isvalid(defender.PlayerComponent) == false then
+            return false
+        end
+        return __base:IsAttackTarget(defender, attackInfo)
+    end
+
+end

@@ -21,6 +21,13 @@ script PlayerAttack extends AttackComponent
     method void OnBeginPlay()
         -- Prepares the reusable frontal hit box.
         self.Shape = BoxShape(Vector2.zero, Vector2(1.2, 1.2), 0)
+        -- DefaultPlayer ships with no HitComponent (Global/DefaultPlayer.model is read-only for AI
+        -- edits) - attach the contact-damage receiver here at spawn time instead, per model.md
+        -- §2.5's AddComponent workaround. See Combat/PlayerHit.mlua for the collider/HP-loss logic
+        -- this enables (monster attacks were previously a no-op with nothing to receive them).
+        if not isvalid(self.Entity:GetComponent("script.PlayerHit")) then
+            self.Entity:AddComponent("script.PlayerHit")
+        end
     end
 
     @ExecSpace("ServerOnly")

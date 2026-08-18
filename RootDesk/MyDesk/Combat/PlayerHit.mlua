@@ -1,0 +1,46 @@
+@Component
+script PlayerHit extends Component
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- DefaultPlayer already ships a native HitComponent (confirmed via a runtime
+        -- [LWA-3048] DuplicateComponent warning when this script previously tried to add a second
+        -- one via extends HitComponent + AddComponent) - configure the existing instance instead of
+        -- creating our own. It had no CollisionGroup/box set up since nothing in the project ever
+        -- used player-side HitEvent before this.
+        local hit = self.Entity.HitComponent
+        if isvalid(hit) then
+            hit.BoxSize = Vector2(0.67, 1.42)
+            hit.ColliderOffset = Vector2(-0.005, 0.71)
+            -- This project's CollisionGroupSet has no "Player" group (confirmed at runtime -
+            -- CollisionGroups only has Portal/TriggerBox/Monster/HitBox/Climbable/Default/
+            -- Interaction). Monster HitComponents already claim the "Monster" group (see
+            -- Snail.model), so "Default" is the only unclaimed group left to tag the player with -
+            -- MonsterAttack.mlua targets the same group.
+            hit.CollisionGroup = CollisionGroups.Default
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    @EventSender("Self")
+    handler HandleHitEvent(HitEvent event)
+        -- Applies monster contact damage to the real PlayerComponent.Hp, reduced by the "단단함"
+        -- trait's DamageReductionPercent (PlayerStatsComponent) - this is the "몬스터 공격
+        -- 파이프라인" that trait's description note said would apply the survival stat once it
+        -- existed (see CharacterInfoUIController.TraitDesc). Triggers HIT/DEAD the same way the
+        -- rest of combat feedback (damage skin, hit effect) already expects. No extra i-frame gate
+        -- here - each monster's own MonsterAttack timer interval already spaces out its hits.
+        local player = self.Entity.PlayerComponent
+        if not isvalid(player) then return end
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        local reduction = isvalid(statsComp) and statsComp.DamageReductionPercent or 0
+        local dmg = math.floor(event.TotalDamage * (1 - reduction))
+        player.Hp = math.max(0, player.Hp - dmg)
+        local sc = self.Entity.StateComponent
+        if isvalid(sc) then sc:ChangeState("HIT") end
+        if player.Hp <= 0 then
+            player:ProcessDead()
+        end
+    end
+
+end
