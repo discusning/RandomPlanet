@@ -397,6 +397,8 @@ script CharacterRosterLogic extends Logic
         -- un-disabling its popup button and wiring its click handler.
         local fields = {
             [1] = { name = "토벌전장1", pos = Vector3(0, -2.9, 0) },
+            [2] = { name = "토벌전장2", pos = Vector3(0, 4.68, 0) },
+            [3] = { name = "토벌전장3", pos = Vector3(0, 5.34, 0) },
         }
         local field = fields[fieldIndex]
         if field == nil then

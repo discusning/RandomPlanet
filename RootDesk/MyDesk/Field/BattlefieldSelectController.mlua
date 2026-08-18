@@ -12,14 +12,17 @@ script BattlefieldSelectController extends Component
     method void OnBeginPlay()
         -- Hidden by default (same root-Enable toggle pattern as SquadFormationController/
         -- KeyBindingPopupController - this script sits on the popup's own group root, so
-        -- self.Entity.Enable gates the whole card). Field2/Field3 stay ButtonComponent.Enable=false
-        -- ("준비중" placeholders, see .ui) so they never fire ButtonClickEvent - no handlers wired
-        -- for them until their maps actually exist (Phase 1 Task 1 only covers 토벌전장1 today).
+        -- self.Entity.Enable gates the whole card). All 3 battlefields now have real maps
+        -- (토벌전장1~3), so all 3 rows are wired the same way.
         self._T.handlers = {}
         local hClose = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
         table.insert(self._T.handlers, { entity = self.btnClose, eventHandler = hClose })
         local hField1 = self.btnField1:ConnectEvent(ButtonClickEvent, self.OnField1Clicked)
         table.insert(self._T.handlers, { entity = self.btnField1, eventHandler = hField1 })
+        local hField2 = self.btnField2:ConnectEvent(ButtonClickEvent, self.OnField2Clicked)
+        table.insert(self._T.handlers, { entity = self.btnField2, eventHandler = hField2 })
+        local hField3 = self.btnField3:ConnectEvent(ButtonClickEvent, self.OnField3Clicked)
+        table.insert(self._T.handlers, { entity = self.btnField3, eventHandler = hField3 })
         self.Entity.Enable = false
     end
 
@@ -67,13 +70,26 @@ script BattlefieldSelectController extends Component
 
     @ExecSpace("ClientOnly")
     method void OnField1Clicked()
-        -- Only wired choice today - 토벌전장1 is the only battlefield map that actually exists
-        -- (Phase 1 Task 1). Routed through CharacterRosterLogic (a world-session @Logic, reachable
-        -- from any map) rather than a map-scoped component, matching RequestReturnToSelect's
-        -- reasoning for the same class of cross-map server call. Rest-gauge consumption happens
-        -- server-side inside RequestEnterBattlefield itself, not here.
+        -- Routed through CharacterRosterLogic (a world-session @Logic, reachable from any map)
+        -- rather than a map-scoped component, matching RequestReturnToSelect's reasoning for the
+        -- same class of cross-map server call. Rest-gauge consumption happens server-side inside
+        -- RequestEnterBattlefield itself, not here.
         log("BattlefieldSelect: 토벌전장 1 선택")
         _CharacterRosterLogic:RequestEnterBattlefield(1)
+        self:Hide()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnField2Clicked()
+        log("BattlefieldSelect: 토벌전장 2 선택")
+        _CharacterRosterLogic:RequestEnterBattlefield(2)
+        self:Hide()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnField3Clicked()
+        log("BattlefieldSelect: 토벌전장 3 선택")
+        _CharacterRosterLogic:RequestEnterBattlefield(3)
         self:Hide()
     end
 end
