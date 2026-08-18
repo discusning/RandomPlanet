@@ -7,6 +7,13 @@ script BattlefieldSelectController extends Component
     property UITransformComponent gaugeFillTransform = "81b24646-f2fb-4ee9-acb9-6b96043dd102"
     property TextGUIRendererComponent gaugeText = "ec041098-e571-4032-8d0e-b9ecf56b0da2"
     property number gaugeFullWidth = 380
+    property TextGUIRendererComponent myPowerText = "48a9e2ad-aab5-44e6-9dd2-432e52a586d5"
+    property TextGUIRendererComponent recommend1 = "9a1a10fb-757a-4f5c-9781-e5196fa46ad7"
+    property TextGUIRendererComponent recommend2 = "8c6beb07-e778-46bf-8239-dbc6f6eb92fa"
+    property TextGUIRendererComponent recommend3 = "0037477b-c944-46ba-b5ac-d5ddc0a1dbd9"
+    property number recommendedCp1 = 150
+    property number recommendedCp2 = 400
+    property number recommendedCp3 = 800
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -40,6 +47,7 @@ script BattlefieldSelectController extends Component
         -- 1st-floor (토벌전장) portal.
         self.Entity.Enable = true
         self:RefreshGauge()
+        self:RefreshRecommendations()
     end
 
     @ExecSpace("ClientOnly")
@@ -63,6 +71,48 @@ script BattlefieldSelectController extends Component
     end
 
     @ExecSpace("ClientOnly")
+    method void RefreshRecommendations()
+        -- 유저 요청(2026-08-18): 레벨/전투력 제한 없이 아무 캐릭터나 원하는 전장에 바로 보낼 수
+        -- 있게 하되, 뉴비가 각 전장의 난이도 감을 잡을 수 있도록 "권장 전투력"만 표시(입장을 막지
+        -- 않는 순수 안내). CP 산식은 CharacterInfoUIController의 전투력 배지와 완전히 동일 -
+        -- 기획서에 없는 근사 DPS 지수를 이 프로젝트에서 이미 "전투력"이라는 이름으로 써왔으므로
+        -- 그대로 재사용해 일관성을 맞췄다.
+        local cp = self:GetLiveCp()
+        self.myPowerText.Text = "내 전투력  " .. tostring(cp)
+        self:ApplyRecommendColor(self.recommend1, self.recommendedCp1, cp)
+        self:ApplyRecommendColor(self.recommend2, self.recommendedCp2, cp)
+        self:ApplyRecommendColor(self.recommend3, self.recommendedCp3, cp)
+    end
+
+    method number GetLiveCp()
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then
+            return 0
+        end
+        local attack = localPlayer:GetComponent("script.PlayerAttack")
+        local statsComp = localPlayer:GetComponent("script.PlayerStatsComponent")
+        if not isvalid(attack) then
+            return 0
+        end
+        local expectedMult = 1 + attack.CriticalChance * (attack.CritDamageMultiplier - 1)
+        local cooldown = math.max(0.1, attack.AttackCooldownSeconds)
+        local survivalMult = 1 + (isvalid(statsComp) and statsComp.DamageReductionPercent or 0)
+        return math.floor(attack.AttackDamage * expectedMult / cooldown * survivalMult * 10)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ApplyRecommendColor(TextGUIRendererComponent label, number recommended, number currentCp)
+        -- 입장을 막지는 않지만(유저 요청), 권장치 대비 부족하면 색으로 바로 티나게 - 초록=충족,
+        -- 주황=미달. 텍스트 자체는 항상 "권장 전투력 N"으로 고정, 색만 바뀐다.
+        label.Text = "권장 전투력  " .. tostring(math.floor(recommended))
+        if currentCp >= recommended then
+            label.FontColor = Color(0.16, 0.45, 0.16, 1)
+        else
+            label.FontColor = Color(0.72, 0.32, 0.1, 1)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
     method void OnCloseClicked()
         -- X button in the corner.
         self:Hide()
@@ -73,7 +123,8 @@ script BattlefieldSelectController extends Component
         -- Routed through CharacterRosterLogic (a world-session @Logic, reachable from any map)
         -- rather than a map-scoped component, matching RequestReturnToSelect's reasoning for the
         -- same class of cross-map server call. Rest-gauge consumption happens server-side inside
-        -- RequestEnterBattlefield itself, not here.
+        -- RequestEnterBattlefield itself, not here. No CP/level gate - purely informational
+        -- (see RefreshRecommendations).
         log("BattlefieldSelect: 토벌전장 1 선택")
         _CharacterRosterLogic:RequestEnterBattlefield(1)
         self:Hide()
