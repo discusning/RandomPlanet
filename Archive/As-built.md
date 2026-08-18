@@ -1,4 +1,4 @@
-# RANDOM PLANET — As-built Reference
+# REROLL HERO — As-built Reference
 
 > AI/handoff reference — curated current-state snapshot, not a full code dump (git history has the raw diffs). **Read this first** when resuming work in a new session, before the GDD's roadmap/revision-log detail. The **Quick Status** block right below is updated every session (not just at Phase-end) so progress can be grasped in one read; everything from "World map inventory" onward follows the original convention (updated at the end of each completed Phase).
 
