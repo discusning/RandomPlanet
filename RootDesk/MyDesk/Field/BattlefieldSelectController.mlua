@@ -14,6 +14,7 @@ script BattlefieldSelectController extends Component
     property number recommendedCp1 = 150
     property number recommendedCp2 = 400
     property number recommendedCp3 = 800
+    property any tickTimerId = nil
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -22,6 +23,12 @@ script BattlefieldSelectController extends Component
         -- self.Entity.Enable gates the whole card). All 3 battlefields now have real maps
         -- (토벌전장1~3), so all 3 rows are wired the same way.
         self._T.handlers = {}
+        -- 유저 요청(2026-08-18): "내 전투력"/권장치 비교가 팝업을 열 때 한 번만이 아니라 계속
+        -- 실시간으로 갱신되게 해달라 - 레벨업/장비 교체/특성 변경 등으로 전투력이 바뀌면 팝업이
+        -- 열려있는 동안 바로 반영되어야 함. PlayerHUDController의 10Hz 폴링과 같은 패턴이지만,
+        -- 이 팝업은 대부분 시간 닫혀있으므로 Tick 내부에서 Enable 체크로 닫혀있을 때는 즉시
+        -- 리턴해 불필요한 연산을 건너뛴다(HUD처럼 상시 화면에 떠있는 것과는 다른 케이스).
+        self.tickTimerId = _TimerService:SetTimerRepeat(self.Tick, 1 / 5)
         local hClose = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
         table.insert(self._T.handlers, { entity = self.btnClose, eventHandler = hClose })
         local hField1 = self.btnField1:ConnectEvent(ButtonClickEvent, self.OnField1Clicked)
@@ -35,10 +42,24 @@ script BattlefieldSelectController extends Component
 
     @ExecSpace("ClientOnly")
     method void OnEndPlay()
-        -- Releases the button click handlers.
+        -- Releases the button click handlers and the recommendation-refresh timer.
         for _, rec in ipairs(self._T.handlers) do
             rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
         end
+        if self.tickTimerId then
+            _TimerService:ClearTimer(self.tickTimerId)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Tick()
+        -- Runs at 5Hz for the whole popup lifetime, but skips all work while hidden - the popup
+        -- is only open for a few seconds at a time, so there's no point recomputing CP 5x/sec
+        -- while nobody can see it.
+        if not self.Entity.Enable then
+            return
+        end
+        self:RefreshRecommendations()
     end
 
     @ExecSpace("ClientOnly")
