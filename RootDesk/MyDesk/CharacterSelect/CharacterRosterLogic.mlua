@@ -407,6 +407,11 @@ script CharacterRosterLogic extends Logic
         if not isvalid(player) then
             return
         end
+        -- 카오스 던전 휴식 보너스와 동일하게 입장 시점에 자동 소모(선택 토글 없음).
+        -- 실제 보상 2배 지급은 토벌전장 보상 시스템(Phase 4 미착수)이 생기면 이 값을 읽으면 됨.
+        local profileCode = player.PlayerComponent.ProfileCode
+        local rewardBonus = _RestGaugeLogic:TryConsumeForEntry(profileCode)
+        log("CharacterRoster: RequestEnterBattlefield fieldIndex=" .. fieldIndex .. " rewardBonus=" .. tostring(rewardBonus))
         _TeleportService:TeleportToMapPosition(player, field.pos, field.name)
     end
 

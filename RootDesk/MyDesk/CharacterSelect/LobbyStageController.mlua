@@ -10,7 +10,7 @@ script LobbyStageController extends Component
     property Entity squadGroup = "5f96f6e4-814c-42e0-b42a-2b5926f6723b"
     property Entity portal = "3857eb19-aa56-462a-9700-de2d00d22c5e"
     property Entity portalField1 = "298492af-60a8-4ab0-a06e-3ea36232bfa5"
-    property Entity battlefieldSelectGroup = "dc1354a9-4da2-41d2-a50e-54f3c6087858"
+    property Entity battlefieldSelectGroup = "65a54cec-65e5-42cd-a897-297665d1079d"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()

@@ -1,0 +1,117 @@
+@Logic
+script RestGaugeLogic extends Logic
+    -- Account-level "휴식 게이지" (Chaos Dungeon 휴식 보너스 조사 결과 기반, 2026-08-18 유저 결정에
+    -- 따라 각색): 캐릭터가 영구 삭제되는 로그라이트라 로스트아크처럼 캐릭터별 일일 초기화 구조는
+    -- 안 맞아서, 계정 단위(profileCode 기준 UserDataStorage, CharacterRosterLogic의 로스터 저장과
+    -- 동일한 저장소)로 옮기고 실시간 경과 기반(오프라인 포함)으로 자동 충전되게 했다.
+    property string GaugeStorageName = "RestGauge"
+    property number MaxGauge = 100
+    property number ConsumePerEntry = 40
+    property number AccrualPerDay = 100
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.value = 0
+        self._T.loadComplete = false
+        self:RequestLoadGauge()
+    end
+
+    @ExecSpace("ClientOnly")
+    method number GetGauge()
+        return self._T.value
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsLoadComplete()
+        return self._T.loadComplete == true
+    end
+
+    @ExecSpace("Server")
+    method void RequestLoadGauge()
+        -- Client->server: 계정 프로필로 로드+경과분 반영 후 결과값만 클라이언트에 돌려준다.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local profileCode = player.PlayerComponent.ProfileCode
+        local value = self:LoadAndAccrue(profileCode)
+        self:OnGaugeLoaded(value)
+    end
+
+    @ExecSpace("ServerOnly")
+    method number LoadAndAccrue(string profileCode)
+        -- 저장된 마지막 갱신 시각(DateTime.Elapsed, ms)과 현재 시각의 차이만큼
+        -- MaxGauge/1일 비율로 채운 뒤, 이 시점을 새 기준점으로 즉시 재저장한다.
+        -- 로그인 여부와 무관하게 채워지므로(오프라인 포함) 매 로드마다 이 계산만 하면 충분하다.
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local errorCode, raw = storage:GetAndWait(self.GaugeStorageName)
+
+        local value, lastElapsedMs = 0, 0
+        local nowDt = DateTime.UtcNow
+        if errorCode == 0 and raw ~= nil and raw ~= "" then
+            local decoded = _HttpService:JSONDecode(raw)
+            value = decoded.value or 0
+            lastElapsedMs = decoded.lastElapsedMs or nowDt.Elapsed
+        else
+            lastElapsedMs = nowDt.Elapsed
+        end
+
+        local lastDt = DateTime(lastElapsedMs)
+        local span = nowDt - lastDt
+        local elapsedSeconds = math.max(0, span.TotalSeconds)
+        if elapsedSeconds > 0 then
+            local accrued = elapsedSeconds * (self.AccrualPerDay / 86400.0)
+            value = math.min(self.MaxGauge, value + accrued)
+        end
+
+        self:SaveGauge(profileCode, value, nowDt.Elapsed)
+        return value
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SaveGauge(string profileCode, number value, integer elapsedMs)
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local json = _HttpService:JSONEncode({ value = value, lastElapsedMs = elapsedMs })
+        storage:SetAsync(self.GaugeStorageName, json, function(errorCode, key)
+            if errorCode ~= 0 then
+                log_error("RestGauge: SetAsync failed, errorCode=" .. tostring(errorCode))
+            end
+        end)
+    end
+
+    @ExecSpace("Client")
+    method void OnGaugeLoaded(number value)
+        self._T.value = value
+        self._T.loadComplete = true
+        log("RestGauge: loaded value=" .. value)
+        self:NotifyUIIfOpen()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void NotifyUIIfOpen()
+        -- 팝업이 이미 열려있는 상태에서 값이 갱신되면(예: 재접속 직후) 즉시 반영.
+        local e = _EntityService:GetEntityByPath("/ui/BattlefieldSelectGroup")
+        if isvalid(e) then
+            local ctrl = e:GetComponent("script.BattlefieldSelectController")
+            if isvalid(ctrl) then
+                ctrl:RefreshGauge()
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean TryConsumeForEntry(string profileCode)
+        -- CharacterRosterLogic.RequestEnterBattlefield에서 텔레포트 직전에 호출된다.
+        -- 카오스 던전과 동일하게 자동 소모(선택 토글 없음) - 40 이상 보유 시 그만큼 깎고
+        -- true를 반환한다. 실제 "보상 2배" 지급은 아직 토벌전장 보상 시스템 자체가 없어서
+        -- (Phase 4 미착수) 여기서는 게이지 차감 + 신호만 남기고, 실제 지급은 그 시스템이
+        -- 생기면 이 반환값을 읽어 처리하면 된다.
+        local value = self:LoadAndAccrue(profileCode)
+        if value < self.ConsumePerEntry then
+            return false
+        end
+        self:SaveGauge(profileCode, value - self.ConsumePerEntry, DateTime.UtcNow.Elapsed)
+        log("RestGauge: consumed " .. self.ConsumePerEntry .. " for battlefield entry, profileCode=" .. profileCode)
+        return true
+    end
+end

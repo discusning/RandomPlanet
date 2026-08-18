@@ -1,9 +1,12 @@
 @Component
 script BattlefieldSelectController extends Component
-    property Entity btnClose = "171a1b80-6d16-4132-a7f2-514691d98e90"
-    property Entity btnField1 = "6e75893b-9e69-4ad7-8817-4c9f17d15701"
-    property Entity btnField2 = "c2dd01fa-efed-435f-9d12-bbcfdb5d0e97"
-    property Entity btnField3 = "a0160f64-273b-4df6-850d-68aae4ae0c39"
+    property Entity btnClose = "8af166e4-08e8-4c31-be8e-c21de84faaaf"
+    property Entity btnField1 = "a4bd9939-1ff7-48d9-ab61-66f68476763c"
+    property Entity btnField2 = "6957d183-c4b4-4468-b3ee-3019ea3cc260"
+    property Entity btnField3 = "a23c98d1-5990-4ff1-9e70-105015d5c551"
+    property UITransformComponent gaugeFillTransform = "81b24646-f2fb-4ee9-acb9-6b96043dd102"
+    property TextGUIRendererComponent gaugeText = "ec041098-e571-4032-8d0e-b9ecf56b0da2"
+    property number gaugeFullWidth = 380
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -33,6 +36,7 @@ script BattlefieldSelectController extends Component
         -- Opens the popup. Called by LobbyStageController when the player presses up-arrow at the
         -- 1st-floor (토벌전장) portal.
         self.Entity.Enable = true
+        self:RefreshGauge()
     end
 
     @ExecSpace("ClientOnly")
@@ -40,6 +44,19 @@ script BattlefieldSelectController extends Component
         -- Closes the popup. Also the target of BottomBarController.CloseOtherWindows' mutual
         -- exclusion sweep and WindowHotkeyLogic's ESC handler, same as the other full-card popups.
         self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshGauge()
+        -- Chaos Dungeon 휴식 게이지 참고 - RestGaugeLogic(계정 단위, 실시간 경과 축적)의 현재
+        -- 값을 게이지 바(HP바와 동일한 Sliced 폭-리사이즈 패턴)와 텍스트에 반영한다. 아직 로드가
+        -- 끝나기 전(팝업을 아주 빨리 다시 열었을 때 등)에는 0으로 잠깐 보였다가, RestGaugeLogic의
+        -- OnGaugeLoaded->NotifyUIIfOpen이 로드 완료 시 다시 이 메서드를 불러 갱신한다.
+        local value = _RestGaugeLogic:GetGauge()
+        local ratio = math.max(0, math.min(1, value / 100))
+        local size = self.gaugeFillTransform.RectSize
+        self.gaugeFillTransform.RectSize = Vector2(self.gaugeFullWidth * ratio, size.y)
+        self.gaugeText.Text = "휴식 게이지 " .. math.floor(value) .. " / 100"
     end
 
     @ExecSpace("ClientOnly")
@@ -53,7 +70,8 @@ script BattlefieldSelectController extends Component
         -- Only wired choice today - 토벌전장1 is the only battlefield map that actually exists
         -- (Phase 1 Task 1). Routed through CharacterRosterLogic (a world-session @Logic, reachable
         -- from any map) rather than a map-scoped component, matching RequestReturnToSelect's
-        -- reasoning for the same class of cross-map server call.
+        -- reasoning for the same class of cross-map server call. Rest-gauge consumption happens
+        -- server-side inside RequestEnterBattlefield itself, not here.
         log("BattlefieldSelect: 토벌전장 1 선택")
         _CharacterRosterLogic:RequestEnterBattlefield(1)
         self:Hide()
