@@ -1,0 +1,61 @@
+@Component
+script BattlefieldSelectController extends Component
+    property Entity btnClose = "171a1b80-6d16-4132-a7f2-514691d98e90"
+    property Entity btnField1 = "6e75893b-9e69-4ad7-8817-4c9f17d15701"
+    property Entity btnField2 = "c2dd01fa-efed-435f-9d12-bbcfdb5d0e97"
+    property Entity btnField3 = "a0160f64-273b-4df6-850d-68aae4ae0c39"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- Hidden by default (same root-Enable toggle pattern as SquadFormationController/
+        -- KeyBindingPopupController - this script sits on the popup's own group root, so
+        -- self.Entity.Enable gates the whole card). Field2/Field3 stay ButtonComponent.Enable=false
+        -- ("준비중" placeholders, see .ui) so they never fire ButtonClickEvent - no handlers wired
+        -- for them until their maps actually exist (Phase 1 Task 1 only covers 토벌전장1 today).
+        self._T.handlers = {}
+        local hClose = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        table.insert(self._T.handlers, { entity = self.btnClose, eventHandler = hClose })
+        local hField1 = self.btnField1:ConnectEvent(ButtonClickEvent, self.OnField1Clicked)
+        table.insert(self._T.handlers, { entity = self.btnField1, eventHandler = hField1 })
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- Releases the button click handlers.
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        -- Opens the popup. Called by LobbyStageController when the player presses up-arrow at the
+        -- 1st-floor (토벌전장) portal.
+        self.Entity.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        -- Closes the popup. Also the target of BottomBarController.CloseOtherWindows' mutual
+        -- exclusion sweep and WindowHotkeyLogic's ESC handler, same as the other full-card popups.
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        -- X button in the corner.
+        self:Hide()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnField1Clicked()
+        -- Only wired choice today - 토벌전장1 is the only battlefield map that actually exists
+        -- (Phase 1 Task 1). Routed through CharacterRosterLogic (a world-session @Logic, reachable
+        -- from any map) rather than a map-scoped component, matching RequestReturnToSelect's
+        -- reasoning for the same class of cross-map server call.
+        log("BattlefieldSelect: 토벌전장 1 선택")
+        _CharacterRosterLogic:RequestEnterBattlefield(1)
+        self:Hide()
+    end
+end

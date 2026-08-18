@@ -107,6 +107,9 @@ script BottomBarController extends Component
         -- button) - it also renders as a full-screen card and was never part of this mutual
         -- exclusion set, so it could stack behind/in front of any bottom-bar window too.
         self:CloseWindow("/ui/SquadFormationGroup", "script.SquadFormationController")
+        -- Same again for the battlefield-select popup (opened from the Lobby's 1F portal,
+        -- up-arrow) - identical full-card-on-top shape as the squad-formation popup above.
+        self:CloseWindow("/ui/BattlefieldSelectGroup", "script.BattlefieldSelectController")
     end
 
     @ExecSpace("ClientOnly")

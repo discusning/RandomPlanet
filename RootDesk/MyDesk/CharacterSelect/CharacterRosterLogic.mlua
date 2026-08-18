@@ -388,6 +388,29 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("Server")
+    method void RequestEnterBattlefield(integer fieldIndex)
+        -- Called from BattlefieldSelectController when the player picks a battlefield from the
+        -- Lobby's field-select popup (1st-floor portal, up-arrow). fieldIndex 1~3 maps to a real
+        -- map's {name, spawn pos} - only slot 1 (토벌전장1) exists today (Phase 1 Task 1 only got
+        -- this far); 2/3 stay disabled in the popup until those maps are built, so this table only
+        -- needs one real entry for now. Adding a battlefield later is a one-line addition here plus
+        -- un-disabling its popup button and wiring its click handler.
+        local fields = {
+            [1] = { name = "토벌전장1", pos = Vector3(0, -2.9, 0) },
+        }
+        local field = fields[fieldIndex]
+        if field == nil then
+            log_warning("CharacterRoster: RequestEnterBattlefield, no map wired for fieldIndex=" .. tostring(fieldIndex))
+            return
+        end
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        _TeleportService:TeleportToMapPosition(player, field.pos, field.name)
+    end
+
+    @ExecSpace("Server")
     method void RequestReturnToSelect()
         -- Called from the Lobby's return portal (up-arrow near portal-3, see LobbyStageController).
         -- Implemented as a direct teleport rather than the native PortalComponent/PortalEntityRef

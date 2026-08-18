@@ -9,6 +9,8 @@ script LobbyStageController extends Component
     property Entity npc = "8e42aaa6-04c1-41cc-811e-7a3f86f8f17e"
     property Entity squadGroup = "5f96f6e4-814c-42e0-b42a-2b5926f6723b"
     property Entity portal = "3857eb19-aa56-462a-9700-de2d00d22c5e"
+    property Entity portalField1 = "298492af-60a8-4ab0-a06e-3ea36232bfa5"
+    property Entity battlefieldSelectGroup = "dc1354a9-4da2-41d2-a50e-54f3c6087858"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -221,23 +223,61 @@ script LobbyStageController extends Component
             return
         end
         local localPlayer = _UserService.LocalPlayer
-        if not isvalid(localPlayer) or not isvalid(self.portal) then
+        if not isvalid(localPlayer) then
+            return
+        end
+        local playerPos = localPlayer.TransformComponent.WorldPosition
+
+        -- 1F of the 3-story portal stack (portal-1) opens the battlefield-select popup instead of
+        -- teleporting directly - checked first since it's a separate box from the return portal and
+        -- the two never overlap.
+        if self:IsPlayerAtPortal(playerPos, self.portalField1) then
+            log("LobbyStage: up-arrow at battlefield portal (1F), opening battlefield-select popup")
+            self:OpenBattlefieldSelect()
             return
         end
 
-        local portalComp = self.portal.PortalComponent
-        local portalPos = self.portal.TransformComponent.WorldPosition
-        local offset = portalComp.BoxOffset
-        local size = portalComp.BoxSize
-        local center = Vector2(portalPos.x + offset.x, portalPos.y + offset.y)
-
-        local playerPos = localPlayer.TransformComponent.WorldPosition
-        local dx = playerPos.x - center.x
-        local dy = playerPos.y - center.y
-        if dx > -size.x / 2 and dx < size.x / 2 and dy > -size.y / 2 and dy < size.y / 2 then
+        if self:IsPlayerAtPortal(playerPos, self.portal) then
             log("LobbyStage: up-arrow at return portal, requesting server teleport to choice_map")
             _CharacterRosterLogic:HideLocalPlayer()
             _CharacterRosterLogic:RequestReturnToSelect()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsPlayerAtPortal(Vector3 playerPos, Entity portalEntity)
+        -- Shared box-distance "is the player standing on this portal" check, factored out of the
+        -- return-portal branch above so the new battlefield portal (portal-1) reuses the exact same
+        -- BoxOffset/BoxSize math instead of duplicating it.
+        if not isvalid(portalEntity) then
+            return false
+        end
+        local portalComp = portalEntity.PortalComponent
+        local portalPos = portalEntity.TransformComponent.WorldPosition
+        local offset = portalComp.BoxOffset
+        local size = portalComp.BoxSize
+        local center = Vector2(portalPos.x + offset.x, portalPos.y + offset.y)
+        local dx = playerPos.x - center.x
+        local dy = playerPos.y - center.y
+        return dx > -size.x / 2 and dx < size.x / 2 and dy > -size.y / 2 and dy < size.y / 2
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OpenBattlefieldSelect()
+        -- Mirrors OpenSquadFormation's mutual-exclusion sweep below - close every other window
+        -- first so this popup never stacks on top of one already open.
+        local bottomBarEntity = _EntityService:GetEntityByPath("/ui/BottomBarGroup")
+        if isvalid(bottomBarEntity) then
+            local bottomBar = bottomBarEntity:GetComponent("script.BottomBarController")
+            if isvalid(bottomBar) then
+                bottomBar:CloseOtherWindows("")
+            end
+        end
+        if isvalid(self.battlefieldSelectGroup) then
+            local popup = self.battlefieldSelectGroup:GetComponent("script.BattlefieldSelectController")
+            if isvalid(popup) then
+                popup:Show()
+            end
         end
     end
 end
