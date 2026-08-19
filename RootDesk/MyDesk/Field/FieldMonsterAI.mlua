@@ -1,0 +1,135 @@
+@Component
+script FieldMonsterAI extends Component
+
+    -- User request 2026-08-19: native AIChaseComponent's fixed DetectionRange felt too narrow (a
+    -- spawned monster just sits at the portal edge until a player wanders close). Replaces
+    -- AIChaseComponent entirely with a two-phase custom controller (AIChase/AIWander cannot coexist
+    -- with custom movement - see msw-general/references/monster.md §5d, they overwrite Body velocity
+    -- every frame regardless of what this script does):
+    --   ADVANCE - unconditionally walks toward CenterX, no player-detection gate at all, so every
+    --             spawned monster immediately heads toward where the action actually is instead of
+    --             idling at the spawn edge.
+    --   CHASE   - once it arrives near the center, permanently switches to hunting the nearest
+    --             player within ChaseDetectionRange (set far larger than the field itself), so a
+    --             fleeing player doesn't lose it. Never reverts to ADVANCE.
+    property number CenterX = 0
+    property number ArriveThreshold = 1.0
+    property number ChaseDetectionRange = 999
+
+    @HideFromInspector property string AIState = "ADVANCE"
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- MOVE is only auto-registered on StateComponent when an AIChase/AIWander component is
+        -- present (see msw-general/references/monster.md §5e Sub-option B) - since this script
+        -- replaces that component entirely, register it by hand to avoid [LEA-3005] on ChangeState.
+        local sc = self.Entity.StateComponent
+        if isvalid(sc) then
+            sc:AddState("MOVE", MarkerState)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        local monster = self.Entity:GetComponent("script.Monster")
+        local move = self.Entity.MovementComponent
+        if not isvalid(move) then return end
+        if isvalid(monster) and monster.IsDead then
+            move:Stop()
+            return
+        end
+
+        if self.AIState == "ADVANCE" then
+            self:TickAdvance()
+        else
+            self:TickChase()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TickAdvance()
+        local move = self.Entity.MovementComponent
+        if not isvalid(move) then return end
+        local pos = self.Entity.TransformComponent.WorldPosition
+        local dx = self.CenterX - pos.x
+        if math.abs(dx) <= self.ArriveThreshold then
+            self.AIState = "CHASE"
+            move:Stop()
+            self:SetState("IDLE")
+            return
+        end
+        local dir = (dx > 0) and 1 or -1
+        move:MoveToDirection(Vector2(dir, 0), 0)
+        self:FaceDirection(dir)
+        self:SetState("MOVE")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TickChase()
+        local move = self.Entity.MovementComponent
+        if not isvalid(move) then return end
+        local target = self:FindNearestPlayer()
+        if not isvalid(target) then
+            move:Stop()
+            self:SetState("IDLE")
+            return
+        end
+        local pos = self.Entity.TransformComponent.WorldPosition
+        local tpos = target.TransformComponent.WorldPosition
+        local dx = tpos.x - pos.x
+        if math.abs(dx) > self.ChaseDetectionRange then
+            move:Stop()
+            self:SetState("IDLE")
+            return
+        end
+        local dir = (dx > 0) and 1 or -1
+        move:MoveToDirection(Vector2(dir, 0), 0)
+        self:FaceDirection(dir)
+        self:SetState("MOVE")
+    end
+
+    @ExecSpace("ServerOnly")
+    method Entity FindNearestPlayer()
+        -- Canonical "find players on this map" call (msw-general/references/monster.md §7b).
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then return nil end
+        local mapComp = map.MapComponent
+        if not isvalid(mapComp) then return nil end
+        local users = _UserService:GetUsersByMapComponent(mapComp)
+        if users == nil or #users == 0 then return nil end
+        local pos = self.Entity.TransformComponent.WorldPosition
+        local nearest = nil
+        local nearestDist = math.huge
+        for _, u in ipairs(users) do
+            if isvalid(u) then
+                local upos = u.TransformComponent.WorldPosition
+                local d = math.abs(upos.x - pos.x)
+                if d < nearestDist then
+                    nearestDist = d
+                    nearest = u
+                end
+            end
+        end
+        return nearest
+    end
+
+    method void FaceDirection(integer dir)
+        -- Monster sprites invert TransformComponent.Scale.x (not SpriteRendererComponent.FlipX) so
+        -- the sprite and HitComponent collider stay aligned - msw-search "Sprite Orientation" rule +
+        -- msw-general/references/monster.md §1.
+        local t = self.Entity.TransformComponent
+        if isvalid(t) then
+            local s = t.Scale
+            t.Scale = Vector3(math.abs(s.x) * -dir, s.y, s.z)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SetState(string name)
+        local sc = self.Entity.StateComponent
+        if isvalid(sc) and sc.CurrentStateName ~= name then
+            sc:ChangeState(name)
+        end
+    end
+
+end

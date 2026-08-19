@@ -8,6 +8,12 @@ script Monster extends Component
     @Sync property number RespawnDelay = 5
     @Sync property number DestroyDelay = 0.6
     property string DamageSkinRUID = "02c22d93421b4038b3c413b3e40b57ec"
+    -- Classic MapleStory hit spark (red 4-point flash) - user request 2026-08-19: "몬스터 피격
+    -- 이펙트를 옛날 메이플 피격 이펙트랑 같게" (the native HitEffectSpawnerComponent has zero
+    -- configurable properties per its .d.mlua, so it can't be pointed at a specific RUID - this
+    -- manual PlayEffect call is the only way to get the authentic classic look, following the same
+    -- pattern PlayerSkillComponent already uses for skill hit VFX).
+    property string HitVfxRuid = "5542826f767a4bbd989ca62f22a53fa3"
     property integer XpReward = 20
     -- Countered by the attacker's DEX-driven Accuracy stat (PlayerAttack.IsAttackTarget) - see
     -- Docs/랜덤 플래닛 전체 기획서.md §2-2 (민첩 -> 명중). 0 for a basic monster like this test slime;
@@ -56,6 +62,9 @@ script Monster extends Component
         -- Applies incoming damage and triggers death once HP reaches 0.
         local originalHp = self.Hp
         self.Hp = self.Hp - event.TotalDamage
+        if self.HitVfxRuid ~= "" then
+            _EffectService:PlayEffect(self.HitVfxRuid, self.Entity, Vector3(event.AttackCenter.x, event.AttackCenter.y, 0), 0, Vector3(1, 1, 1), false)
+        end
         if self.Hp > 0 or originalHp <= 0 then return end
         self:GrantXpToAttacker(event.AttackerEntity)
         self:Dead()

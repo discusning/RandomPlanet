@@ -23,13 +23,13 @@
         "MOD.Core.SpriteRendererComponent",
         "MOD.Core.RigidbodyComponent",
         "MOD.Core.MovementComponent",
-        "MOD.Core.AIChaseComponent",
         "MOD.Core.StateComponent",
         "MOD.Core.HitComponent",
         "MOD.Core.DamageSkinSpawnerComponent",
         "MOD.Core.HitEffectSpawnerComponent",
         "script.Monster",
-        "script.MonsterAttack"
+        "script.MonsterAttack",
+        "script.FieldMonsterAI"
       ],
       "Properties": [],
       "Values": [
@@ -93,33 +93,6 @@
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
           "Value": 6
-        },
-        {
-          "TargetType": "MOD.Core.AIChaseComponent",
-          "Name": "IsLegacy",
-          "ValueType": {
-            "$type": "MODNativeType",
-            "type": "System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
-          },
-          "Value": false
-        },
-        {
-          "TargetType": "MOD.Core.AIChaseComponent",
-          "Name": "DetectionRange",
-          "ValueType": {
-            "$type": "MODNativeType",
-            "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
-          },
-          "Value": 5
-        },
-        {
-          "TargetType": "MOD.Core.AIChaseComponent",
-          "Name": "IsChaseNearPlayer",
-          "ValueType": {
-            "$type": "MODNativeType",
-            "type": "System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
-          },
-          "Value": true
         },
         {
           "TargetType": "MOD.Core.StateComponent",
@@ -230,6 +203,33 @@
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
           "Value": 1
+        },
+        {
+          "TargetType": "script.FieldMonsterAI",
+          "Name": "CenterX",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": 0
+        },
+        {
+          "TargetType": "script.FieldMonsterAI",
+          "Name": "ArriveThreshold",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": 1
+        },
+        {
+          "TargetType": "script.FieldMonsterAI",
+          "Name": "ChaseDetectionRange",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": 999
         }
       ],
       "EventLinks": [],
