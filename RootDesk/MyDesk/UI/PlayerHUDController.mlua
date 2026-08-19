@@ -10,6 +10,12 @@ script PlayerHUDController extends Logic
     property TextGUIRendererComponent levelText = "c095a488-bbd8-44a1-8f97-cc543cc4abb2"
     property TextGUIRendererComponent skillNameText = "ec6309fb-68a6-45ee-b76f-5c419708b1cd"
     property TextGUIRendererComponent skillStatusText = "e4a77839-f995-4905-84ae-c3d3c1fc59e1"
+    -- 2026-08-19 유저 요청 - "버프 스킬 유지 시간이 전혀 안 보인다". PlayerSkillComponent에 이미
+    -- 있던 BuffActive/BuffExpireTime/BuffType은 @Sync가 없어 클라이언트가 애초에 읽을 수 없었다
+    -- (그 자체가 진짜 원인) - 함께 @Sync 추가.
+    property Entity buffSlotEntity = "fff01cad-02b7-475e-b3f2-8a4e47680140"
+    property TextGUIRendererComponent buffNameText = "d2eb5898-4a8b-4f11-990b-9e993df42e42"
+    property TextGUIRendererComponent buffStatusText = "5c87893b-c81b-44ee-b756-30f7ffb1849a"
     property number fullWidth = 220
     property any timerId = nil
 
@@ -91,7 +97,35 @@ script PlayerHUDController extends Logic
                     end
                 end
             end
+
+            -- 유저 요청(2026-08-19) "버프 유지 시간이 전혀 안 적혀있다" - 스킬 쿨다운 표시와 같은
+            -- 패턴으로 ServerElapsedSeconds 기준 남은 시간을 보여준다.
+            if skill.BuffActive then
+                self.buffSlotEntity.Enable = true
+                self.buffNameText.Text = self:BuffTypeLabel(skill.BuffType)
+                local remaining = skill.BuffExpireTime - _UtilLogic.ServerElapsedSeconds
+                if remaining > 0 then
+                    self.buffStatusText.Text = string.format("%.1fs", remaining)
+                else
+                    self.buffStatusText.Text = ""
+                end
+            else
+                self.buffSlotEntity.Enable = false
+            end
         end
+    end
+
+    method string BuffTypeLabel(string buffType)
+        -- PlayerSkillComponent.BuffType is the effect kind (testableEffect), not a skillId - no
+        -- direct catalog lookup exists, so map the known kinds to a short display label here.
+        if buffType == "accuracy" then return "명중 상승"
+        elseif buffType == "movespeed" then return "이동속도 상승"
+        elseif buffType == "atkspeed" then return "공격속도 상승"
+        elseif buffType == "critchance" then return "치명타 상승"
+        elseif buffType == "maxhp" then return "최대체력 상승"
+        elseif buffType == "mpfree" then return "MP 소모 없음"
+        end
+        return "버프"
     end
 
     @ExecSpace("ClientOnly")

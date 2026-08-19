@@ -19,9 +19,12 @@ script PlayerSkillComponent extends Component
     @Sync property string AtkSkill4 = ""
     @Sync property string EquippedSkillId = ""
     @Sync @HideFromInspector property number LastUseTime = -999
-    @HideFromInspector property boolean BuffActive = false
-    @HideFromInspector property number BuffExpireTime = 0
-    @HideFromInspector property string BuffType = ""
+    -- 2026-08-19 유저 요청 - "버프 유지 시간이 전혀 안 보인다". 원인은 이 3개가 @Sync가 아니라서
+    -- 클라이언트가 애초에 값을 읽을 수 없었던 것 - PlayerHUDController가 이 값들로 남은 시간을
+    -- 표시한다(BuffExpireTime - _UtilLogic.ServerElapsedSeconds, 스킬 쿨다운 표시와 동일 패턴).
+    @Sync @HideFromInspector property boolean BuffActive = false
+    @Sync @HideFromInspector property number BuffExpireTime = 0
+    @Sync @HideFromInspector property string BuffType = ""
     @HideFromInspector property number BuffOriginalValue = 0
     @HideFromInspector property integer BuffParticleSerial = 0
     @HideFromInspector property boolean BuffUsingSkillVfx = false

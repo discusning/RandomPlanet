@@ -6,8 +6,6 @@ script CharacterCardController extends Component
     property Entity statDEX = "e3ca8270-d0fe-4133-8975-9300612f9d45"
     property Entity statINT = "d498e287-03a5-4d22-b2d7-7ff93aca6c6c"
     property Entity statLUK = "99290b18-d01b-43b2-9eeb-d763eea081d2"
-    property Entity atkSkillButton = "9dc35212-2bd3-4d8d-baee-4e8dd0f063f7"
-    property Entity buffSkillButton = "cc6fe512-d22d-48b4-b358-747bad33f500"
     property Entity btnPlay = "61705819-dfe8-479b-bf8d-64b070ff4587"
     property Entity btnClose = "432ff9c4-6899-4a28-8a5a-4e364b9bc43d"
     property Entity btnDelete = "d71f7668-909e-41af-9edc-c4d050977546"
@@ -40,10 +38,6 @@ script CharacterCardController extends Component
         table.insert(self._T.handlers, { entity = self.btnClose, eventHandler = hClose })
         local hDelete = self.btnDelete:ConnectEvent(ButtonClickEvent, self.OnDeleteClicked)
         table.insert(self._T.handlers, { entity = self.btnDelete, eventHandler = hDelete })
-        local hAtkSkill = self.atkSkillButton:ConnectEvent(ButtonClickEvent, self.OnAtkSkillButtonClicked)
-        table.insert(self._T.handlers, { entity = self.atkSkillButton, eventHandler = hAtkSkill })
-        local hBuffSkill = self.buffSkillButton:ConnectEvent(ButtonClickEvent, self.OnBuffSkillButtonClicked)
-        table.insert(self._T.handlers, { entity = self.buffSkillButton, eventHandler = hBuffSkill })
         local hConfirmDelete = self.btnConfirmDelete:ConnectEvent(ButtonClickEvent, self.OnConfirmDeleteClicked)
         table.insert(self._T.handlers, { entity = self.btnConfirmDelete, eventHandler = hConfirmDelete })
         local hCancelDelete = self.btnCancelDelete:ConnectEvent(ButtonClickEvent, self.OnCancelDeleteClicked)
@@ -111,81 +105,8 @@ script CharacterCardController extends Component
         self._T.look = data.look
         self._T.equipment = data.equipment
         self._T.characterData = data
-        self:RefreshAtkSkillButtonText()
-        self:RefreshBuffSkillButtonText()
         self.deleteConfirmGroup.Enable = false
         self.Entity.Enable = true
-    end
-
-    @ExecSpace("ClientOnly")
-    method void RefreshAtkSkillButtonText()
-        -- 2026-08-19 재설계 - 예전엔 생성 시점에 뽑힌 혼합 3후보(공격/버프 섞임)를 버튼 하나로
-        -- 순환하는 방식이라 실제로는 3개 중 1개만 직접 고르고 반대 카테고리는 안 보이게 자동
-        -- 배정됐다("특정 스킬만 계속 도는 것 같다"는 유저 리포트의 원인). 이제 공격/버프 각각
-        -- 별도 버튼으로 자기 카테고리 전체 풀을 순환한다. 예전 캐릭터(atkSkillId 없음)는 플레이스홀더.
-        local data = self._T.characterData
-        local text = self.atkSkillButton:GetComponent("MOD.Core.TextGUIRendererComponent")
-        if data == nil or data.atkSkillId == nil then
-            text.Text = "공격: (없음)"
-            return
-        end
-        local def = _SkillCatalog:GetSkillDef(data.atkSkillId)
-        local name = (def ~= nil) and def.name or "?"
-        text.Text = "공격: " .. name .. " [탭하여 변경]"
-    end
-
-    @ExecSpace("ClientOnly")
-    method void RefreshBuffSkillButtonText()
-        local data = self._T.characterData
-        local text = self.buffSkillButton:GetComponent("MOD.Core.TextGUIRendererComponent")
-        if data == nil or data.buffSkillId == nil then
-            text.Text = "버프: (없음)"
-            return
-        end
-        local def = _SkillCatalog:GetSkillDef(data.buffSkillId)
-        local name = (def ~= nil) and def.name or "?"
-        text.Text = "버프: " .. name .. " [탭하여 변경]"
-    end
-
-    @ExecSpace("ClientOnly")
-    method void OnAtkSkillButtonClicked()
-        -- 1차 액티브 공격 스킬 전체 풀(SkillCatalog.GetSkillsByCategory("attack")) 안에서 순환 -
-        -- 유저 요청(2026-08-19) "1차 액티브 공격 스킬 전체 속에서 바꿔야 함".
-        local data = self._T.characterData
-        if data == nil then return end
-        local pool = _SkillCatalog:GetSkillsByCategory("attack")
-        if #pool == 0 then return end
-        local curIdx = 1
-        for i, id in ipairs(pool) do
-            if id == data.atkSkillId then
-                curIdx = i
-                break
-            end
-        end
-        local nextIdx = (curIdx % #pool) + 1
-        data.atkSkillId = pool[nextIdx]
-        self:RefreshAtkSkillButtonText()
-        _CharacterRosterLogic:SaveRoster()
-    end
-
-    @ExecSpace("ClientOnly")
-    method void OnBuffSkillButtonClicked()
-        -- 1차 버프 스킬 전체 풀 안에서 순환 - 유저 요청 "1차 버프 스킬 전체 속에서 바꾸어야 함".
-        local data = self._T.characterData
-        if data == nil then return end
-        local pool = _SkillCatalog:GetSkillsByCategory("buff")
-        if #pool == 0 then return end
-        local curIdx = 1
-        for i, id in ipairs(pool) do
-            if id == data.buffSkillId then
-                curIdx = i
-                break
-            end
-        end
-        local nextIdx = (curIdx % #pool) + 1
-        data.buffSkillId = pool[nextIdx]
-        self:RefreshBuffSkillButtonText()
-        _CharacterRosterLogic:SaveRoster()
     end
 
     @ExecSpace("ClientOnly")
@@ -203,8 +124,6 @@ script CharacterCardController extends Component
         self._T.look = data.look
         self._T.equipment = data.equipment
         self._T.characterData = data
-        self:RefreshAtkSkillButtonText()
-        self:RefreshBuffSkillButtonText()
         self.deleteConfirmGroup.Enable = false
         self.Entity.Enable = true
         log("CharacterCard: RevealCard start, t=" .. _UtilLogic.ElapsedSeconds)
