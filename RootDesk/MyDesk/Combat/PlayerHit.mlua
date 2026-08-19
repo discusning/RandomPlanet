@@ -44,6 +44,9 @@ script PlayerHit extends Component
         if isvalid(sc) then sc:ChangeState("HIT") end
         if player.Hp <= 0 then
             player:ProcessDead()
+            if isvalid(statsComp) then
+                statsComp:TriggerRunEnd()
+            end
         end
     end
 

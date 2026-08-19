@@ -1,0 +1,70 @@
+@Logic
+script EndingUIController extends Logic
+
+    property Entity endingGroup = "eb162279-3a65-4139-bc2d-cb96332cb0e1"
+    property TextGUIRendererComponent levelText = "fb307c66-ea47-4b10-898e-8add534b27e5"
+    property TextGUIRendererComponent killText = "575c07cd-f82c-4e5b-ab4d-5726688bec25"
+    property TextGUIRendererComponent survivalText = "6fcb7650-1dd2-4a83-9621-cc9e37957686"
+    property Entity restartButton = "8f06f937-452d-4e1b-b3c9-c81a6594a5e8"
+
+    @HideFromInspector property any restartHandler = nil
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        if isvalid(self.endingGroup) then
+            self.endingGroup.Enable = false
+        end
+        if isvalid(self.restartButton) then
+            self.restartHandler = self.restartButton:ConnectEvent(ButtonClickEvent, self.OnRestartClicked)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.restartHandler and isvalid(self.restartButton) then
+            self.restartButton:DisconnectEvent(ButtonClickEvent, self.restartHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ShowEnding(integer level, integer killCount, number survivalSeconds)
+        -- Called from PlayerStatsComponent.OnSyncProperty when the local player's RunEnded flips to
+        -- true (Phase 4 permadeath). Freezes the on-screen stats - the underlying PlayerStatsComponent
+        -- fields keep existing after this, so we snapshot into text here rather than re-reading live.
+        if isvalid(self.levelText) then
+            self.levelText.Text = "Lv. " .. level
+        end
+        if isvalid(self.killText) then
+            self.killText.Text = "처치 " .. killCount .. "마리"
+        end
+        if isvalid(self.survivalText) then
+            local totalSeconds = math.floor(math.max(0, survivalSeconds))
+            local minutes = math.floor(totalSeconds / 60)
+            local seconds = totalSeconds % 60
+            self.survivalText.Text = "생존 " .. string.format("%02d:%02d", minutes, seconds)
+        end
+        if isvalid(self.endingGroup) then
+            self.endingGroup.Enable = true
+        end
+        log("EndingUI: ShowEnding level=" .. level .. " kills=" .. killCount .. " survivalSeconds=" .. string.format("%.1f", survivalSeconds))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnRestartClicked()
+        -- Permanent deletion happens here (not at the moment of death) - the character roster is
+        -- entirely ClientOnly (CharacterRosterLogic), so this is the natural place to mutate it: a
+        -- client-initiated click, no server->specific-client targeting needed. See
+        -- Docs/RandomPlanet-M1-Phase4.md "핵심 설계 결정" for why.
+        local idx = _CharacterRosterLogic:GetActiveIndex()
+        if idx ~= nil then
+            _CharacterRosterLogic:DeleteSlot(idx)
+        end
+        if isvalid(self.endingGroup) then
+            self.endingGroup.Enable = false
+        end
+        _CharacterRosterLogic:HideLocalPlayer()
+        _CharacterRosterLogic:RequestReturnToSelect()
+        log("EndingUI: OnRestartClicked idx=" .. tostring(idx))
+    end
+
+end

@@ -91,6 +91,7 @@ script Monster extends Component
         local stats = attacker:GetComponent("script.PlayerStatsComponent")
         if isvalid(stats) then
             stats:GrantXp(self.XpReward)
+            stats:AddKill()
         end
     end
 

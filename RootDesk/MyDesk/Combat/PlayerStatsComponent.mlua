@@ -24,6 +24,19 @@ script PlayerStatsComponent extends Component
     @Sync property number EvasionPercent = 0
     @Sync property number KnockbackResistance = 0
 
+    -- Run lifecycle (Phase 4 permadeath) - RunStartElapsed anchors "survival time" to the last time
+    -- this character became the controlled character (ApplyStats), not its original creation date -
+    -- a roguelite "how long did THIS life last" reading rather than calendar time. KillCount is
+    -- incremented by Monster.GrantXpToAttacker alongside XP. RunEnded is the client-facing trigger
+    -- flag (watched via OnSyncProperty) - the Ended* fields are frozen copies taken at death so the
+    -- ENDING screen shows a stable snapshot even though Level/KillCount keep existing afterward.
+    @HideFromInspector property number RunStartElapsed = 0
+    @Sync property integer KillCount = 0
+    @Sync property boolean RunEnded = false
+    @Sync property integer EndedLevel = 0
+    @Sync property integer EndedKillCount = 0
+    @Sync property number EndedSurvivalSeconds = 0
+
     -- 1차 특성(MVP 6종, CharacterSelectStageController.InitRandomPools의 traitPool과 매칭) - 2026-08-16
     -- 유저 요청으로 순수 표시문구에서 실제 효과로 승격, 전투력(CP, CharacterInfoUIController) 산식에도
     -- 반영. 상인(아이템 드랍률)은 이 프로젝트에 루팅 시스템 자체가 없어 여전히 미구현 - 정직하게 비워둠.
@@ -70,6 +83,11 @@ script PlayerStatsComponent extends Component
         self.Trait = stats.trait or ""
         self.CurrentXp = 0
         self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
+        -- Fresh run bookkeeping - without this reset, a character that swaps in after a previous
+        -- life's death would carry RunEnded=true and the ENDING screen would pop immediately.
+        self.RunStartElapsed = _UtilLogic.ElapsedSeconds
+        self.KillCount = 0
+        self.RunEnded = false
         self:RecalculateDerived()
         self:UpdateZoneState()
         log("PlayerStats: ApplyStats str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " level=" .. self.Level .. " trait=" .. self.Trait)
@@ -108,6 +126,51 @@ script PlayerStatsComponent extends Component
         local skillComp = self.Entity:GetComponent("script.PlayerSkillComponent")
         if isvalid(skillComp) then
             skillComp:GrantTierSkills(tier)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void AddKill()
+        -- Called from Monster.GrantXpToAttacker alongside the XP grant - same trigger point, one
+        -- extra counter.
+        self.KillCount = self.KillCount + 1
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TriggerRunEnd()
+        -- Called from PlayerHit.HandleHitEvent when Hp reaches 0 (Phase 4 permadeath). Freezes a
+        -- stat snapshot into the Ended* fields and locks input - does NOT touch the character roster
+        -- (that's ClientOnly, owned by CharacterRosterLogic) and does NOT call PlayerComponent:Respawn()
+        -- - actual deletion + return-to-select only happens when the player clicks "재시작" on the
+        -- ENDING screen (see Field/EndingUIController.mlua), which is a client-initiated flow and so
+        -- needs no server->specific-client targeting.
+        if self.RunEnded then return end
+        self.EndedLevel = self.Level
+        self.EndedKillCount = self.KillCount
+        self.EndedSurvivalSeconds = _UtilLogic.ElapsedSeconds - self.RunStartElapsed
+        local controller = self.Entity.PlayerControllerComponent
+        if isvalid(controller) then
+            controller.Enable = false
+        end
+        self.RunEnded = true
+        log("PlayerStats: TriggerRunEnd level=" .. self.EndedLevel .. " kills=" .. self.EndedKillCount .. " survivalSeconds=" .. string.format("%.1f", self.EndedSurvivalSeconds))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSyncProperty(string name, any value)
+        -- Fires once RunEnded finishes syncing to this client - only ever true for the local player's
+        -- own entity (nobody else's PlayerStatsComponent is relevant to this client's UI). RunEnded is
+        -- written server-side LAST (after EndedLevel/EndedKillCount/EndedSurvivalSeconds - see
+        -- TriggerRunEnd), but each @Sync property replicates independently and arrival order on the
+        -- client is not guaranteed to match write order - reading the Ended* fields in this same tick
+        -- caught them still at their pre-sync defaults (0/0/0.0) in testing, the same class of
+        -- same-tick @Sync visibility artifact already documented elsewhere in this project (see
+        -- Archive/As-built.md 11차 세션 Gotchas). A short deferred read gives the sibling syncs time to
+        -- land first.
+        if name == "RunEnded" and value == true then
+            _TimerService:SetTimerOnce(function()
+                _EndingUIController:ShowEnding(self.EndedLevel, self.EndedKillCount, self.EndedSurvivalSeconds)
+            end, 0.1)
         end
     end
 

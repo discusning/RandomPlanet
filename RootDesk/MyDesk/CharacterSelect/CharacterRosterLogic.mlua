@@ -66,6 +66,22 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method void DeleteSlot(integer idx)
+        -- Same underlying mutation as CharacterSelectStageController.DeleteCurrentCharacter (choice_map's
+        -- manual-delete path) - a second entry point added for Field/EndingUIController.mlua's permadeath
+        -- restart flow (Phase 4), which needs to delete the active character from outside choice_map. Not
+        -- refactored into a single shared call site to avoid touching the already-verified manual-delete
+        -- path - see Docs/RandomPlanet-M1-Phase4.md. Does NOT refund dailyRemaining (same policy as manual
+        -- delete) and does NOT touch activeIndex (the next RequestEnterGame/SwapCharacter overwrites it).
+        if self._T.data[idx] == nil then
+            return
+        end
+        self._T.data[idx] = nil
+        log("CharacterRoster: DeleteSlot idx=" .. idx)
+        self:SaveRoster()
+    end
+
+    @ExecSpace("ClientOnly")
     method table GetSquadLinks()
         -- Previously confirmed link-candidate indices, restored so the squad-formation popup can
         -- pre-select them on reopen. Without this getter, the popup had no way to know a squad was
