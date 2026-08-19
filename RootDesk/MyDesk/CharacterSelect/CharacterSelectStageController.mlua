@@ -221,12 +221,16 @@ script CharacterSelectStageController extends Component
             hair = self._T.hairPool[_UtilLogic:RandomIntegerRange(1, #self._T.hairPool)],
             face = self._T.facePool[_UtilLogic:RandomIntegerRange(1, #self._T.facePool)],
         }
-        -- 1차 스킬 후보 3개 제시 -> 카드의 SkillButton으로 1개 선택 (기본값은 후보 1번). See
-        -- CharacterCardController.OnSkillButtonClicked for the cycle-through-3 picker.
-        local skillCandidates = _SkillCatalog:RollThreeSkills()
+        -- 2026-08-19 재설계 - 예전엔 13종 전체를 섞은 3후보 중 1개만 고르고 반대 카테고리는 안 보이게
+        -- 자동 배정됐다. 이제 공격/버프 각각 그 카테고리 전체 풀에서 기본값을 뽑고, 카드의
+        -- AtkSkillButton/BuffSkillButton으로 각자 전체 풀 안에서 자유롭게 바꿀 수 있다
+        -- (CharacterCardController.OnAtkSkillButtonClicked/OnBuffSkillButtonClicked).
+        local atkPool = _SkillCatalog:GetSkillsByCategory("attack")
+        local buffPool = _SkillCatalog:GetSkillsByCategory("buff")
         roster[idx] = {
             level = 1, trait = trait, str = stats.str, dex = stats.dex, intel = stats.intel, luk = stats.luk, look = look,
-            skillCandidates = skillCandidates, skillId = skillCandidates[1],
+            atkSkillId = atkPool[_UtilLogic:RandomIntegerRange(1, #atkPool)],
+            buffSkillId = buffPool[_UtilLogic:RandomIntegerRange(1, #buffPool)],
         }
         -- Starter equipment kit (one of every catalog item, unequipped) - the only item source
         -- for now since there's no shop/loot system yet. See EquipmentLogic.GrantStarterKit.
@@ -356,7 +360,7 @@ script CharacterSelectStageController extends Component
     end
 
     @ExecSpace("Server")
-    method void RequestEnterGame(table look, table equipment, table stats, string skillId)
+    method void RequestEnterGame(table look, table equipment, table stats, string atkSkillId, string buffSkillId)
         -- Client (the character card's PLAY button) asked to enter the village lobby. Applies the
         -- chosen slot's rolled look + equipped gear onto the actual player entity via the shared
         -- roster logic - the player's own MSW-account avatar is never shown (DefaultPlayer.model
@@ -379,8 +383,8 @@ script CharacterSelectStageController extends Component
         end
 
         local skillComp = player:GetComponent("script.PlayerSkillComponent")
-        if isvalid(skillComp) and skillId ~= nil then
-            skillComp:GrantInitialSkill(skillId)
+        if isvalid(skillComp) then
+            skillComp:GrantInitialSkill(atkSkillId, buffSkillId)
         end
 
         -- NOTE: undoing HideLocalPlayer's visibility hide does NOT happen here. Component.Enable is

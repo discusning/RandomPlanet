@@ -5,8 +5,9 @@ script PlayerSkillComponent extends Component
     -- PlayerStatsComponent/MovementComponent를 그때그때 읽고 쓴다(각 스탯 공식은 그쪽이 유일한 소유자).
     -- 8개 고정 슬롯(1~4차 x 버프/공격)에 보유 스킬을 저장하고, 그중 하나만 EquippedSkillId로 "Skill"
     -- (Q)키에 실제 장착한다 - 전직/레벨업 3택1 선택 UI는 아직 없어(Phase 3+ 몫) 매 티어 첫 미보유
-    -- 후보를 자동 지급한다(GrantTierSkills). 캐릭터 생성 시점(1차)만 유저가 카드에서 직접 고른
-    -- skillId 하나를 받고, 나머지 1차 반대 카테고리 슬롯은 자동으로 채운다(GrantInitialSkill).
+    -- 후보를 자동 지급한다(GrantTierSkills). 캐릭터 생성 시점(1차)은 유저가 카드에서 공격/버프 각각
+    -- 전체 풀 안에서 직접 고른 두 스킬을 그대로 받는다(GrantInitialSkill, 2026-08-19 재설계 - 예전엔
+    -- 하나만 직접 고르고 반대 카테고리는 안 보이게 자동 배정됐음).
 
     @Sync property string BuffSkill1 = ""
     @Sync property string BuffSkill2 = ""
@@ -34,25 +35,24 @@ script PlayerSkillComponent extends Component
     end
 
     @ExecSpace("ServerOnly")
-    method void GrantInitialSkill(string skillId)
-        -- Called once from RequestEnterGame/SwapActiveCharacter with the single skill the player
-        -- picked on the character card (cycle-through-3 picker, still a flat mixed pool - see
-        -- SkillCatalog.RollThreeSkills). Puts it in its own category's tier-1 slot, then auto-fills
-        -- the OTHER tier-1 category slot with the first available id (no picker yet for that half -
-        -- guarantees every character starts with exactly 1 buff + 1 attack per §04's "1+1=2개").
-        if skillId == nil or skillId == "" then return end
-        local isBuff = _SkillCatalog:IsBuffSkill(skillId)
-        if isBuff then
-            self.BuffSkill1 = skillId
-            local atkChoices = _SkillCatalog:RollSkillChoices("attack", {})
-            if #atkChoices > 0 then self.AtkSkill1 = atkChoices[1] end
-        else
-            self.AtkSkill1 = skillId
-            local buffChoices = _SkillCatalog:RollSkillChoices("buff", {})
-            if #buffChoices > 0 then self.BuffSkill1 = buffChoices[1] end
+    method void GrantInitialSkill(string atkSkillId, string buffSkillId)
+        -- Called once from RequestEnterGame/SwapActiveCharacter with the two skills the player
+        -- directly picked on the character card (AtkSkillButton/BuffSkillButton, each cycling that
+        -- category's FULL pool - see CharacterCardController). Both land straight in their tier-1
+        -- slot, no auto-roll for either side anymore.
+        if atkSkillId ~= nil and atkSkillId ~= "" then
+            self.AtkSkill1 = atkSkillId
         end
-        self.EquippedSkillId = skillId
-        log("PlayerSkill: GrantInitialSkill skillId=" .. skillId .. " buff1=" .. self.BuffSkill1 .. " atk1=" .. self.AtkSkill1)
+        if buffSkillId ~= nil and buffSkillId ~= "" then
+            self.BuffSkill1 = buffSkillId
+        end
+        -- 기본 장착은 공격 스킬(Q키가 곧바로 딜을 넣도록) - 공격 쪽이 비어 있으면 버프로 대체.
+        if self.AtkSkill1 ~= "" then
+            self.EquippedSkillId = self.AtkSkill1
+        elseif self.BuffSkill1 ~= "" then
+            self.EquippedSkillId = self.BuffSkill1
+        end
+        log("PlayerSkill: GrantInitialSkill atk1=" .. self.AtkSkill1 .. " buff1=" .. self.BuffSkill1)
     end
 
     @ExecSpace("ServerOnly")

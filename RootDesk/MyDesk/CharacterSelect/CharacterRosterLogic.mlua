@@ -267,7 +267,7 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("Server")
-    method void SwapActiveCharacter(table look, table equipment, table stats, Vector3 standeePos, string skillId)
+    method void SwapActiveCharacter(table look, table equipment, table stats, Vector3 standeePos, string atkSkillId, string buffSkillId)
         -- Called from the Lobby when the player clicks a different owned character's standee.
         -- Re-skins the player AND moves them to the clicked standee's spot - the character you just
         -- took control of should be movable from where it was standing, not from wherever the
@@ -282,8 +282,8 @@ script CharacterRosterLogic extends Logic
             statsComp:ApplyStats(stats)
         end
         local skillComp = player:GetComponent("script.PlayerSkillComponent")
-        if isvalid(skillComp) and skillId ~= nil then
-            skillComp:GrantInitialSkill(skillId)
+        if isvalid(skillComp) then
+            skillComp:GrantInitialSkill(atkSkillId, buffSkillId)
         end
         _TeleportService:TeleportToMapPosition(player, standeePos, "Lobby")
     end

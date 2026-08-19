@@ -178,17 +178,6 @@ script SkillCatalog extends Logic
         return defs[skillId]
     end
 
-    method table RollThreeSkills()
-        -- Fisher-Yates shuffle over the id pool, take the first 3 (no duplicates within one roll).
-        local ids = self:GetAllSkillIds()
-        for i = #ids, 2, -1 do
-            local j = _UtilLogic:RandomIntegerRange(1, i)
-            local tmp = ids[i]
-            ids[i] = ids[j]
-            ids[j] = tmp
-        end
-        return { ids[1], ids[2], ids[3] }
-    end
 
     method boolean IsBuffSkill(string skillId)
         -- Category split used by PlayerSkillComponent's tier-slot grants (Docs/랜덤 플래닛 전체 기획서.md

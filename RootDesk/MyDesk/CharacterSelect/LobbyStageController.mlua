@@ -142,8 +142,7 @@ script LobbyStageController extends Component
             trait = data.trait,
         }
         _CharacterRosterLogic:SetActiveIndex(idx)
-        local swapSkillId = data.skillId
-        _CharacterRosterLogic:SwapActiveCharacter(data.look, data.equipment, stats, standeePos, swapSkillId)
+        _CharacterRosterLogic:SwapActiveCharacter(data.look, data.equipment, stats, standeePos, data.atkSkillId, data.buffSkillId)
         self:RefreshLobbyStandees()
         log("LobbyStage: swapped active character to slot " .. idx)
     end
