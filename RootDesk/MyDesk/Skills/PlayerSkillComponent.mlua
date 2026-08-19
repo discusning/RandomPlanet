@@ -291,9 +291,12 @@ script PlayerSkillComponent extends Component
         -- ~= 3 units) so it visibly leaves the caster's hand and lands nearby instead of an instant hit.
         self.ProjectileCount = self.ProjectileCount + 1
         local name = "skillproj_" .. tostring(self.ProjectileCount)
-        -- Same-Y spawn as DoRanged (not +0.5) - ProjectileComponent's HitRadius circular check has no
-        -- vertical tolerance beyond its radius; a raised spawn flies clean over a same-level monster.
-        local proj = _SpawnService:SpawnByModelId("projectile", name, Vector3(pos.x + 0.4 * dir, pos.y, pos.z), map)
+        -- 2026-08-19 유저 리포트("표창 나가는 위치가 애매하다") - 실제 Play 세션에서 스크린샷으로
+        -- 확인해보니 DoRanged와 똑같이 pos.y(캐릭터 발밑 높이)에서 스폰되어 표창이 손이 아니라
+        -- 바닥에서 튀어나오는 것처럼 보였다. HitRadius를 0.4->0.55로 함께 키워서 몬스터와의 세로
+        -- 판정 여유를 확보한 채로 +0.35 만큼 위로(허리~손 높이) 올렸다 - DoRanged(매직 클로/애로우
+        -- 블로우)는 이 세션에서 별도로 지적받은 적이 없어 그쪽 스폰 높이는 그대로 둔다.
+        local proj = _SpawnService:SpawnByModelId("projectile", name, Vector3(pos.x + 0.4 * dir, pos.y + 0.35, pos.z), map)
         if not isvalid(proj) then return end
 
         if def.projectileVfxRuid ~= nil and isvalid(proj.SpriteRendererComponent) then
@@ -313,7 +316,7 @@ script PlayerSkillComponent extends Component
         if isvalid(projComp) then
             projComp.Speed = 10
             projComp.MaxLifetime = 0.3
-            projComp.HitRadius = 0.4
+            projComp.HitRadius = 0.55
             projComp.Pierce = false
             projComp:Fire(dir, 0)
         end
