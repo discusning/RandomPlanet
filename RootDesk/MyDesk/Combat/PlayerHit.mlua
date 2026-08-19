@@ -1,6 +1,19 @@
 @Component
 script PlayerHit extends Component
 
+    -- QA finding (2026-08-19, real playtest): a fresh level-1 character walking into a field's
+    -- spawn portal dropped from 60 -> 12 HP within ~3 seconds and died with 0 kills - multiple
+    -- FieldWaveSpawner-spawned monsters share the exact same fixed spawn X (no position jitter -
+    -- see FieldWaveSpawner.TrySpawn), so 2-3 of them can end up stacked on the same point and each
+    -- swings independently on its own timer. The original "no extra i-frame gate - each monster's
+    -- own timer already spaces its hits" reasoning only holds for a single attacker; it breaks down
+    -- completely once more than one monster is in contact range at once, which a wave spawner will
+    -- routinely produce as waves escalate. A short shared i-frame after any hit caps burst damage
+    -- from simultaneous attackers to roughly one hit's worth, independent of how many monsters are
+    -- touching the player - the standard fix for this class of problem in action games.
+    property number IFrameSeconds = 0.5
+    @HideFromInspector property number LastHitElapsed = -999
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- DefaultPlayer already ships a native HitComponent (confirmed via a runtime
@@ -32,6 +45,15 @@ script PlayerHit extends Component
         -- here - each monster's own MonsterAttack timer interval already spaces out its hits.
         local player = self.Entity.PlayerComponent
         if not isvalid(player) then return end
+        -- i-frame gate: ignore a hit that lands within IFrameSeconds of the last one, so several
+        -- monsters stacked on the same spot (see the comment on IFrameSeconds above) can't all land
+        -- in the same instant. A single attacker's own AttackInterval is always well above
+        -- IFrameSeconds, so this never affects normal one-on-one combat pacing.
+        local now = _UtilLogic.ElapsedSeconds
+        if now - self.LastHitElapsed < self.IFrameSeconds then
+            return
+        end
+        self.LastHitElapsed = now
         -- Interrupts an in-progress battlefield-return channel (Field/BattlefieldReturnLogic) -
         -- taking a hit cancels the "return scroll" so it can't be used to panic-escape a losing
         -- fight risk-free.

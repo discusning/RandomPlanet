@@ -26,6 +26,13 @@ script FieldWaveSpawner extends Component
     @HideFromInspector property number WaveTimer = 0
     @HideFromInspector property integer SpawnIndex = 0
     @HideFromInspector property boolean SpawnLeftNext = true
+    -- QA finding (2026-08-19, real playtest): TrySpawn already skips spawning while the field is
+    -- empty, but nothing ever cleared monsters left alive from a previous visitor (e.g. a character
+    -- who died mid-wave without clearing it) - the next character to enter the same field walked
+    -- into an already-escalated monster pile (wave number carried over, alive count near the cap)
+    -- instead of a fresh wave 1. Tracks the empty/occupied transition so the field resets exactly
+    -- once when it empties out, not every idle frame.
+    @HideFromInspector property boolean IsFieldEmpty = false
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
@@ -49,6 +56,13 @@ script FieldWaveSpawner extends Component
     method void OnUpdate(number delta)
         -- Session-relative countdown (never anchored on raw ElapsedSeconds - see
         -- msw-scripting §13's per-session-timer trap) that rolls into the next wave.
+        if self:IsFieldCurrentlyEmpty() then
+            if not self.IsFieldEmpty then
+                self:ResetField()
+            end
+            return
+        end
+        self.IsFieldEmpty = false
         self:ScanTrackedKills()
         if self.WaveKillCount >= self.WaveKillTarget then
             self:AdvanceWave()
@@ -58,6 +72,43 @@ script FieldWaveSpawner extends Component
         if self.WaveTimer <= 0 then
             self:AdvanceWave()
         end
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean IsFieldCurrentlyEmpty()
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then
+            return true
+        end
+        local mapComp = map.MapComponent
+        if not isvalid(mapComp) then
+            return true
+        end
+        local users = _UserService:GetUsersByMapComponent(mapComp)
+        return users == nil or #users == 0
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ResetField()
+        -- Clears every monster left over from the last visitor and rolls the wave state back to a
+        -- fresh wave 1, so the next character to enter gets the same start every other field-goer
+        -- gets rather than inheriting however far the previous run had escalated.
+        for _, e in ipairs(self._T.tracked) do
+            if isvalid(e) then
+                e:Destroy()
+            end
+        end
+        self._T.tracked = {}
+        self.IsFieldEmpty = true
+        self.WaveNumber = 1
+        self.WaveKillCount = 0
+        self.WaveKillTarget = self.BaseKillTarget
+        self.WaveTimer = self.WaveDurationSeconds
+        if self.TimerId ~= 0 then
+            _TimerService:ClearTimer(self.TimerId)
+        end
+        self.TimerId = _TimerService:SetTimerRepeat(function() self:TrySpawn() end, self.BaseSpawnInterval)
+        log("FieldWaveSpawner(" .. self.ModelId .. "): field emptied, reset to wave 1")
     end
 
     @ExecSpace("ServerOnly")
@@ -124,8 +175,15 @@ script FieldWaveSpawner extends Component
             return
         end
         self.SpawnIndex = self.SpawnIndex + 1
-        local x = self.SpawnLeftNext and self.LeftSpawnX or self.RightSpawnX
+        local baseX = self.SpawnLeftNext and self.LeftSpawnX or self.RightSpawnX
         self.SpawnLeftNext = not self.SpawnLeftNext
+        -- QA finding (2026-08-19, real playtest): every spawn at a given portal used the exact same
+        -- fixed X, so 2-3 monsters could end up stacked perfectly on top of each other - a player
+        -- wandering into that pile took near-simultaneous contact hits from all of them (see
+        -- PlayerHit.mlua's new IFrameSeconds gate, the other half of this fix). A small random
+        -- spread keeps them visually and physically separated so a pile can't form in the first
+        -- place.
+        local x = baseX + (_UtilLogic:RandomDouble() * 1.2 - 0.6)
         local pos = Vector3(x, self.SpawnY, 0)
         local name = "FieldMob_" .. tostring(self.SpawnIndex)
         local e = _SpawnService:SpawnByModelId(self.ModelId, name, pos, map)
