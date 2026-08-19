@@ -39,15 +39,26 @@ script PlayerSkillComponent extends Component
 
     @ExecSpace("ServerOnly")
     method void GrantInitialSkill(string atkSkillId, string buffSkillId)
-        -- Called once from RequestEnterGame/SwapActiveCharacter with the two skills the player
-        -- directly picked on the character card (AtkSkillButton/BuffSkillButton, each cycling that
-        -- category's FULL pool - see CharacterCardController). Both land straight in their tier-1
-        -- slot, no auto-roll for either side anymore.
+        -- Called once from RequestEnterGame/SwapActiveCharacter with the roster's rolled tier-1
+        -- attack/buff skill ids (CharacterSelectStageController.CreateCharacter picks one random id
+        -- per category - no manual card picker anymore, see CharacterCardController).
+        --
+        -- 유저 리포트(2026-08-19) "인게임 스킬창에서도 1차 스킬이 모두 사라져있다" - 원인은 이전 세션에
+        -- 만들어진 캐릭터(구 데이터 형식 skillCandidates/skillId만 있고 atkSkillId/buffSkillId가 없는
+        -- roster 항목)로 PLAY하면 이 두 파라미터가 둘 다 nil로 넘어오는데, 그 경우 아무것도 배정하지
+        -- 않고 그냥 넘어가서 AtkSkill1/BuffSkill1이 빈 채로 남았던 것 - 신규/구 캐릭터 모두 항상 1차에
+        -- 공격 1개+버프 1개를 보유하도록, 비어 있으면 해당 카테고리 전체 풀에서 즉석 롤백.
         if atkSkillId ~= nil and atkSkillId ~= "" then
             self.AtkSkill1 = atkSkillId
+        elseif self.AtkSkill1 == "" then
+            local pool = _SkillCatalog:GetSkillsByCategory("attack")
+            if #pool > 0 then self.AtkSkill1 = pool[_UtilLogic:RandomIntegerRange(1, #pool)] end
         end
         if buffSkillId ~= nil and buffSkillId ~= "" then
             self.BuffSkill1 = buffSkillId
+        elseif self.BuffSkill1 == "" then
+            local pool = _SkillCatalog:GetSkillsByCategory("buff")
+            if #pool > 0 then self.BuffSkill1 = pool[_UtilLogic:RandomIntegerRange(1, #pool)] end
         end
         -- 기본 장착은 공격 스킬(Q키가 곧바로 딜을 넣도록) - 공격 쪽이 비어 있으면 버프로 대체.
         if self.AtkSkill1 ~= "" then
