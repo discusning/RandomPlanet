@@ -83,7 +83,7 @@
             "$type": "MODNativeType",
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 0.9
+          "Value": 1.35
         },
         {
           "TargetType": "MOD.Core.MovementComponent",
@@ -92,7 +92,7 @@
             "$type": "MODNativeType",
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 6.0
+          "Value": 6
         },
         {
           "TargetType": "MOD.Core.AIChaseComponent",
@@ -110,7 +110,7 @@
             "$type": "MODNativeType",
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 5.0
+          "Value": 5
         },
         {
           "TargetType": "MOD.Core.AIChaseComponent",
@@ -161,11 +161,11 @@
           "Name": "CollisionGroup",
           "ValueType": {
             "$type": "MODNativeType",
-            "type": "MOD.Core.Physics.CollisionGroup, MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
+            "type": "MOD.Core.Physics.CollisionGroup, MOD.Core, Version=26.5.0.0, Culture=neutral, PublicKeyToken=null"
           },
           "Value": {
             "$type": "MOD.Core.Physics.CollisionGroup, MOD.Core",
-            "Id": "8992acd1e8cd45838db6f10a7b41df09"
+            "Id": "04e4f4d363d1401881cccf4083815fff"
           }
         },
         {
@@ -184,7 +184,7 @@
             "$type": "MODNativeType",
             "type": "System.Double, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 140.0
+          "Value": 140
         },
         {
           "TargetType": "script.Monster",
@@ -211,7 +211,7 @@
             "$type": "MODNativeType",
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 18.0
+          "Value": 18
         },
         {
           "TargetType": "script.MonsterAttack",
@@ -229,7 +229,7 @@
             "$type": "MODNativeType",
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 1.0
+          "Value": 1
         }
       ],
       "EventLinks": [],
