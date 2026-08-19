@@ -205,24 +205,6 @@
         },
         {
           "TargetType": "script.FieldMonsterAI",
-          "Name": "CenterX",
-          "ValueType": {
-            "$type": "MODNativeType",
-            "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
-          },
-          "Value": 0
-        },
-        {
-          "TargetType": "script.FieldMonsterAI",
-          "Name": "ArriveThreshold",
-          "ValueType": {
-            "$type": "MODNativeType",
-            "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
-          },
-          "Value": 1
-        },
-        {
-          "TargetType": "script.FieldMonsterAI",
           "Name": "ChaseDetectionRange",
           "ValueType": {
             "$type": "MODNativeType",

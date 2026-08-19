@@ -1,28 +1,17 @@
 @Component
 script FieldMonsterAI extends Component
 
-    -- User request 2026-08-19: native AIChaseComponent's fixed DetectionRange felt too narrow (a
-    -- spawned monster just sits at the portal edge until a player wanders close). Replaces
-    -- AIChaseComponent entirely with a two-phase custom controller (AIChase/AIWander cannot coexist
-    -- with custom movement - see msw-general/references/monster.md §5d, they overwrite Body velocity
-    -- every frame regardless of what this script does):
-    --   ADVANCE - unconditionally walks toward CenterX, no player-detection gate at all, so every
-    --             spawned monster immediately heads toward where the action actually is instead of
-    --             idling at the spawn edge.
-    --   CHASE   - once it arrives near the center, permanently switches to hunting the nearest
-    --             player within ChaseDetectionRange (set far larger than the field itself), so a
-    --             fleeing player doesn't lose it. Never reverts to ADVANCE.
-    property number CenterX = 0
-    property number ArriveThreshold = 1.0
+    -- 유저 요청 2026-08-19: 원래 "중앙으로 진격 후 광역 추격"이던 2단계 AI를 걷어내고, 스폰된 순간부터
+    -- 죽을 때까지 그냥 플레이어를 계속 쫓아다니는 단일 상태로 단순화. AIChaseComponent를 쓰지 않는
+    -- 이유는 여전히 동일 - 고정 DetectionRange 하나만 지원하고 커스텀 이동 스크립트와 공존 불가능
+    -- (msw-general/references/monster.md §5d).
     property number ChaseDetectionRange = 999
-
-    @HideFromInspector property string AIState = "ADVANCE"
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
-        -- MOVE is only auto-registered on StateComponent when an AIChase/AIWander component is
-        -- present (see msw-general/references/monster.md §5e Sub-option B) - since this script
-        -- replaces that component entirely, register it by hand to avoid [LEA-3005] on ChangeState.
+        -- MOVE는 AIChase/AIWander가 있어야 StateComponent에 자동 등록되는데(monster.md §5e Sub-option
+        -- B), 이 스크립트는 그 컴포넌트를 아예 안 쓰므로 수동 등록 - 안 하면 ChangeState에서
+        -- [LEA-3005]가 난다.
         local sc = self.Entity.StateComponent
         if isvalid(sc) then
             sc:AddState("MOVE", MarkerState)
@@ -38,30 +27,7 @@ script FieldMonsterAI extends Component
             move:Stop()
             return
         end
-
-        if self.AIState == "ADVANCE" then
-            self:TickAdvance()
-        else
-            self:TickChase()
-        end
-    end
-
-    @ExecSpace("ServerOnly")
-    method void TickAdvance()
-        local move = self.Entity.MovementComponent
-        if not isvalid(move) then return end
-        local pos = self.Entity.TransformComponent.WorldPosition
-        local dx = self.CenterX - pos.x
-        if math.abs(dx) <= self.ArriveThreshold then
-            self.AIState = "CHASE"
-            move:Stop()
-            self:SetState("IDLE")
-            return
-        end
-        local dir = (dx > 0) and 1 or -1
-        move:MoveToDirection(Vector2(dir, 0), 0)
-        self:FaceDirection(dir)
-        self:SetState("MOVE")
+        self:TickChase()
     end
 
     @ExecSpace("ServerOnly")

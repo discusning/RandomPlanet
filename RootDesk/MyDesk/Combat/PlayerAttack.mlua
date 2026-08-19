@@ -28,6 +28,15 @@ script PlayerAttack extends AttackComponent
         if not isvalid(self.Entity:GetComponent("script.PlayerHit")) then
             self.Entity:AddComponent("script.PlayerHit")
         end
+        -- 유저 요청(2026-08-19) "인게임 플레이어 데미지 스킨을 일반 데미지 스킨으로 바꿔줘" - 현재
+        -- Global/DefaultPlayer.model의 damageSkinId 기본값이 커스텀 스킨으로 설정되어 있는데, Global/
+        -- 은 AI가 직접 수정할 수 없는 읽기 전용 파일(위 PlayerHit과 동일한 제약) - Monster.mlua가
+        -- DamageSkinSettingComponent.DamageSkinId를 스폰 시점에 덮어쓰는 것과 같은 패턴으로 여기서도
+        -- 엔진 기본("일반") 히트 스킨 RUID로 강제 override한다.
+        local skinSetting = self.Entity.DamageSkinSettingComponent
+        if isvalid(skinSetting) then
+            skinSetting.DamageSkinId = DataRef("3271c3e79bf04ecba9a107d55495970d")
+        end
     end
 
     @ExecSpace("ServerOnly")
