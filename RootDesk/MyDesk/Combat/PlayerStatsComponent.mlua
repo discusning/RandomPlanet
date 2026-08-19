@@ -97,7 +97,16 @@ script PlayerStatsComponent extends Component
     method void GrantXp(integer amount)
         -- Adds kill XP and auto-levels in a loop (no player choice yet - Phase 3 replaces this with
         -- a 3-way level-up pick). Each level bumps all four stats by 1 and fully heals/restores MP.
+        --
+        -- 유저 리포트(2026-08-19) "버서커 특성이 아닌데 몬스터 처치 시 흡혈 효과가 있다" - 실제
+        -- 원인은 RecalculateDerived()가 while 루프 밖에서 무조건 호출되고 있었던 것. 그 안의
+        -- `player.Hp = maxHp`는 "레벨업 시 완전 회복"이라는 의도된 설계지만, 레벨업이 실제로
+        -- 일어나지 않은 평범한 킬(XP만 쌓이고 다음 레벨 문턱을 못 넘은 경우)에도 매번 호출돼
+        -- 특성/조건과 무관하게 모든 몬스터 처치가 사실상 즉시 풀피 회복으로 보였다. 실제로 레벨업이
+        -- 일어난 킬에서만 호출하도록 수정 - "레벨업 시 완전 회복"은 그대로 유지, "모든 킬마다 회복"만
+        -- 제거.
         self.CurrentXp = self.CurrentXp + amount
+        local leveledUp = false
         while self.CurrentXp >= self.XpToNextLevel do
             self.CurrentXp = self.CurrentXp - self.XpToNextLevel
             self.Level = self.Level + 1
@@ -108,8 +117,11 @@ script PlayerStatsComponent extends Component
             self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
             log("PlayerStats: level up -> " .. self.Level)
             self:GrantSkillTierIfMilestone(self.Level)
+            leveledUp = true
         end
-        self:RecalculateDerived()
+        if leveledUp then
+            self:RecalculateDerived()
+        end
     end
 
     @ExecSpace("ServerOnly")
