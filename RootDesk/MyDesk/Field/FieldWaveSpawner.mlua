@@ -14,6 +14,10 @@ script FieldWaveSpawner extends Component
     property integer AliveCapGrowthPerWave = 1
     property integer BaseKillTarget = 6
     property integer KillTargetGrowthPerWave = 2
+    -- 유저 요청(2026-08-19) - 무한 웨이브가 너무 길다는 피드백으로 전장을 고정 5웨이브로 캡핑.
+    -- 마지막 웨이브(WaveNumber == MaxWaveNumber)를 만족(처치 목표 달성 또는 타이머 만료)하면
+    -- AdvanceWave 대신 ClearField로 분기 - 스폰을 멈추고 클리어 상태로 고정한다.
+    property integer MaxWaveNumber = 5
 
     @HideFromInspector property integer TimerId = 0
     -- 카오스 던전 참고 - "웨이브 N" + "작전 진행도"(처치수/목표) 두 값 모두 클라이언트 HUD가
@@ -23,6 +27,9 @@ script FieldWaveSpawner extends Component
     @Sync @HideFromInspector property integer WaveNumber = 1
     @Sync @HideFromInspector property integer WaveKillCount = 0
     @Sync @HideFromInspector property integer WaveKillTarget = 6
+    -- 클라이언트 HUD가 "토벌 완료" 표시로 전환할 때 읽는다 - ResetField(다음 방문자를 위한 초기화)만
+    -- 이 값을 되돌린다.
+    @Sync @HideFromInspector property boolean FieldCleared = false
     @HideFromInspector property number WaveTimer = 0
     @HideFromInspector property integer SpawnIndex = 0
     @HideFromInspector property boolean SpawnLeftNext = true
@@ -63,15 +70,38 @@ script FieldWaveSpawner extends Component
             return
         end
         self.IsFieldEmpty = false
+        if self.FieldCleared then return end
         self:ScanTrackedKills()
         if self.WaveKillCount >= self.WaveKillTarget then
-            self:AdvanceWave()
+            self:AdvanceOrClear()
             return
         end
         self.WaveTimer = self.WaveTimer - delta
         if self.WaveTimer <= 0 then
+            self:AdvanceOrClear()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void AdvanceOrClear()
+        -- 마지막 웨이브(처치 목표 달성이든 타이머 만료든)는 다음 웨이브로 넘어가는 대신 전장을
+        -- 클리어 상태로 고정한다 - 예전처럼 웨이브가 끝없이 이어지지 않도록.
+        if self.WaveNumber >= self.MaxWaveNumber then
+            self:ClearField()
+        else
             self:AdvanceWave()
         end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ClearField()
+        if self.FieldCleared then return end
+        self.FieldCleared = true
+        if self.TimerId ~= 0 then
+            _TimerService:ClearTimer(self.TimerId)
+            self.TimerId = 0
+        end
+        log("FieldWaveSpawner(" .. self.ModelId .. "): field cleared at wave " .. self.WaveNumber)
     end
 
     @ExecSpace("ServerOnly")
@@ -104,6 +134,7 @@ script FieldWaveSpawner extends Component
         self.WaveKillCount = 0
         self.WaveKillTarget = self.BaseKillTarget
         self.WaveTimer = self.WaveDurationSeconds
+        self.FieldCleared = false
         if self.TimerId ~= 0 then
             _TimerService:ClearTimer(self.TimerId)
         end

@@ -5,6 +5,10 @@ script BattlefieldProgressHUDController extends Logic
     property TextGUIRendererComponent waveBadge = "3de6307c-3fbf-49aa-838b-eed52d920f84"
     property UITransformComponent fillTransform = "45374010-365f-45f6-90b9-383c6ac210f9"
     property TextGUIRendererComponent countText = "adef6757-d807-486e-8c7a-b48334a72d45"
+    -- 2026-08-19 유저 요청 - "전체 진행도"(고정 5웨이브 중 몇 웨이브째)와 기존 "웨이브 진행도"(이번
+    -- 웨이브 처치수/목표) 2종 게이지를 함께 표시. 바인딩 UUID는 UIBuilder write(bind=...)로 주입.
+    property TextGUIRendererComponent overallBadge = "649489dc-32fc-4a81-8031-f8d8c859e202"
+    property UITransformComponent overallFillTransform = "47881c69-9ba6-418e-b628-487820f76d31"
     property number fullWidth = 360
     property any timerId = nil
 
@@ -58,6 +62,24 @@ script BattlefieldProgressHUDController extends Logic
         local size = self.fillTransform.RectSize
         self.fillTransform.RectSize = Vector2(self.fullWidth * ratio, size.y)
         self.countText.Text = tostring(spawner.WaveKillCount) .. " / " .. tostring(spawner.WaveKillTarget)
+
+        -- 전체 진행도(고정 5웨이브 중 완료한 웨이브 수) - 클리어 상태면 꽉 채우고 배지 문구를 바꾼다.
+        local maxWave = spawner.MaxWaveNumber
+        local completedWaves = spawner.WaveNumber - 1
+        if spawner.FieldCleared then
+            completedWaves = maxWave
+        end
+        local overallRatio = 0
+        if maxWave > 0 then
+            overallRatio = math.max(0, math.min(1, completedWaves / maxWave))
+        end
+        local overallSize = self.overallFillTransform.RectSize
+        self.overallFillTransform.RectSize = Vector2(self.fullWidth * overallRatio, overallSize.y)
+        if spawner.FieldCleared then
+            self.overallBadge.Text = "토벌 완료!"
+        else
+            self.overallBadge.Text = "전체 진행도 " .. tostring(spawner.WaveNumber) .. " / " .. tostring(maxWave)
+        end
     end
 
 end
