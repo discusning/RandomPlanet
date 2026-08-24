@@ -19,6 +19,11 @@ script BattlefieldProgressHUDController extends Logic
     property UITransformComponent bossFillTransform = "b1cd0405-c923-40de-a3cd-3f5ba5b8d36d"
     property TextGUIRendererComponent bossHpText = "06195ba6-9ee0-4f63-9463-c54670b19536"
     property number bossFullWidth = 420
+    -- RoR2 텔레포터 이벤트 참고(2026-08-24, 시장 비교 검토) - 미니보스 스폰 순간 카메라 셰이크 +
+    -- 짧은 배너로 임팩트를 준다. Tick의 4Hz 폴링에서 FieldWaveSpawner.MiniBossSpawnSerial이 마지막
+    -- 관측값과 달라진 순간을 "방금 스폰됨" 엣지로 감지(별도 이벤트/RPC 불필요).
+    property Entity bossBanner = "f972453d-e182-4d54-a91e-40ff76215300"
+    @HideFromInspector property integer lastBossSerial = -1
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -102,6 +107,33 @@ script BattlefieldProgressHUDController extends Logic
             local bossSize = self.bossFillTransform.RectSize
             self.bossFillTransform.RectSize = Vector2(self.bossFullWidth * bossRatio, bossSize.y)
             self.bossHpText.Text = tostring(math.floor(spawner.MiniBossHp)) .. " / " .. tostring(math.floor(maxHp))
+        end
+
+        -- 보스 등장 연출 - 시리얼이 마지막으로 본 값과 달라진 첫 틱에만 1회 발동(스폰 순간의
+        -- 카메라 셰이크 + 배너, RoR2 텔레포터 이벤트 참고). lastBossSerial=-1(최초 진입)일 때는
+        -- 발동시키지 않는다 - 이미 스폰돼 있던 보스와 함께 입장한 경우(재접속 등) 매번 셰이크가
+        -- 뜨는 것을 방지.
+        local serial = spawner.MiniBossSpawnSerial
+        if self.lastBossSerial >= 0 and serial > self.lastBossSerial then
+            self:PlayBossEntranceFx()
+        end
+        self.lastBossSerial = serial
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PlayBossEntranceFx()
+        log("BattlefieldProgressHUD: PlayBossEntranceFx triggered (serial=" .. self.lastBossSerial .. ")")
+        local cam = _CameraService:GetCurrentCameraComponent()
+        if isvalid(cam) then
+            cam:ShakeCamera(1.2, 0.5)
+        end
+        if isvalid(self.bossBanner) then
+            self.bossBanner.Enable = true
+            _TimerService:SetTimerOnce(function()
+                if isvalid(self.bossBanner) then
+                    self.bossBanner.Enable = false
+                end
+            end, 2.0)
         end
     end
 

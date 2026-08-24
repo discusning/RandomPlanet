@@ -6,6 +6,12 @@ script EndingUIController extends Logic
     property TextGUIRendererComponent killText = "575c07cd-f82c-4e5b-ab4d-5726688bec25"
     property TextGUIRendererComponent survivalText = "6fcb7650-1dd2-4a83-9621-cc9e37957686"
     property Entity restartButton = "8f06f937-452d-4e1b-b3c9-c81a6594a5e8"
+    -- 시장 비교 검토(2026-08-25, Dead Cells/RoR2 런 종료 리포트 + Rogue Legacy/Vampire Survivors
+    -- 개인 최고 기록 참고) - 도달 웨이브·클리어 여부 + 계정 내 최고 기록 표시. 바인딩은
+    -- msw_ui_builder write(bind=...)로 주입.
+    property TextGUIRendererComponent waveText = "5632ce2d-4988-4864-a874-29fbd202b53d"
+    property TextGUIRendererComponent bestRecordText = "5095f09d-c013-4a78-bac3-d66cbd608f81"
+    property Entity newRecordBadge = "17c537ba-394c-45ad-8c68-5fae8b0a6354"
 
     @HideFromInspector property any restartHandler = nil
 
@@ -27,7 +33,7 @@ script EndingUIController extends Logic
     end
 
     @ExecSpace("ClientOnly")
-    method void ShowEnding(integer level, integer killCount, number survivalSeconds)
+    method void ShowEnding(integer level, integer killCount, number survivalSeconds, integer waveReached, boolean fieldCleared)
         -- Called from PlayerStatsComponent.OnSyncProperty when the local player's RunEnded flips to
         -- true (Phase 4 permadeath). Freezes the on-screen stats - the underlying PlayerStatsComponent
         -- fields keep existing after this, so we snapshot into text here rather than re-reading live.
@@ -43,10 +49,41 @@ script EndingUIController extends Logic
             local seconds = totalSeconds % 60
             self.survivalText.Text = "생존 " .. string.format("%02d:%02d", minutes, seconds)
         end
+        if isvalid(self.waveText) then
+            if fieldCleared then
+                self.waveText.Text = "토벌 완료! (전 웨이브 클리어)"
+            elseif waveReached > 0 then
+                self.waveText.Text = "도달 웨이브 " .. waveReached
+            else
+                self.waveText.Text = ""
+            end
+        end
+        if isvalid(self.newRecordBadge) then
+            self.newRecordBadge.Enable = false
+        end
+        if isvalid(self.bestRecordText) then
+            self.bestRecordText.Text = "최고 기록 불러오는 중..."
+        end
         if isvalid(self.endingGroup) then
             self.endingGroup.Enable = true
         end
-        log("EndingUI: ShowEnding level=" .. level .. " kills=" .. killCount .. " survivalSeconds=" .. string.format("%.1f", survivalSeconds))
+        log("EndingUI: ShowEnding level=" .. level .. " kills=" .. killCount .. " survivalSeconds=" .. string.format("%.1f", survivalSeconds) .. " waveReached=" .. waveReached .. " fieldCleared=" .. tostring(fieldCleared))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ShowBestRecord(boolean isNewLevel, boolean isNewKillCount, boolean isNewSurvival, integer bestLevel, integer bestKillCount, number bestSurvivalSeconds)
+        -- BestRecordLogic.OnBestResult가 호출(서버 왕복 후 - ShowEnding보다 약간 늦게 도착하는 게
+        -- 정상, 팝업이 이미 뜬 상태에서 이 줄만 채워 넣는다).
+        if isvalid(self.bestRecordText) then
+            local totalSeconds = math.floor(math.max(0, bestSurvivalSeconds))
+            local minutes = math.floor(totalSeconds / 60)
+            local seconds = totalSeconds % 60
+            self.bestRecordText.Text = "최고 기록 - Lv." .. bestLevel .. " / 처치 " .. bestKillCount .. "마리 / 생존 " .. string.format("%02d:%02d", minutes, seconds)
+        end
+        if isvalid(self.newRecordBadge) then
+            self.newRecordBadge.Enable = isNewLevel or isNewKillCount or isNewSurvival
+        end
+        log("EndingUI: ShowBestRecord newLevel=" .. tostring(isNewLevel) .. " newKillCount=" .. tostring(isNewKillCount) .. " newSurvival=" .. tostring(isNewSurvival) .. " bestLevel=" .. bestLevel .. " bestKillCount=" .. bestKillCount)
     end
 
     @ExecSpace("ClientOnly")

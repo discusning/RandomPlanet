@@ -34,6 +34,10 @@ script FieldWaveSpawner extends Component
     @Sync @HideFromInspector property boolean MiniBossActive = false
     @Sync @HideFromInspector property number MiniBossHp = 0
     @HideFromInspector property boolean MiniBossSpawned = false
+    -- RoR2 텔레포터 이벤트/보스 등장 연출 참고(2026-08-24, 시장 비교 검토) - 카메라 셰이크+배너를
+    -- 클라이언트에 알리기 위한 엣지 감지용 시리얼(HUD의 4Hz 폴링이 "직전 값과 달라졌는가"만으로
+    -- "방금 스폰됐다"를 감지 - RPC/이벤트 브로드캐스트 없이 기존 폴링 인프라 그대로 재사용).
+    @Sync @HideFromInspector property integer MiniBossSpawnSerial = 0
 
     @HideFromInspector property integer TimerId = 0
     -- 카오스 던전 참고 - "웨이브 N" + "작전 진행도"(처치수/목표) 두 값 모두 클라이언트 HUD가
@@ -152,6 +156,7 @@ script FieldWaveSpawner extends Component
         self._T.miniBossEntity = e
         self.MiniBossActive = true
         self.MiniBossHp = self.MiniBossMaxHp
+        self.MiniBossSpawnSerial = self.MiniBossSpawnSerial + 1
         log("FieldWaveSpawner(" .. self.ModelId .. "): miniboss spawned name=" .. self.MiniBossName .. " hp=" .. self.MiniBossMaxHp .. " atk=" .. self.MiniBossAttackDamage)
     end
 

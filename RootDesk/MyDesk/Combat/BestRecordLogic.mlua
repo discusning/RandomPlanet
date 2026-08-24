@@ -1,0 +1,54 @@
+@Logic
+script BestRecordLogic extends Logic
+    -- 계정 단위 "내 최고 기록" (2026-08-25, 시장 비교 검토 - Rogue Legacy/Vampire Survivors가 매 런
+    -- 종료 시 계정 내 최고 기록 갱신 여부를 뚜렷하게 보여주는 것 참고). 전역 리더보드(GDD §8, M2
+    -- 이연)와는 다른 개념 - 다른 유저와 비교하지 않는 순수 개인 기록이라 새 시스템 없이 기존
+    -- RestGaugeLogic과 동일한 계정 UserDataStorage 패턴만 재사용. 레벨/처치수/생존시간을 각각
+    -- 독립적으로 갱신(하나의 런이 셋 다 갱신할 필요 없음 - 예: 오래 버텼지만 레벨은 낮았던 런도
+    -- "생존시간 신기록"으로 인정).
+    property string StorageName = "BestRecord"
+
+    @ExecSpace("Server")
+    method void RequestSubmitRun(integer level, integer killCount, number survivalSeconds)
+        -- 클라이언트(PlayerStatsComponent.OnSyncProperty, RunEnded 처리 직후)가 호출.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local profileCode = player.PlayerComponent.ProfileCode
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local errorCode, raw = storage:GetAndWait(self.StorageName)
+
+        local bestLevel, bestKillCount, bestSurvivalSeconds = 0, 0, 0
+        if errorCode == 0 and raw ~= nil and raw ~= "" then
+            local decoded = _HttpService:JSONDecode(raw)
+            bestLevel = decoded.level or 0
+            bestKillCount = decoded.killCount or 0
+            bestSurvivalSeconds = decoded.survivalSeconds or 0
+        end
+
+        local isNewLevel = level > bestLevel
+        local isNewKillCount = killCount > bestKillCount
+        local isNewSurvival = survivalSeconds > bestSurvivalSeconds
+        local newBestLevel = math.max(level, bestLevel)
+        local newBestKillCount = math.max(killCount, bestKillCount)
+        local newBestSurvivalSeconds = math.max(survivalSeconds, bestSurvivalSeconds)
+
+        if isNewLevel or isNewKillCount or isNewSurvival then
+            local json = _HttpService:JSONEncode({ level = newBestLevel, killCount = newBestKillCount, survivalSeconds = newBestSurvivalSeconds })
+            storage:SetAsync(self.StorageName, json, function(saveErrorCode, key)
+                if saveErrorCode ~= 0 then
+                    log_error("BestRecord: SetAsync failed, errorCode=" .. tostring(saveErrorCode))
+                end
+            end)
+        end
+        log("BestRecord: RequestSubmitRun level=" .. level .. " killCount=" .. killCount .. " survivalSeconds=" .. string.format("%.1f", survivalSeconds) .. " -> newLevel=" .. tostring(isNewLevel) .. " newKillCount=" .. tostring(isNewKillCount) .. " newSurvival=" .. tostring(isNewSurvival))
+        self:OnBestResult(isNewLevel, isNewKillCount, isNewSurvival, newBestLevel, newBestKillCount, newBestSurvivalSeconds)
+    end
+
+    @ExecSpace("Client")
+    method void OnBestResult(boolean isNewLevel, boolean isNewKillCount, boolean isNewSurvival, integer bestLevel, integer bestKillCount, number bestSurvivalSeconds)
+        _EndingUIController:ShowBestRecord(isNewLevel, isNewKillCount, isNewSurvival, bestLevel, bestKillCount, bestSurvivalSeconds)
+    end
+
+end

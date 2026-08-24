@@ -36,6 +36,12 @@ script PlayerStatsComponent extends Component
     @Sync property integer EndedLevel = 0
     @Sync property integer EndedKillCount = 0
     @Sync property number EndedSurvivalSeconds = 0
+    -- 시장 비교 검토(2026-08-25, Dead Cells/RoR2 런 종료 리포트 참고) - "어디까지 갔는지"를 더
+    -- 구체적으로 보여주기 위한 2개 필드. 별도 추적 인프라 없이, 사망은 항상 전장 안에서만 일어나므로
+    -- (PlayerHit이 몬스터 접촉 피격에서만 트리거) 사망 시점에 현재 맵의 FieldWaveSpawner를 그대로
+    -- 읽기만 하면 된다.
+    @Sync property integer EndedWaveReached = 0
+    @Sync property boolean EndedFieldCleared = false
 
     -- 1차 특성(MVP 6종, CharacterSelectStageController.InitRandomPools의 traitPool과 매칭) - 2026-08-16
     -- 유저 요청으로 순수 표시문구에서 실제 효과로 승격, 전투력(CP, CharacterInfoUIController) 산식에도
@@ -99,6 +105,8 @@ script PlayerStatsComponent extends Component
         self.RunStartElapsed = _UtilLogic.ElapsedSeconds
         self.KillCount = 0
         self.RunEnded = false
+        self.EndedWaveReached = 0
+        self.EndedFieldCleared = false
         self:RecalculateDerived()
         self:UpdateZoneState()
         log("PlayerStats: ApplyStats str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " level=" .. self.Level .. " trait=" .. self.Trait)
@@ -275,6 +283,16 @@ script PlayerStatsComponent extends Component
         self.EndedLevel = self.Level
         self.EndedKillCount = self.KillCount
         self.EndedSurvivalSeconds = _UtilLogic.ElapsedSeconds - self.RunStartElapsed
+        -- 사망은 항상 전장(토벌전장) 안에서만 일어나므로(PlayerHit이 몬스터 접촉 피격에서만
+        -- 트리거) 현재 맵의 FieldWaveSpawner를 그대로 읽는다 - 별도 추적 필드 불필요.
+        local map = self.Entity.CurrentMap
+        if isvalid(map) then
+            local spawner = map:GetComponent("script.FieldWaveSpawner")
+            if isvalid(spawner) then
+                self.EndedWaveReached = spawner.WaveNumber
+                self.EndedFieldCleared = spawner.FieldCleared
+            end
+        end
         local controller = self.Entity.PlayerControllerComponent
         if isvalid(controller) then
             controller.Enable = false
@@ -296,7 +314,9 @@ script PlayerStatsComponent extends Component
         -- land first.
         if name == "RunEnded" and value == true then
             _TimerService:SetTimerOnce(function()
-                _EndingUIController:ShowEnding(self.EndedLevel, self.EndedKillCount, self.EndedSurvivalSeconds)
+                if not isvalid(self.Entity) then return end
+                _EndingUIController:ShowEnding(self.EndedLevel, self.EndedKillCount, self.EndedSurvivalSeconds, self.EndedWaveReached, self.EndedFieldCleared)
+                _BestRecordLogic:RequestSubmitRun(self.EndedLevel, self.EndedKillCount, self.EndedSurvivalSeconds)
             end, 0.1)
         elseif name == "AbilityChoicePending" and value == true then
             -- 같은 이유(위 RunEnded 주석 참고)로 형제 @Sync 필드(PendingTraitPreview)가 아직
