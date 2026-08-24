@@ -54,10 +54,8 @@ script PlayerStatsComponent extends Component
     -- 반영되므로 체력이 낮을수록 전투력 수치도 함께 오른다("살수록 약해지고 다치수록 강해진다").
     @Sync property number BerserkDamageBonusPercent = 0
     @HideFromInspector property number BaseAttackDamage = 0
-    -- 버서크 자해 DoT 튜닝값 - 1초마다 최대체력의 이 비율만큼 깎이되, 최대체력의 25% 밑으로는
-    -- 내려가지 않는다(예전엔 Hp가 1까지 깎여 사실상 상시 빈사 상태였음 - 유저 피드백으로 바닥 추가).
-    @HideFromInspector property number BerserkDrainPercent = 0.03
-    @HideFromInspector property number BerserkHpFloorPercent = 0.25
+    -- 버서크 공격력 보너스 계수 - 실제로 몬스터에게 맞아 깎인 체력 비율에 곱해진다(BerserkTick 참고).
+    @HideFromInspector property number BerserkBonusCoef = 0.6
     @HideFromInspector property integer BerserkTimerId = 0
     -- 마을(안전지대) 자동 체력/마나 회복 - 특성과 무관하게 전원 적용. 1초마다 최대치의 이 비율만큼
     -- 회복(유저 요청: "Hp도 마을에서는 자동으로 회복되게 해줘" -> "MP도 마을에서는 자동으로
@@ -124,6 +122,16 @@ script PlayerStatsComponent extends Component
         -- 특성/조건과 무관하게 모든 몬스터 처치가 사실상 즉시 풀피 회복으로 보였다. 실제로 레벨업이
         -- 일어난 킬에서만 호출하도록 수정 - "레벨업 시 완전 회복"은 그대로 유지, "모든 킬마다 회복"만
         -- 제거.
+        --
+        -- 상인(1차 특성) - 2026-08-25까지 완전히 비활성이었다(원래 의도인 "아이템 드랍률"은 이
+        -- 프로젝트에 루팅 시스템 자체가 없어 구현 불가 - SkillCatalog 스타일 comment 관례대로
+        -- 정직하게 비워뒀었음). 이번 특성 전수 재점검(버서크 자해 DoT 리포트 계기)에서 "상인만
+        -- 유일하게 숫자 하나도 안 바뀌는 특성"으로 확인돼, 정보력/시세 감각이라는 캐릭터 컨셉에
+        -- 맞는 임시 대체 효과로 처치 경험치 +20%를 부여 - 실제 루팅 시스템이 생기면 그쪽으로
+        -- 이전하는 게 정석(다른 특성들의 "실제 파이프라인 생기면 이전" 패턴과 동일).
+        if self.Trait == "상인" then
+            amount = math.floor(amount * 1.2)
+        end
         self.CurrentXp = self.CurrentXp + amount
         local leveledUp = false
         local levelsGained = 0
@@ -448,8 +456,8 @@ script PlayerStatsComponent extends Component
             self:StartBerserkTimer()
         else
             self:StopBerserkTimer()
-            -- 안전지대에서는 자해로 깎인 공격력 보정을 즉시 되돌려 항상 기본 공격력으로 되돌아오게
-            -- 한다(전투 지형에서 빠져나온 순간 페널티만 남아있는 것을 방지).
+            -- 안전지대에서는 반응형 공격력 보정을 즉시 되돌려 항상 기본 공격력으로 되돌아오게
+            -- 한다(전투 지형에서 빠져나온 순간 직전 체력 비율 기준 보너스만 남아있는 것을 방지).
             self.BerserkDamageBonusPercent = 0
             local attack = self.Entity:GetComponent("script.PlayerAttack")
             if isvalid(attack) then
@@ -493,22 +501,26 @@ script PlayerStatsComponent extends Component
 
     @ExecSpace("ServerOnly")
     method void BerserkTick()
-        -- 실제 경과 1초마다 정확히 한 번 호출된다(예전엔 OnUpdate의 delta 누적이 Maker Play 세션에서
-        -- 비정상적으로 빨리 흘러 - 실측 5초 만에 Hp 98->1 - 순식간에 빈사 상태가 됐던 문제를
-        -- SetTimerRepeat 기반으로 교체해 해결). 최대체력의 3%를 깎되 25% 밑으로는 내려가지 않아
-        -- 상시 1까지 몰리는 대신 일정 수준에서 안정된다. 체력 비율에 반비례해 공격력을 끌어올리는
-        -- 것(최대 +37.5%, 바닥 25%일 때)은 기존과 동일 - BaseAttackDamage(RecalculateDerived가 매번
-        -- 갱신) 기준으로 매번 곱해서 세팅하므로 스탯 재계산과 충돌하거나 값이 누적 드리프트하지 않는다.
+        -- 2026-08-25 재설계 (유저 실전 리포트 "버서크가 사실상 못 쓸 정도의 쓰레기" + 직접 시뮬레이션
+        -- 검증) - 기존엔 매초 최대체력의 3%를 자기 자신에게 실제로 깎는 자해 DoT였다(바닥 25%). 동일
+        -- 몬스터 압박(1.5초마다 10데미지 단일 몬스터 기준)에서 무특성 대비 실제 생존 시간을 시뮬레이션한
+        -- 결과 버서크만 20틱 중 14틱에 사망(무특성/균형/날렵함/절약가는 전부 20틱 끝까지 생존,
+        -- 단단함은 20틱째 60%나 남김) - 자해로 미리 깎아먹은 체력이 실제 몬스터 피해를 버틸 완충
+        -- 여력을 줄여, 공격력 보너스가 보상하기도 전에 죽는 순생존시간 손해였다(퍼머데스라 이 손해가
+        -- 특히 치명적 - "다른 특성보다 약하다"가 아니라 "특성이 없는 것보다도 못하다"는 게 문제).
+        --
+        -- 자해 DoT를 완전히 제거하고, 실제로 몬스터에게 맞아 깎인 체력 비율에 비례해 실시간으로
+        -- 공격력이 오르는 순수 반응형 방식으로 재설계 - 자기 체력을 스스로 깎지 않으므로 다른
+        -- 특성보다 생존이 나빠지는 경우가 구조적으로 없어졌다("다치수록 강해진다"는 플레이버는
+        -- 유지, "살수록 약해진다"는 자해였던 부분이라 제거). BaseAttackDamage(RecalculateDerived가
+        -- 매번 갱신) 기준으로 매번 곱해서 세팅하므로 스탯 재계산과 충돌하거나 값이 누적 드리프트하지
+        -- 않는다.
         local player = self.Entity.PlayerComponent
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 then return end
 
-        local floor = player.MaxHp * self.BerserkHpFloorPercent
-        if player.Hp > floor then
-            player.Hp = math.max(floor, player.Hp - player.MaxHp * self.BerserkDrainPercent)
-        end
-        local hpRatio = player.Hp / player.MaxHp
-        self.BerserkDamageBonusPercent = (1 - hpRatio) * 0.5
+        local hpRatio = math.max(0, player.Hp) / player.MaxHp
+        self.BerserkDamageBonusPercent = (1 - hpRatio) * self.BerserkBonusCoef
         attack.AttackDamage = self.BaseAttackDamage * (1 + self.BerserkDamageBonusPercent)
     end
 

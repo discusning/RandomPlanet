@@ -77,8 +77,8 @@ script AbilityChoiceUIController extends Logic
     method string TraitBlurb(string trait)
         -- Mirrors Equipment/CharacterInfoUIController.TraitDesc's short blurbs (kept local - this
         -- controller doesn't have a reference to that UI's entity, and the text is display-only).
-        if trait == "상인" then return "아이템 드랍률 2배 (루팅 미구현으로 비활성)"
-        elseif trait == "버서크" then return "체력 낮을수록 공격력↑ + 타격 시 흡혈"
+        if trait == "상인" then return "처치 경험치 +20% (드랍률 효과는 루팅 시스템 도입 후 적용 예정)"
+        elseif trait == "버서크" then return "실제로 맞아서 체력이 깎일수록 공격력↑ (최대 +60%, 자해 없음)"
         elseif trait == "단단함" then return "전투력 생존 배율 +12%"
         elseif trait == "날렵함" then return "이동 속도 +0.6"
         elseif trait == "균형" then return "STR/DEX/INT/LUK 전부 +1"

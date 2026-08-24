@@ -122,10 +122,20 @@ script CharacterRosterLogic extends Logic
         -- Daily creation limit reset. Before persistence existed, dailyRemaining naturally reset to
         -- 6 every Play session (pure in-memory state) - now that it survives via DataStorage, without
         -- this check a player who ever creates 6 characters total would be locked out of creation
-        -- forever. Compare against real UTC calendar date (server-authoritative, can't be spoofed by
-        -- client clock) rather than session count.
-        local now = DateTime.UtcNow
-        local today = string.format("%04d-%02d-%02d", now.Year, now.Month, now.Day)
+        -- forever. Compare against a calendar date derived from the server clock (server-authoritative,
+        -- can't be spoofed by client clock) rather than session count.
+        --
+        -- QA finding (2026-08-25, user report) - "지난 자정이 지났는데도 생성 횟수가 초기화 안 됨".
+        -- The original check used DateTime.UtcNow's raw Y/M/D directly, i.e. the day rolled over at
+        -- UTC midnight = 09:00 KST - a KST player who checks anytime between their own local midnight
+        -- (00:00 KST) and 09:00 KST sees the *previous* UTC day still, so the reset silently doesn't
+        -- fire for up to 9 hours after their real midnight. This project's players are KST (SourceLanguage
+        -- ko), so shift the clock by KST's fixed +9:00 UTC offset before reading Y/M/D, so "today" rolls
+        -- over at 00:00 KST instead of 00:00 UTC. Still fully server-authoritative (only the display/
+        -- comparison offset changes, not the underlying clock source).
+        local KST_OFFSET = TimeSpan.FromHours(9)
+        local kstNow = DateTime.UtcNow + KST_OFFSET
+        local today = string.format("%04d-%02d-%02d", kstNow.Year, kstNow.Month, kstNow.Day)
         if lastResetDate ~= today then
             dailyRemaining = 6
             lastResetDate = today

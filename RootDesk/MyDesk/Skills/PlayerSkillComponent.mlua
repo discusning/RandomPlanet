@@ -19,6 +19,13 @@ script PlayerSkillComponent extends Component
     @Sync property string AtkSkill4 = ""
     @Sync property string EquippedSkillId = ""
     @Sync @HideFromInspector property number LastUseTime = -999
+    -- 2번 스킬 슬롯 (2026-08-25, 유저 요청 - "스킬 관련 세팅이 더 진화된 모습으로... 자유도를
+    -- 올리고" - 기존엔 슬롯이 1개(Q)뿐이라 버프와 공격 스킬을 동시에 쓸 수 없었다. Q(EquippedSkillId)는
+    -- 항상 공격 카테고리, W(EquippedSkillId2)는 항상 버프 카테고리로 고정해 "공격 키 + 버프 키를
+    -- 동시에 장착"하는 실제 메이플스토리식 다중 스킬 키 구조에 가깝게 만든다 - 스킬창에서 장착 버튼을
+    -- 누르면 그 스킬의 카테고리에 따라 자동으로 맞는 슬롯에 들어간다(RequestSetEquippedSkill).
+    @Sync property string EquippedSkillId2 = ""
+    @Sync @HideFromInspector property number LastUseTime2 = -999
     -- 2026-08-19 유저 요청 - "버프 유지 시간이 전혀 안 보인다". 원인은 이 3개가 @Sync가 아니라서
     -- 클라이언트가 애초에 값을 읽을 수 없었던 것 - PlayerHUDController가 이 값들로 남은 시간을
     -- 표시한다(BuffExpireTime - _UtilLogic.ServerElapsedSeconds, 스킬 쿨다운 표시와 동일 패턴).
@@ -65,6 +72,13 @@ script PlayerSkillComponent extends Component
             self.EquippedSkillId = self.AtkSkill1
         elseif self.BuffSkill1 ~= "" then
             self.EquippedSkillId = self.BuffSkill1
+        end
+        -- W(2번 슬롯)에는 버프 스킬을 처음부터 장착 - 공격(Q)과 버프(W)를 동시에 쓸 수 있게(위
+        -- EquippedSkillId2 선언부 주석 참고). 매번 스킬창에서 수동으로 바꿔 낄 필요가 없어져서
+        -- "약한 직업도 던전을 깰 수 있어야 한다"는 요청에도 실질적으로 기여한다 - 예전엔 버프를
+        -- 쓰려면 공격 스킬을 내려야 했다.
+        if self.BuffSkill1 ~= "" then
+            self.EquippedSkillId2 = self.BuffSkill1
         end
         log("PlayerSkill: GrantInitialSkill atk1=" .. self.AtkSkill1 .. " buff1=" .. self.BuffSkill1)
     end
@@ -132,11 +146,18 @@ script PlayerSkillComponent extends Component
     method void RequestSetEquippedSkill(string skillId)
         -- Client-invoked (skill window "장착" button). Only allows equipping an actually-owned
         -- skill - rejects a spoofed/unknown id silently (no error, just a no-op + log).
+        -- 2026-08-25: 카테고리로 슬롯 자동 분기 - 버프 스킬은 항상 2번 슬롯(W), 공격/대시 스킬은
+        -- 항상 1번 슬롯(Q)에 들어간다(EquippedSkillId2 선언부 주석 참고). 스킬창 UI는 버튼 하나
+        -- 그대로 두고 이 서버 로직만으로 "공격+버프 동시 장착"을 구현 - 클라이언트 쪽 변경 불필요.
         local owned = self:GetOwnedSkillIds()
         for _, entry in ipairs(owned) do
             if entry.id == skillId then
-                self.EquippedSkillId = skillId
-                log("PlayerSkill: equipped " .. skillId)
+                if entry.category == "buff" then
+                    self.EquippedSkillId2 = skillId
+                else
+                    self.EquippedSkillId = skillId
+                end
+                log("PlayerSkill: equipped " .. skillId .. " slot=" .. (entry.category == "buff" and "2(W)" or "1(Q)"))
                 return
             end
         end
@@ -404,10 +425,30 @@ script PlayerSkillComponent extends Component
     method void DoDash(table def)
         local body = self.Entity.RigidbodyComponent
         local controller = self.Entity.PlayerControllerComponent
-        if not isvalid(body) or not isvalid(controller) then return end
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        local transform = self.Entity.TransformComponent
+        if not isvalid(body) or not isvalid(controller) or not isvalid(attack) or not isvalid(transform) then return end
         local dir = controller.LookDirectionX
         if dir == 0 then dir = 1 end
         body:AddForce(Vector2(dir * def.force, 0))
+
+        -- 2026-08-25 밸런스 - 대시에 실제 돌진 판정 데미지 추가(SkillCatalog 주석 참고, 해적 1차
+        -- 공격 슬롯에 데미지 스킬이 하나도 없었던 문제 수정). AddForce와 같은 프레임에 즉시 판정 -
+        -- 다른 근접 스킬처럼 타격 지연(DispatchSkill의 impactDelay)을 주면 이미 몸으로 부딪혀
+        -- 지나간 뒤에 뒤늦게 맞는 것처럼 보여 "이펙트와 모션이 안 맞는다"는 지적을 그대로 재현하게
+        -- 된다 - 대시는 이동 자체가 곧 스윙이므로 즉시 판정이 맞다. 돌진 거리 전체를 덮도록 다른
+        -- 근접 스킬(1.5x1.4)보다 넓은 박스(2.4x1.4)를 사용.
+        local pos = transform.WorldPosition
+        local shape = BoxShape(Vector2(pos.x + 1.0 * dir, pos.y + 0.5), Vector2(2.4, 1.4), 0)
+        local originalDamage = attack.AttackDamage
+        attack.AttackDamage = math.floor(originalDamage * def.coef)
+        attack:AttackFast(shape, "skill." .. def.id, CollisionGroups.Monster)
+        attack.AttackDamage = originalDamage
+
+        if def.hitVfxRuid ~= nil then
+            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, Vector3(pos.x + 1.0 * dir, pos.y + 0.5, pos.z), 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
+            log("PlayerSkill: " .. def.name .. " hit VFX serial=" .. tostring(serial))
+        end
 
         if def.dashVfxRuid ~= nil then
             -- Attached (not a fixed-position PlayEffect) so the clip travels with the caster during
