@@ -1,7 +1,7 @@
 @Logic
 script AbilityChoiceUIController extends Logic
 
-    property Entity abilityGroup = "6f1bafe2-2f34-4a16-9e29-372df142d059"
+    property Entity abilityGroup = "caeb32e7-260a-4481-ad3b-dd5687750930"
     property TextGUIRendererComponent traitDesc = "b44274ec-8619-48cf-8e82-776d041f5479"
     property Entity btnRedistribute = "1d5661b7-7843-4518-abf8-22a4a7c36027"
     property Entity btnBonus = "b488edec-e616-47d1-832e-072bfc9fbbd0"
