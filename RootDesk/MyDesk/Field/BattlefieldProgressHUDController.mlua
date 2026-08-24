@@ -12,6 +12,14 @@ script BattlefieldProgressHUDController extends Logic
     property number fullWidth = 360
     property any timerId = nil
 
+    -- 미니보스 HP바 (Phase 4, 2026-08-24) - 마지막 웨이브 클리어 후 FieldWaveSpawner.MiniBossActive가
+    -- 켜지는 동안에만 노출. 웨이브 진행도 게이지와 동일한 폴링(Tick) 패턴 재사용.
+    property Entity bossName = "3b07de42-7dad-4ff2-a8bc-86b4b2c2637a"
+    property Entity bossTrack = "9501d974-8fe7-40c6-adfd-32735611017b"
+    property UITransformComponent bossFillTransform = "b1cd0405-c923-40de-a3cd-3f5ba5b8d36d"
+    property TextGUIRendererComponent bossHpText = "06195ba6-9ee0-4f63-9463-c54670b19536"
+    property number bossFullWidth = 420
+
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         -- Hidden by default; Tick shows it only while the local player is actually standing in one
@@ -79,6 +87,21 @@ script BattlefieldProgressHUDController extends Logic
             self.overallBadge.Text = "토벌 완료!"
         else
             self.overallBadge.Text = "전체 진행도 " .. tostring(spawner.WaveNumber) .. " / " .. tostring(maxWave)
+        end
+
+        -- 미니보스 HP바 - MiniBossActive일 때만 노출(마지막 웨이브 클리어 후 등장, 처치하면 사라짐).
+        local bossOn = spawner.MiniBossActive
+        if isvalid(self.bossName) then self.bossName.Enable = bossOn end
+        if isvalid(self.bossTrack) then self.bossTrack.Enable = bossOn end
+        if bossOn then
+            local bossRatio = 0
+            local maxHp = spawner.MiniBossMaxHp
+            if maxHp > 0 then
+                bossRatio = math.max(0, math.min(1, spawner.MiniBossHp / maxHp))
+            end
+            local bossSize = self.bossFillTransform.RectSize
+            self.bossFillTransform.RectSize = Vector2(self.bossFullWidth * bossRatio, bossSize.y)
+            self.bossHpText.Text = tostring(math.floor(spawner.MiniBossHp)) .. " / " .. tostring(math.floor(maxHp))
         end
     end
 

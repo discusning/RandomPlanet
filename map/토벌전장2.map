@@ -2103,7 +2103,11 @@
               "AliveCapGrowthPerWave": 1,
               "@type": "script.FieldWaveSpawner",
               "BaseKillTarget": 10,
-              "KillTargetGrowthPerWave": 3
+              "KillTargetGrowthPerWave": 3,
+              "MiniBossMaxHp": 1100,
+              "MiniBossAttackDamage": 36,
+              "MiniBossInputSpeed": 1.35,
+              "MiniBossXpReward": 500
             }
           ],
           "@version": 1

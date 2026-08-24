@@ -1,0 +1,90 @@
+@Logic
+script AbilityChoiceUIController extends Logic
+
+    property Entity abilityGroup = "6f1bafe2-2f34-4a16-9e29-372df142d059"
+    property TextGUIRendererComponent traitDesc = "b44274ec-8619-48cf-8e82-776d041f5479"
+    property Entity btnRedistribute = "1d5661b7-7843-4518-abf8-22a4a7c36027"
+    property Entity btnBonus = "b488edec-e616-47d1-832e-072bfc9fbbd0"
+    property Entity btnTrait = "32b84484-10ee-4a6c-bb00-ef92dda0fe36"
+
+    @HideFromInspector property any redistributeHandler = nil
+    @HideFromInspector property any bonusHandler = nil
+    @HideFromInspector property any traitHandler = nil
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- Popup starts hidden - PlayerStatsComponent.OnSyncProperty calls ShowChoice() when the
+        -- server flips AbilityChoicePending true (레벨업 시 이능 3택1 팝업, Phase 3).
+        if isvalid(self.abilityGroup) then
+            self.abilityGroup.Enable = false
+        end
+        if isvalid(self.btnRedistribute) then
+            self.redistributeHandler = self.btnRedistribute:ConnectEvent(ButtonClickEvent, function() self:OnChoiceClicked("redistribute") end)
+        end
+        if isvalid(self.btnBonus) then
+            self.bonusHandler = self.btnBonus:ConnectEvent(ButtonClickEvent, function() self:OnChoiceClicked("bonus") end)
+        end
+        if isvalid(self.btnTrait) then
+            self.traitHandler = self.btnTrait:ConnectEvent(ButtonClickEvent, function() self:OnChoiceClicked("trait") end)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.redistributeHandler and isvalid(self.btnRedistribute) then
+            self.btnRedistribute:DisconnectEvent(ButtonClickEvent, self.redistributeHandler)
+        end
+        if self.bonusHandler and isvalid(self.btnBonus) then
+            self.btnBonus:DisconnectEvent(ButtonClickEvent, self.bonusHandler)
+        end
+        if self.traitHandler and isvalid(self.btnTrait) then
+            self.btnTrait:DisconnectEvent(ButtonClickEvent, self.traitHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ShowChoice(string currentTrait, string previewTrait)
+        -- Called from PlayerStatsComponent.OnSyncProperty (local player only - every other player's
+        -- PlayerStatsComponent.AbilityChoicePending is irrelevant to this client's UI). Fills the
+        -- "특성 변경" card with the actual before/after trait names + short effect blurb so the
+        -- choice isn't blind, then reveals the popup.
+        if isvalid(self.traitDesc) then
+            local desc = self:TraitBlurb(previewTrait)
+            self.traitDesc.Text = currentTrait .. " → " .. previewTrait .. "\n" .. desc
+        end
+        if isvalid(self.abilityGroup) then
+            self.abilityGroup.Enable = true
+        end
+        log("AbilityChoiceUI: ShowChoice current=" .. currentTrait .. " preview=" .. previewTrait)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnChoiceClicked(string choice)
+        -- Optimistic hide - the server resolves the choice and, if more level-ups are queued, syncs
+        -- AbilityChoicePending back to true a moment later (see PlayerStatsComponent.
+        -- MaybeOpenNextAbilityChoice's timer-deferred reopen), which re-triggers ShowChoice.
+        if isvalid(self.abilityGroup) then
+            self.abilityGroup.Enable = false
+        end
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return end
+        local stats = localPlayer:GetComponent("script.PlayerStatsComponent")
+        if not isvalid(stats) then return end
+        stats:RequestResolveAbilityChoice(choice)
+        log("AbilityChoiceUI: OnChoiceClicked choice=" .. choice)
+    end
+
+    method string TraitBlurb(string trait)
+        -- Mirrors Equipment/CharacterInfoUIController.TraitDesc's short blurbs (kept local - this
+        -- controller doesn't have a reference to that UI's entity, and the text is display-only).
+        if trait == "상인" then return "아이템 드랍률 2배 (루팅 미구현으로 비활성)"
+        elseif trait == "버서크" then return "체력 낮을수록 공격력↑ + 타격 시 흡혈"
+        elseif trait == "단단함" then return "전투력 생존 배율 +12%"
+        elseif trait == "날렵함" then return "이동 속도 +0.6"
+        elseif trait == "균형" then return "STR/DEX/INT/LUK 전부 +1"
+        elseif trait == "절약가" then return "스킬 MP 소모 30% 감소"
+        end
+        return ""
+    end
+
+end

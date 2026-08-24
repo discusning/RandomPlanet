@@ -61,6 +61,17 @@ script PlayerStatsComponent extends Component
     @HideFromInspector property number TownMpRegenPercent = 0.1
     @HideFromInspector property integer TownRegenTimerId = 0
 
+    -- 이능(Ability) 3택1 팝업 (Phase 3, 2026-08-24) - GDD §3 core loop "레벨업 시 3택1 이능 팝업
+    -- (스탯 재분배 / 추가 스탯 / 특성 변경)". 기존 레벨업 자동 +1×4 스탯 증가는 그대로 유지하고, 그
+    -- 위에 매 레벨업마다 추가 보너스를 주는 팝업을 얹는 설계 - 순수 상승분이라 기존 밸런스를
+    -- 깎지 않는다. PendingAbilityChoices는 큐(레벨업이 몰릴 때 팝업을 한 번에 하나씩만 띄우기 위함).
+    @Sync @HideFromInspector property boolean AbilityChoicePending = false
+    @Sync @HideFromInspector property integer PendingAbilityChoices = 0
+    -- "특성 변경" 선택 시 실제로 적용될 특성 - 팝업이 뜨는 시점에 미리 굴려서 클라이언트가 몇으로
+    --바뀌는지 보고 고를 수 있게 한다(블라인드 선택 방지).
+    @Sync @HideFromInspector property string PendingTraitPreview = ""
+    @HideFromInspector property integer BonusStatPoints = 3
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- Seeds sane combat defaults before the real roster stats arrive via ApplyStats
@@ -107,6 +118,7 @@ script PlayerStatsComponent extends Component
         -- 제거.
         self.CurrentXp = self.CurrentXp + amount
         local leveledUp = false
+        local levelsGained = 0
         while self.CurrentXp >= self.XpToNextLevel do
             self.CurrentXp = self.CurrentXp - self.XpToNextLevel
             self.Level = self.Level + 1
@@ -118,9 +130,112 @@ script PlayerStatsComponent extends Component
             log("PlayerStats: level up -> " .. self.Level)
             self:GrantSkillTierIfMilestone(self.Level)
             leveledUp = true
+            levelsGained = levelsGained + 1
         end
         if leveledUp then
             self:RecalculateDerived()
+            -- 이능 팝업 - 레벨업당 1회, 큐에 쌓아뒀다가 한 번에 하나씩만 띄운다(MaybeOpenNextAbilityChoice).
+            self.PendingAbilityChoices = self.PendingAbilityChoices + levelsGained
+            self:MaybeOpenNextAbilityChoice()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void MaybeOpenNextAbilityChoice()
+        -- 이미 팝업이 떠 있으면 스킵(한 번에 하나만) - RequestResolveAbilityChoice가 처리 후 다시 호출.
+        if self.AbilityChoicePending then return end
+        if self.PendingAbilityChoices <= 0 then return end
+        -- 직전 RequestResolveAbilityChoice 호출과 같은 프레임에 AbilityChoicePending을
+        -- false->true로 다시 뒤집으면 클라이언트에서 두 값이 하나의 @Sync 틱으로 합쳐질 위험이 있다
+        -- (이 프로젝트에 이미 여러 세션에 걸쳐 기록된 "같은 틱 @Sync 지연-가시성" 패턴 - 11차/17차
+        -- 세션 Gotchas 참고). 한 틱 늦춰서 별도 sync로 보낸다.
+        _TimerService:SetTimerOnce(function()
+            if not isvalid(self.Entity) then return end
+            if self.AbilityChoicePending or self.PendingAbilityChoices <= 0 then return end
+            self.PendingTraitPreview = self:RollDifferentTrait()
+            self.AbilityChoicePending = true
+            log("PlayerStats: MaybeOpenNextAbilityChoice pending=" .. self.PendingAbilityChoices .. " traitPreview=" .. self.PendingTraitPreview)
+        end, 0.1)
+    end
+
+    method string RollDifferentTrait()
+        -- CharacterSelectStageController.InitRandomPools의 traitPool과 동일한 6종 목록 - 현재
+        -- 특성과 다른 것이 나올 때까지 재추첨(항상 "변경"이 되도록, 같은 특성이 다시 나와 아무 일도
+        -- 안 일어난 것처럼 보이는 상황 방지).
+        local pool = { "상인", "버서크", "단단함", "날렵함", "균형", "절약가" }
+        if #pool <= 1 then return pool[1] end
+        local pick = pool[_UtilLogic:RandomIntegerRange(1, #pool)]
+        local guard = 0
+        while pick == self.Trait and guard < 20 do
+            pick = pool[_UtilLogic:RandomIntegerRange(1, #pool)]
+            guard = guard + 1
+        end
+        return pick
+    end
+
+    @ExecSpace("Server")
+    method void RequestResolveAbilityChoice(string choice)
+        -- 클라이언트(AbilityChoiceUIController)의 선택 버튼 클릭 → 서버 RPC. senderUserId로 자기
+        -- 자신의 엔티티에 대해서만 호출됐는지 검증(다른 플레이어 엔티티를 조작 못 하도록).
+        if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
+            return
+        end
+        if not self.AbilityChoicePending then
+            return
+        end
+        if choice == "redistribute" then
+            self:ApplyStatRedistribute()
+        elseif choice == "bonus" then
+            self:ApplyBonusStats()
+        elseif choice == "trait" then
+            self:ApplyTraitChange()
+        else
+            log_warning("PlayerStats: RequestResolveAbilityChoice unknown choice=" .. tostring(choice))
+            return
+        end
+        self.PendingAbilityChoices = math.max(0, self.PendingAbilityChoices - 1)
+        self.AbilityChoicePending = false
+        self:RecalculateDerived()
+        log("PlayerStats: RequestResolveAbilityChoice choice=" .. choice .. " -> str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " trait=" .. self.Trait .. " remainingPending=" .. self.PendingAbilityChoices)
+        self:MaybeOpenNextAbilityChoice()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyStatRedistribute()
+        -- "스탯 재분배" - 보유 스탯 총량은 유지한 채 4종에 무작위로 재분배(기획서 §2-5 원문 그대로).
+        -- 순수 변주용 선택지 - 순증가는 없지만 극단적인 몰빵 조합이 나올 수도 있는 도박성 옵션.
+        local total = self.Str + self.Dex + self.Intel + self.Luk
+        local vals = { 1, 1, 1, 1 }
+        local remaining = total - 4
+        for i = 1, remaining do
+            local idx = _UtilLogic:RandomIntegerRange(1, 4)
+            vals[idx] = vals[idx] + 1
+        end
+        self.Str = vals[1]
+        self.Dex = vals[2]
+        self.Intel = vals[3]
+        self.Luk = vals[4]
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyBonusStats()
+        -- "추가 스탯" - BonusStatPoints(3)를 4종 스탯에 1점씩 무작위로 배분(안전한 순증가 옵션).
+        for i = 1, self.BonusStatPoints do
+            local pick = _UtilLogic:RandomIntegerRange(1, 4)
+            if pick == 1 then self.Str = self.Str + 1
+            elseif pick == 2 then self.Dex = self.Dex + 1
+            elseif pick == 3 then self.Intel = self.Intel + 1
+            else self.Luk = self.Luk + 1
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyTraitChange()
+        -- "특성 변경" - 팝업이 뜰 때 이미 굴려둔 PendingTraitPreview를 그대로 적용(블라인드 아님,
+        -- 유저가 미리 보고 고른 값과 실제 적용값이 항상 일치해야 하므로 여기서 다시 굴리지 않는다).
+        if self.PendingTraitPreview ~= "" then
+            self.Trait = self.PendingTraitPreview
         end
     end
 
@@ -182,6 +297,13 @@ script PlayerStatsComponent extends Component
         if name == "RunEnded" and value == true then
             _TimerService:SetTimerOnce(function()
                 _EndingUIController:ShowEnding(self.EndedLevel, self.EndedKillCount, self.EndedSurvivalSeconds)
+            end, 0.1)
+        elseif name == "AbilityChoicePending" and value == true then
+            -- 같은 이유(위 RunEnded 주석 참고)로 형제 @Sync 필드(PendingTraitPreview)가 아직
+            -- 도착 전일 수 있어 한 틱 늦춰 읽는다.
+            _TimerService:SetTimerOnce(function()
+                if not isvalid(self.Entity) then return end
+                _AbilityChoiceUIController:ShowChoice(self.Trait, self.PendingTraitPreview)
             end, 0.1)
         end
     end
