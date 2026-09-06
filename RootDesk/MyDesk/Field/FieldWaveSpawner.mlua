@@ -20,6 +20,24 @@ script FieldWaveSpawner extends Component
     -- 클리어된다(GDD §3 core loop "미니보스 처치 → 클리어" 원안 반영, Phase 4).
     property integer MaxWaveNumber = 5
 
+    -- M2 Phase E(2026-09-06) - 몬스터 게이트(전체 기획서 §5-2). 이 컴포넌트가 붙은 전장(토벌전장3)을
+    -- "게이트 모드"로 전환하는 플래그 - 전용 맵을 새로 만들지 않고 기존 MapleTile 전장을 재사용한다
+    -- (GateTicketLogic.RequestEnterGate 참고). 필드가 비어 초기화될 때(ResetField) 함께 꺼진다.
+    @Sync @HideFromInspector property boolean IsGateMode = false
+    property number GateStatMultiplier = 3.0
+    property number GateAliveMultiplier = 2.0
+    -- "몬스터가 좌·우 양쪽에서 조여옴" - 웨이브가 진행될수록 좌우 스폰 X가 중앙으로 수렴한다.
+    property number GateConvergePerWave = 1.0
+    property number GateMaxConverge = 4.0
+    -- "종료 지점에 게이트 보스 등장" - 마지막 웨이브의 미니보스 스폰 로직(SpawnMiniBoss)을 그대로
+    -- 재사용하되 게이트 모드일 때만 스탯 배율을 곱한다(별도 보스 모델 불필요).
+    -- "보상: 이능 재선택권, 고급 스탯 구슬" - GrantGateClearRewards가 처리.
+    property number GateTicketDropChance = 0.2
+
+    -- M2 Phase F(2026-09-06) - 난이도 4단계 스케일(전체 기획서 §5-1). 1=하급/2=중급/3=상급/4=최상급.
+    -- 게이트 모드가 아닌 일반 전장 입장에만 적용된다(게이트는 자체 3배/2배 스케일을 따로 가짐).
+    @Sync @HideFromInspector property integer DifficultyTier = 1
+
     -- 미니보스(Phase 4, 2026-08-24) - `FieldMiniBoss.model`(킹슬라임) 1종을 전장별로 스탯만 다르게
     -- 스폰(모델 자체의 기본값은 전장1 기준, 전장2/3은 이 프로퍼티들을 배치 시 오버라이드).
     property string MiniBossModelId = "fieldminiboss"
@@ -107,6 +125,31 @@ script FieldWaveSpawner extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void SetGateMode(boolean enabled)
+        -- GateTicketLogic.RequestEnterGate가 텔레포트 직전에 호출한다.
+        self.IsGateMode = enabled
+        log("FieldWaveSpawner(" .. self.ModelId .. "): gate mode set to " .. tostring(enabled))
+    end
+
+    method number GetStatMultiplier()
+        -- 게이트 모드와 난이도 스케일은 서로 배타적으로 취급한다(§5-1/§5-2가 별개 시스템으로
+        -- 명시돼 있음) - 게이트 모드가 켜져 있으면 항상 게이트 배율(3배)을 우선한다.
+        if self.IsGateMode then
+            return self.GateStatMultiplier
+        end
+        local mult = { 1.0, 1.5, 2.25, 3.4 }
+        return mult[self.DifficultyTier] or 1.0
+    end
+
+    method number GetRewardMultiplier()
+        if self.IsGateMode then
+            return self.GateStatMultiplier
+        end
+        local mult = { 1.0, 1.4, 2.0, 2.8 }
+        return mult[self.DifficultyTier] or 1.0
+    end
+
+    @ExecSpace("ServerOnly")
     method void AdvanceOrClear()
         -- 마지막 웨이브(처치 목표 달성이든 타이머 만료든)는 다음 웨이브로 넘어가는 대신 미니보스를
         -- 소환한다 - 전장은 미니보스를 처치해야 클리어된다(§ MiniBoss 주석 참고).
@@ -139,15 +182,22 @@ script FieldWaveSpawner extends Component
             self.MiniBossSpawned = false
             return
         end
+        -- 게이트 모드/난이도 스케일을 보스에도 동일하게 적용(§5-1/§5-2) - 일반 미니보스와 같은
+        -- 모델을 재사용하되 스탯만 배율만큼 키운다.
+        local statMult = self:GetStatMultiplier()
+        local rewardMult = self:GetRewardMultiplier()
+        local bossHp = self.MiniBossMaxHp * statMult
+        local bossAtk = self.MiniBossAttackDamage * statMult
+        local bossXp = math.floor(self.MiniBossXpReward * rewardMult)
         local monster = e:GetComponent("script.Monster")
         if isvalid(monster) then
-            monster.MaxHp = self.MiniBossMaxHp
-            monster.Hp = self.MiniBossMaxHp
-            monster.XpReward = self.MiniBossXpReward
+            monster.MaxHp = bossHp
+            monster.Hp = bossHp
+            monster.XpReward = bossXp
         end
         local attack = e:GetComponent("script.MonsterAttack")
         if isvalid(attack) then
-            attack.AttackDamage = self.MiniBossAttackDamage
+            attack.AttackDamage = bossAtk
         end
         local move = e.MovementComponent
         if isvalid(move) then
@@ -155,9 +205,9 @@ script FieldWaveSpawner extends Component
         end
         self._T.miniBossEntity = e
         self.MiniBossActive = true
-        self.MiniBossHp = self.MiniBossMaxHp
+        self.MiniBossHp = bossHp
         self.MiniBossSpawnSerial = self.MiniBossSpawnSerial + 1
-        log("FieldWaveSpawner(" .. self.ModelId .. "): miniboss spawned name=" .. self.MiniBossName .. " hp=" .. self.MiniBossMaxHp .. " atk=" .. self.MiniBossAttackDamage)
+        log("FieldWaveSpawner(" .. self.ModelId .. "): miniboss spawned name=" .. self.MiniBossName .. " hp=" .. bossHp .. " atk=" .. bossAtk .. " gateMode=" .. tostring(self.IsGateMode) .. " tier=" .. self.DifficultyTier)
     end
 
     @ExecSpace("ServerOnly")
@@ -184,7 +234,46 @@ script FieldWaveSpawner extends Component
             _TimerService:ClearTimer(self.TimerId)
             self.TimerId = 0
         end
-        log("FieldWaveSpawner(" .. self.ModelId .. "): field cleared at wave " .. self.WaveNumber)
+        if self.IsGateMode then
+            self:GrantGateClearRewards()
+        else
+            self:RollGateTicketDrop()
+        end
+        log("FieldWaveSpawner(" .. self.ModelId .. "): field cleared at wave " .. self.WaveNumber .. " gateMode=" .. tostring(self.IsGateMode))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantGateClearRewards()
+        -- 몬스터 게이트 클리어 보상(전체 기획서 §5-2) - "이능 재선택권, 고급 스탯 구슬".
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then return end
+        local users = _UserService:GetUsersByMapComponent(map.MapComponent)
+        if users == nil then return end
+        for _, user in ipairs(users) do
+            local stats = user:GetComponent("script.PlayerStatsComponent")
+            if isvalid(stats) then
+                stats:GrantAbilityRerollTicket()
+                stats:GrantPremiumStatBonus()
+            end
+        end
+        log("FieldWaveSpawner(" .. self.ModelId .. "): gate clear rewards granted")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RollGateTicketDrop()
+        -- 일반 전장 클리어(미니보스 처치) 보상 - "낮은 확률로 몬스터 게이트 입장권 지급" (§5-1/§6-1).
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then return end
+        local users = _UserService:GetUsersByMapComponent(map.MapComponent)
+        if users == nil then return end
+        for _, user in ipairs(users) do
+            if _UtilLogic:RandomDouble() < self.GateTicketDropChance then
+                local profileCode = user.PlayerComponent.ProfileCode
+                local userId = tostring(user.PlayerComponent.UserId)
+                _GateTicketLogic:GrantTicket(profileCode, 1, userId)
+                log("FieldWaveSpawner(" .. self.ModelId .. "): gate ticket dropped for profileCode=" .. profileCode)
+            end
+        end
     end
 
     @ExecSpace("ServerOnly")
@@ -221,6 +310,9 @@ script FieldWaveSpawner extends Component
         self.MiniBossActive = false
         self.MiniBossSpawned = false
         self.MiniBossHp = 0
+        -- 다음 방문자는 게이트 모드를 물려받지 않는다 - 매번 새로 GateTicketLogic.RequestEnterGate를
+        -- 통해서만 켜져야 한다(솔로 전용 게임 전제, 위 property 주석 참고).
+        self.IsGateMode = false
         self.IsFieldEmpty = true
         self.WaveNumber = 1
         self.WaveKillCount = 0
@@ -292,13 +384,23 @@ script FieldWaveSpawner extends Component
         if users == nil or #users == 0 then
             return
         end
-        local cap = math.min(self.MaxAlive, self.BaseAlivePerWaveCap + (self.WaveNumber - 1) * self.AliveCapGrowthPerWave)
+        -- 게이트 모드는 "수 약 2배"(§5-2) - 동시 생존 상한과 상한 자체를 함께 키운다.
+        local aliveMult = self.IsGateMode and self.GateAliveMultiplier or 1.0
+        local cap = math.min(self.MaxAlive * aliveMult, (self.BaseAlivePerWaveCap + (self.WaveNumber - 1) * self.AliveCapGrowthPerWave) * aliveMult)
         local alive = map:GetChildComponentsByTypeName("script.Monster", false)
         if alive ~= nil and #alive >= cap then
             return
         end
         self.SpawnIndex = self.SpawnIndex + 1
-        local baseX = self.SpawnLeftNext and self.LeftSpawnX or self.RightSpawnX
+        -- 게이트 모드는 "몬스터가 좌·우 양쪽에서 조여옴"(§5-2) - 웨이브가 진행될수록 좌우 스폰
+        -- 지점이 중앙으로 수렴한다. 일반 모드는 기존 고정 좌표 그대로.
+        local leftX, rightX = self.LeftSpawnX, self.RightSpawnX
+        if self.IsGateMode then
+            local shrink = math.min(self.GateMaxConverge, (self.WaveNumber - 1) * self.GateConvergePerWave)
+            leftX = self.LeftSpawnX + shrink
+            rightX = self.RightSpawnX - shrink
+        end
+        local baseX = self.SpawnLeftNext and leftX or rightX
         self.SpawnLeftNext = not self.SpawnLeftNext
         -- QA finding (2026-08-19, real playtest): every spawn at a given portal used the exact same
         -- fixed X, so 2-3 monsters could end up stacked perfectly on top of each other - a player
@@ -312,9 +414,23 @@ script FieldWaveSpawner extends Component
         local e = _SpawnService:SpawnByModelId(self.ModelId, name, pos, map)
         if e == nil then
             log_error("FieldWaveSpawner: SpawnByModelId returned nil for modelId=" .. self.ModelId)
-        else
-            table.insert(self._T.tracked, e)
+            return
         end
+        -- 게이트 모드/난이도 스케일 - "스탯 약 3배"(§5-2) 또는 4단계 배율(§5-1)을 스폰 직후 적용.
+        local statMult = self:GetStatMultiplier()
+        if statMult ~= 1.0 then
+            local monster = e:GetComponent("script.Monster")
+            if isvalid(monster) then
+                monster.MaxHp = monster.MaxHp * statMult
+                monster.Hp = monster.MaxHp
+                monster.XpReward = math.floor(monster.XpReward * self:GetRewardMultiplier())
+            end
+            local monsterAttack = e:GetComponent("script.MonsterAttack")
+            if isvalid(monsterAttack) then
+                monsterAttack.AttackDamage = monsterAttack.AttackDamage * statMult
+            end
+        end
+        table.insert(self._T.tracked, e)
     end
 
 end

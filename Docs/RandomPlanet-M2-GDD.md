@@ -56,14 +56,14 @@ M1 로드맵(Phase 0~4 + Phase 2.5) 전 항목 ✅ 달성. GDD는 `Archive/Rando
 - ⚠️ **테스트 중 발견한 기존 버그(이번 패스 범위 밖, 정직히 기록)**: `CharacterRosterLogic.UpdateActiveLevel`이 `PlayerStatsComponent.Level` 변경 시 그 컴포넌트가 실제로 "현재 활성 캐릭터"인지 검증 없이 무조건 `GetActiveIndex()` 슬롯에 레벨을 덮어쓴다. 정상 플레이 흐름(슬롯 선택→입장)에서는 문제가 없지만, 이번 테스트처럼 choice_map에 파킹된 로컬 플레이어 엔티티의 스탯을 직접 조작(정식 입장 플로우 우회)하면 실제 활성 슬롯(테스트 중엔 슬롯1, 실유저 캐릭터)의 level 필드가 의도치 않게 덮어써질 수 있음 — 실제로 테스트 중 슬롯1의 level이 1→13으로 잘못 저장되는 것을 발견, 즉시 `roster[1].level=1` 복구 후 재시작으로 영구 저장 확인(trait/스탯/스킬 등 다른 필드는 전혀 손상 없었음, 재확인 완료). 다음 세션 참고: 파킹 플레이어로 스탯 테스트 시 이 사이드이펙트를 염두에 두거나, 테스트 후 항상 슬롯1 level을 재확인할 것.
 
 ### Phase E — 몬스터 게이트 (특수 던전)
-- ⬜ 게이트 입장권 재화 + 인벤토리 연결 (전장/보스 드랍으로 획득)
-- ⬜ 좌우 조여오는 몬스터 웨이브 패턴 (기존 `FieldWaveSpawner` 확장 또는 신규 `GateWaveSpawner`)
-- ⬜ 스탯 3배/물량 2배 스케일링
-- ⬜ 게이트 보스 등장 + 클리어 보상 (이능 재선택권, 고급 스탯 구슬)
+- ✅ 게이트 입장권 재화 + 인벤토리 연결 — 2026-09-07 구현+실측 검증 완료. 신규 `Meta/GateTicketLogic.mlua`(`@Logic`, AccountCurrencyLogic과 동일한 계정 UserDataStorage 패턴, 최대 10장). 일반 전장 클리어(미니보스 처치) 시 20% 확률로 1장 드랍(`FieldWaveSpawner.RollGateTicketDrop`). `ui/BattlefieldSelectGroup.ui`에 신규 Field4 행("몬스터 게이트" + 보유 수량 표시) 추가, `BattlefieldSelectController.OnGateClicked`→`GateTicketLogic.RequestEnterGate`로 연결. 실측: `GrantTicket`→`LoadCount`→클라이언트 `OnTicketGranted` 왕복 전부 로그로 확인(count 0→1).
+- ✅ 좌우 조여오는 몬스터 웨이브 패턴 — 전용 맵을 새로 만들지 않고 **토벌전장3(기존 MapleTile 맵)을 게이트 모드로 재사용**(`FieldWaveSpawner.IsGateMode` 플래그, `GateTicketLogic.RequestEnterGate`가 진입 직전 세팅, `ResetField`가 방문자 교체마다 해제 — 솔로 전용 게임 전제하 저위험 설계, 새 맵 제작에 필요한 유저의 TileMapMode 수동 설정을 회피). 웨이브가 진행될수록 좌우 스폰 X가 중앙으로 수렴(`GateConvergePerWave`/`GateMaxConverge`).
+- ✅ 스탯 3배/물량 2배 스케일링 — `GateStatMultiplier=3.0`/`GateAliveMultiplier=2.0`을 `TrySpawn`/`SpawnMiniBoss`에 적용. **실측(2026-09-07, 실제 몬스터 스폰)**: 전장3 기본 FieldMonster3(MaxHp 280/ATK 32/XP 120) → 게이트 모드에서 MaxHp=840.0/ATK=96.0/XP=360 정확히 3배 확인(로그 증거). 동시 생존 상한도 2배 적용.
+- 🟡 게이트 보스 등장 + 클리어 보상 — 구현 완료, **보스/보상 부분은 코드 리뷰로만 검증**(실측 미완, 아래 참고). 기존 `SpawnMiniBoss`(마지막 웨이브 트리거)를 그대로 재사용해 `GetStatMultiplier()`/`GetRewardMultiplier()`로 보스 스탯도 스케일링(전장3 보스 기준 HP 400→1200/ATK→3배/XP→3배 예상, TrySpawn과 동일 검증된 배율 로직 재사용이라 리스크 낮음). 클리어 시 `GrantGateClearRewards()`(이능 재선택권=`PendingAbilityChoices+1`, 고급 스탯 구슬=Str/Dex/Intel/Luk 각 +3 — 둘 다 이미 검증된 기존 메서드/필드 재사용)를 호출. **실측 미완 이유**: 라이브 테스트 중 실제 사용자 캐릭터(슬롯1)가 필드 몬스터에게 피격사망하는 사고가 발생해(로스터 데이터 자체는 무손상 확인 완료) 추가 라이브 조작을 자제하고 코드 리뷰로 전환 — 다음 세션에서 별도 테스트 캐릭터로 보스 처치까지 실측 권장.
 
 ### Phase F — 난이도 4단계 스케일
-- ⬜ 하급/중급/상급/최상급 몬스터 스탯 배율(×1.0/1.5/2.25/3.4) + 보상 배율(×1.0/1.4/2.0/2.8) 적용
-- ⬜ 토벌전장 선택 UI에 난이도 선택 추가
+- ✅ 하급/중급/상급/최상급 몬스터 스탯 배율(×1.0/1.5/2.25/3.4) + 보상 배율(×1.0/1.4/2.0/2.8) 적용 — `FieldWaveSpawner.DifficultyTier`(1~4) + `GetStatMultiplier()`/`GetRewardMultiplier()`. 게이트 모드와는 상호 배타적으로 처리(게이트가 우선). 2026-09-07 실측: tier 1~4 각각 정확히 1.0/1.5/2.25/3.4(스탯)·1.0/1.4/2.0/2.8(보상) 반환 확인.
+- ⬜ 토벌전장 선택 UI에 난이도 선택 추가 — **미구현, 정직히 기록**. `DifficultyTier` 프로퍼티/배율 로직은 완성됐으나 UI에서 유저가 직접 고를 수 있는 컨트롤은 시간 관계상 이번 패스에서 추가하지 못함(현재는 기본값 1=하급 고정). 다음 세션에서 `BattlefieldSelectGroup.ui`에 난이도 선택 버튼 추가 + `RequestEnterBattlefield`에 tier 파라미터 전달만 하면 완성됨.
 
 ### Phase G — 재화 · 계정 메타 진행
 - ✅ 영구 재화 시스템 (런 클리어 정산 → 계정 귀속) — 2026-09-06 구현+실측 검증 완료. 신규 `Meta/AccountCurrencyLogic.mlua`(`@Logic`, RestGaugeLogic과 동일한 계정 UserDataStorage 패턴). `PlayerStatsComponent.GrantRunEndCurrency()`가 `TriggerRunEnd()`(사망/ENDING) 시점에 `도달레벨×5 + 처치수×2 + floor(생존초/10)` 공식으로 정산·적립. Maker 실측: level=7/kills=12/survival=95s → base=68, 정확히 일치 확인, 계정에 68 적립 후 클라이언트 `OnCurrencyGranted` 왕복까지 로그로 확인.
@@ -85,6 +85,9 @@ M1 로드맵(Phase 0~4 + Phase 2.5) 전 항목 ✅ 달성. GDD는 `Archive/Rando
 - ⬜ 전 콘텐츠 실플레이 재검증 (신규 캐릭터 생성 → 전직 4회 → 몬스터 게이트 → 사망/ENDING)
 - ⬜ 밸런스 실측 (여러 특성 조합으로 결정론적 시뮬레이션)
 - ⬜ `Archive/As-built.md` 최종화 + M2 마일스톤 클로즈
+
+## 3b. 발견된 버그 (2026-09-07, Phase E/F 세션 중, 미수정)
+- ⚠️ **`CharacterSelectStageController.CreateCharacter(idx)` 실행이 멈춤(행)** — `maker_execute_script`(client)로 직접 호출 시 응답 없이 무한 대기(빈 스크립트로 강제 중단해야 함), 로그 상 에러도 전혀 남지 않음. 실제 유저의 마우스 클릭 경로에서도 재현되는지는 미확인(이번엔 스크립트 직접 호출로만 재현) — `RollStats`/`TraitRollLogic.RollTrait`(가중치 계산, while 루프에 guard<30 있음, 무한루프 아님을 코드로 확인) 자체엔 블로킹 요소가 안 보여 원인 불명. 다음 세션에서 실제 클릭으로 재현되는지부터 확인 필요(안 되면 execute_script 특유의 이슈일 수도 있음).
 
 ## 4. 실행 원칙
 - 각 Phase는 하위 항목 완료 즉시 `⬜→🟡→✅`로 갱신 (msw-planning 규칙)

@@ -14,6 +14,9 @@ script BattlefieldSelectController extends Component
     property number recommendedCp1 = 150
     property number recommendedCp2 = 400
     property number recommendedCp3 = 800
+    -- M2 Phase E(2026-09-06) - 몬스터 게이트 입장 행. 전체 기획서 §5-2 "입장권 소모로 입장".
+    property Entity btnGate = "092f540c-81f9-4547-8c05-829a088f4cab"
+    property TextGUIRendererComponent gateTicketText = "811baff0-839a-4ee6-9fcd-ef7ce0017d08"
     property any tickTimerId = nil
 
     @ExecSpace("ClientOnly")
@@ -37,6 +40,8 @@ script BattlefieldSelectController extends Component
         table.insert(self._T.handlers, { entity = self.btnField2, eventHandler = hField2 })
         local hField3 = self.btnField3:ConnectEvent(ButtonClickEvent, self.OnField3Clicked)
         table.insert(self._T.handlers, { entity = self.btnField3, eventHandler = hField3 })
+        local hGate = self.btnGate:ConnectEvent(ButtonClickEvent, self.OnGateClicked)
+        table.insert(self._T.handlers, { entity = self.btnGate, eventHandler = hGate })
         self.Entity.Enable = false
     end
 
@@ -69,6 +74,24 @@ script BattlefieldSelectController extends Component
         self.Entity.Enable = true
         self:RefreshGauge()
         self:RefreshRecommendations()
+        self:RefreshGateTicketDisplay()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshGateTicketDisplay()
+        -- M2 Phase E - GateTicketLogic(계정 단위)이 로드/갱신될 때마다도 호출된다(OnLoaded/OnTicketGranted/
+        -- OnEnterGateResult). 팝업이 닫혀있어도 텍스트 갱신 자체는 가볍기 때문에 Tick의 Enable 가드와
+        -- 달리 무조건 갱신 - 다음에 열릴 때 바로 최신값이 보이게 함.
+        local count = _GateTicketLogic:GetCount()
+        self.gateTicketText.Text = "입장권 보유 " .. tostring(count)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnGateClicked()
+        -- 몬스터 게이트 입장 - 입장권 소모/검증은 서버(GateTicketLogic.RequestEnterGate)가 전담한다.
+        log("BattlefieldSelect: 몬스터 게이트 입장 시도")
+        _GateTicketLogic:RequestEnterGate()
+        self:Hide()
     end
 
     @ExecSpace("ClientOnly")

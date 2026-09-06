@@ -1,0 +1,142 @@
+@Logic
+script GateTicketLogic extends Logic
+    -- 계정 단위 몬스터 게이트 입장권 (M2 Phase E, 2026-09-06 - 전체 기획서 §5-2 "입장권 소모로 입장" +
+    -- §6-1 "게이트 입장권: 전장·보스에서 낮은 확률로 획득"). AccountCurrencyLogic/RestGaugeLogic과
+    -- 동일한 계정 UserDataStorage 패턴(profileCode 기준) 재사용.
+    property string StorageName = "GateTicket"
+    property integer MaxCount = 10
+    -- 3번 전장(토벌전장3)을 게이트의 물리 공간으로 재사용한다 - 몬스터 게이트만을 위한 전용 맵을
+    -- 새로 만들려면 유저가 Maker에서 MapleTile 맵을 직접 준비해야 하는데(AI는 TileMapMode를 직접
+    -- 못 바꿈), 이미 있는 MapleTile 전장을 "게이트 모드" 플래그로 전환하는 쪽이 훨씬 저위험이라
+    -- 이 방식을 택했다(FieldWaveSpawner.IsGateMode 참고). 솔로 전용 게임이라 한 맵 인스턴스를
+    -- 순차적으로 다른 목적에 재사용해도 동시 충돌 우려가 낮다(ResetField가 방문자 교체마다 초기화).
+    property string GateMapName = "토벌전장3"
+    -- 3번 전장의 실제 진입 좌표와 동일(CharacterRosterLogic.RequestEnterBattlefield fields[3] 참고).
+    property number GateEntryX = 0
+    property number GateEntryY = 5.34
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.count = 0
+        self._T.loadComplete = false
+        self:RequestLoad()
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer GetCount()
+        return self._T.count
+    end
+
+    @ExecSpace("Server")
+    method void RequestLoad()
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local profileCode = player.PlayerComponent.ProfileCode
+        local count = self:LoadCount(profileCode)
+        self:OnLoaded(count)
+    end
+
+    @ExecSpace("ServerOnly")
+    method integer LoadCount(string profileCode)
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local errorCode, raw = storage:GetAndWait(self.StorageName)
+        if errorCode == 0 and raw ~= nil and raw ~= "" then
+            return tonumber(raw) or 0
+        end
+        return 0
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SaveCount(string profileCode, integer count)
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        storage:SetAsync(self.StorageName, tostring(count), function(errorCode, key)
+            if errorCode ~= 0 then
+                log_error("GateTicket: SetAsync failed, errorCode=" .. tostring(errorCode))
+            end
+        end)
+    end
+
+    @ExecSpace("Client")
+    method void OnLoaded(integer count)
+        self._T.count = count
+        self._T.loadComplete = true
+        log("GateTicket: loaded count=" .. count)
+        self:NotifyUIIfOpen()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void NotifyUIIfOpen()
+        -- BattlefieldSelectController는 @Component(팝업 엔티티에 부착)라 _BattlefieldSelectController
+        -- 전역 싱글턴으로는 접근 불가 - RestGaugeLogic.NotifyUIIfOpen과 동일한 엔티티 경로 조회 패턴.
+        local e = _EntityService:GetEntityByPath("/ui/BattlefieldSelectGroup")
+        if isvalid(e) then
+            local ctrl = e:GetComponent("script.BattlefieldSelectController")
+            if isvalid(ctrl) then
+                ctrl:RefreshGateTicketDisplay()
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantTicket(string profileCode, integer amount, string userId)
+        -- FieldWaveSpawner.RollGateTicketDrop(전장 클리어 판정)에서 호출 - 사망/전투 이벤트로
+        -- 트리거되므로 senderUserId가 없는 컨텍스트라, 알려야 할 클라이언트를 targetUserId로 직접
+        -- 지정한다(AccountCurrencyLogic.GrantCurrency와 동일한 이유).
+        if amount <= 0 then return end
+        local count = self:LoadCount(profileCode)
+        local newCount = math.min(self.MaxCount, count + amount)
+        self:SaveCount(profileCode, newCount)
+        log("GateTicket: granted " .. amount .. " to profileCode=" .. profileCode .. " -> total=" .. newCount)
+        self:OnTicketGranted(newCount, userId)
+    end
+
+    @ExecSpace("Client")
+    method void OnTicketGranted(integer newCount)
+        self._T.count = newCount
+        self:NotifyUIIfOpen()
+        log("GateTicket: OnTicketGranted newCount=" .. newCount)
+    end
+
+    @ExecSpace("Server")
+    method void RequestEnterGate()
+        -- BattlefieldSelectController.OnGateClicked -> 여기. 입장권 1장 소모 검증 후 토벌전장3을
+        -- 게이트 모드로 전환하고 그 자리로 텔레포트(RequestEnterBattlefield와 동일한 텔레포트 대상).
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then return end
+        local profileCode = player.PlayerComponent.ProfileCode
+        local count = self:LoadCount(profileCode)
+        if count <= 0 then
+            log("GateTicket: RequestEnterGate denied, no tickets for profileCode=" .. profileCode)
+            self:OnEnterGateResult(false)
+            return
+        end
+        self:SaveCount(profileCode, count - 1)
+        local gateMap = _EntityService:GetEntityByPath("/maps/" .. self.GateMapName)
+        if not isvalid(gateMap) then
+            log_error("GateTicket: gate map entity not found at /maps/" .. self.GateMapName)
+            -- 맵을 못 찾았으면 입장권을 소모한 채로 되돌려주지 않는 것보다야, 되돌려주는 편이 안전.
+            self:SaveCount(profileCode, count)
+            self:OnEnterGateResult(false)
+            return
+        end
+        local spawner = gateMap:GetComponent("script.FieldWaveSpawner")
+        if isvalid(spawner) then
+            spawner:SetGateMode(true)
+        end
+        log("GateTicket: RequestEnterGate granted, remaining=" .. (count - 1))
+        self:OnEnterGateResult(true)
+        _TeleportService:TeleportToMapPosition(player, Vector3(self.GateEntryX, self.GateEntryY, 0), self.GateMapName)
+    end
+
+    @ExecSpace("Client")
+    method void OnEnterGateResult(boolean success)
+        if success then
+            self._T.count = math.max(0, self._T.count - 1)
+        end
+        self:NotifyUIIfOpen()
+        log("GateTicket: OnEnterGateResult success=" .. tostring(success))
+    end
+
+end

@@ -260,6 +260,27 @@ script PlayerStatsComponent extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void GrantAbilityRerollTicket()
+        -- 몬스터 게이트 클리어 보상 "이능 재선택권" (전체 기획서 §5-2) - FieldWaveSpawner.
+        -- GrantGateClearRewards에서 호출. 레벨업 이능 팝업과 동일한 큐에 1회 추가한다.
+        self.PendingAbilityChoices = self.PendingAbilityChoices + 1
+        self:MaybeOpenNextAbilityChoice()
+        log("PlayerStats: GrantAbilityRerollTicket pending=" .. self.PendingAbilityChoices)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantPremiumStatBonus()
+        -- 몬스터 게이트 클리어 보상 "고급 스탯 구슬" (전체 기획서 §5-2 "스탯 구슬 획득량 토벌 전장
+        -- 대비 대폭 상승") - 레벨업 자동 증가(+1x4)보다 큰 고정 보너스를 4종 전부에 즉시 부여.
+        self.Str = self.Str + 3
+        self.Dex = self.Dex + 3
+        self.Intel = self.Intel + 3
+        self.Luk = self.Luk + 3
+        self:RecalculateDerived()
+        log("PlayerStats: GrantPremiumStatBonus -> str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk)
+    end
+
+    @ExecSpace("ServerOnly")
     method void MaybeOpenNextAbilityChoice()
         -- 이미 팝업이 떠 있으면 스킵(한 번에 하나만) - RequestResolveAbilityChoice가 처리 후 다시 호출.
         if self.AbilityChoicePending then return end
