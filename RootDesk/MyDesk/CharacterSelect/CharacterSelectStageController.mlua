@@ -228,8 +228,8 @@ script CharacterSelectStageController extends Component
         -- 자동 배정됐다. 이제 공격/버프 각각 그 카테고리 전체 풀에서 기본값을 뽑고, 카드의
         -- AtkSkillButton/BuffSkillButton으로 각자 전체 풀 안에서 자유롭게 바꿀 수 있다
         -- (CharacterCardController.OnAtkSkillButtonClicked/OnBuffSkillButtonClicked).
-        local atkPool = _SkillCatalog:GetSkillsByCategory("attack")
-        local buffPool = _SkillCatalog:GetSkillsByCategory("buff")
+        local atkPool = _SkillCatalog:GetSkillsByCategory("attack", 1)
+        local buffPool = _SkillCatalog:GetSkillsByCategory("buff", 1)
         roster[idx] = {
             level = 1, trait = trait, str = stats.str, dex = stats.dex, intel = stats.intel, luk = stats.luk, look = look,
             atkSkillId = atkPool[_UtilLogic:RandomIntegerRange(1, #atkPool)],

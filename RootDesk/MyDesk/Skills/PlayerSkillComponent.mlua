@@ -88,13 +88,13 @@ script PlayerSkillComponent extends Component
         if atkSkillId ~= nil and atkSkillId ~= "" then
             self.AtkSkill1 = atkSkillId
         elseif self.AtkSkill1 == "" then
-            local pool = _SkillCatalog:GetSkillsByCategory("attack")
+            local pool = _SkillCatalog:GetSkillsByCategory("attack", 1)
             if #pool > 0 then self.AtkSkill1 = pool[_UtilLogic:RandomIntegerRange(1, #pool)] end
         end
         if buffSkillId ~= nil and buffSkillId ~= "" then
             self.BuffSkill1 = buffSkillId
         elseif self.BuffSkill1 == "" then
-            local pool = _SkillCatalog:GetSkillsByCategory("buff")
+            local pool = _SkillCatalog:GetSkillsByCategory("buff", 1)
             if #pool > 0 then self.BuffSkill1 = pool[_UtilLogic:RandomIntegerRange(1, #pool)] end
         end
         -- 기본 장착은 공격 스킬(Q키가 곧바로 딜을 넣도록) - 공격 쪽이 비어 있으면 버프로 대체.
@@ -169,7 +169,7 @@ script PlayerSkillComponent extends Component
         for _, entry in ipairs(owned) do
             table.insert(ownedIds, entry.id)
         end
-        local choices = _SkillCatalog:RollSkillChoices(category, ownedIds)
+        local choices = _SkillCatalog:RollSkillChoices(category, tier, ownedIds)
         if #choices == 0 then
             log("PlayerSkill: StartTierChoice tier=" .. tier .. " category=" .. category .. " pool exhausted, skipping")
             self:AdvanceTierChoice(tier, category)
@@ -239,7 +239,7 @@ script PlayerSkillComponent extends Component
         end
         if not self.SkillChoicePending then return end
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
-        if not isvalid(statsComp) or statsComp.Trait ~= "큐브마스터" then
+        if not isvalid(statsComp) or (statsComp.Trait ~= "큐브마스터" and statsComp.Trait2 ~= "큐브마스터") then
             log("PlayerSkill: RequestRerollSkillChoice rejected, no 큐브마스터 trait")
             return
         end
@@ -248,7 +248,7 @@ script PlayerSkillComponent extends Component
         for _, entry in ipairs(owned) do
             table.insert(ownedIds, entry.id)
         end
-        local choices = _SkillCatalog:RollSkillChoices(self.PendingSkillCategory, ownedIds)
+        local choices = _SkillCatalog:RollSkillChoices(self.PendingSkillCategory, self.PendingSkillTier, ownedIds)
         if #choices == 0 then return end
         self.PendingSkillChoice1 = choices[1] or ""
         self.PendingSkillChoice2 = choices[2] or ""
@@ -721,6 +721,7 @@ script PlayerSkillComponent extends Component
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         local move = self.Entity.MovementComponent
         local player = self.Entity.PlayerComponent
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
 
         if def.testableEffect == "accuracy" and isvalid(attack) then
             self.BuffOriginalValue = attack.Accuracy
@@ -753,6 +754,29 @@ script PlayerSkillComponent extends Component
             -- the buff's duration ("마나가 보호막처럼 스킬 비용을 대신 막아준다") - see UseSkill's
             -- mpFreeActive check. Nothing to store; RevertBuff just clears BuffType/BuffActive.
             self.BuffOriginalValue = 0
+        elseif def.testableEffect == "dmgreduction" and isvalid(statsComp) then
+            -- 2026-09-06 (M2 Phase D, 2/3차 신규) - powerguard/ironwill. Now that a monster->player hit
+            -- pipeline exists (Phase 3.5) and PlayerStatsComponent.DamageReductionPercent is a real,
+            -- observable channel (PlayerHit reads it), a temporary defense buff is fully testable -
+            -- unlike ironbody/magicguard's 2026-08-16 reinterpretation, no substitute effect needed.
+            -- Same "store the delta, add now, subtract on revert" pattern as maxhp below - a
+            -- RecalculateDerived mid-buff (level-up) will still reset the base value from scratch and
+            -- silently drop this addition, matching ironbody's known, accepted limitation.
+            self.BuffOriginalValue = def.dmgReductionBonus
+            statsComp.DamageReductionPercent = statsComp.DamageReductionPercent + def.dmgReductionBonus
+        elseif def.testableEffect == "skilldmg" and isvalid(statsComp) then
+            -- meditation/magicbooster/infinity - adds directly onto PlayerStatsComponent.SkillDamageBonus
+            -- (the same field DoRanged's `magic` branch already reads), so a magic ranged_single/
+            -- ranged_pierce ability gets a real, observable temporary boost.
+            self.BuffOriginalValue = def.skillDmgBonus
+            statsComp.SkillDamageBonus = statsComp.SkillDamageBonus + def.skillDmgBonus
+        elseif def.testableEffect == "atkbonus" and isvalid(attack) then
+            -- rage/markofassassin/battleship - flat delta on PlayerAttack.AttackDamage, same pattern as
+            -- ironbody's maxhp (store the bonus itself, not the pre-buff base, so a mid-buff stat
+            -- recompute doesn't get double-subtracted on revert).
+            local bonus = math.floor(attack.AttackDamage * def.atkBonusPercent)
+            self.BuffOriginalValue = bonus
+            attack.AttackDamage = attack.AttackDamage + bonus
         else
             self.BuffOriginalValue = 0
         end
@@ -806,6 +830,7 @@ script PlayerSkillComponent extends Component
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         local move = self.Entity.MovementComponent
         local player = self.Entity.PlayerComponent
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
 
         if self.BuffType == "accuracy" and isvalid(attack) then
             attack.Accuracy = self.BuffOriginalValue
@@ -818,6 +843,12 @@ script PlayerSkillComponent extends Component
         elseif self.BuffType == "maxhp" and isvalid(player) then
             player.MaxHp = math.max(1, player.MaxHp - self.BuffOriginalValue)
             player.Hp = math.min(player.Hp, player.MaxHp)
+        elseif self.BuffType == "dmgreduction" and isvalid(statsComp) then
+            statsComp.DamageReductionPercent = math.max(0, statsComp.DamageReductionPercent - self.BuffOriginalValue)
+        elseif self.BuffType == "skilldmg" and isvalid(statsComp) then
+            statsComp.SkillDamageBonus = math.max(0, statsComp.SkillDamageBonus - self.BuffOriginalValue)
+        elseif self.BuffType == "atkbonus" and isvalid(attack) then
+            attack.AttackDamage = math.max(1, attack.AttackDamage - self.BuffOriginalValue)
         end
         -- "mpfree" (magicguard) has no stat to restore - UseSkill's mpFreeActive check already
         -- stops reading it the instant BuffActive/BuffType are cleared below.
