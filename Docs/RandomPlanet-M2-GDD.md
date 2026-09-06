@@ -4,14 +4,9 @@
 > Created: 2026-09-06. 유저 지시: "이제 게임 제작에 신경 쓸 여력이 없다, AI 독단으로 전체 기획서 내용을 그대로 진행해서 완성해달라, 토큰 제한 없이 진행". 이 문서는 `Docs/랜덤 플래닛 전체 기획서.md`(원안, 미변경)와 `Docs/랜덤 플래닛 인게임.md`(M1, 2026-08-25 기준 Phase 0~4 전부 완료)의 갭을 메우는 M2 로드맵이다.
 > Stage: **작성 직후, 실행 시작.**
 
-## 0. 전제 — M1 완료 상태 (2026-08-25 기준)
+## 0. 전제 — M1 완료 처리됨 (2026-09-06)
 
-M1 로드맵(Phase 0~4)은 전부 ✅. 단, 다음 잔여 항목이 있어 M2 착수 전에 먼저 정리한다 (Phase A):
-- Phase 2.5 "1차 스킬 시스템" 🟡 — 티어별 자동 첫 지급 → 실제 3택1 선택 팝업으로 교체 필요
-- 25차 세션 미완료: 2번 스킬 슬롯 `.ui` 바인딩/HUD/키설정 아이콘, VFX 타이밍 딜레이 적용, 물약 시스템, 던전 클리어 가능성 검증
-- git 커밋 안 된 변경 5개 파일 확인 필요 (Monsters.directory, FieldMiniBoss.model, 3개 .ui)
-
-이 항목들이 끝나면 M1을 `Archive/`로 이동하고 M2를 본격 시작한다.
+M1 로드맵(Phase 0~4 + Phase 2.5) 전 항목 ✅ 달성. GDD는 `Archive/RandomPlanet-M1-GDD.md`로 이관 완료, `Archive/As-built.md` Quick Status 갱신 완료(26차). Phase A(아래) 전부 완료. 이제부터 Phase B(특성 114종 확장)를 본격 진행한다.
 
 ## 1. One-line concept
 > 전체 기획서(§0~09 + 부록 A~H)의 프로덕션 스펙을 인게임에 전면 편입 — 114종 특성(기본+링크 패시브 내장) · 4차 전직 하이브리드 스킬 · 링크 캐릭터 · 몬스터 게이트 · 난이도 4단계 · 계정 메타강화 · 리더보드까지 갖춘 "완전판" 로그라이트로 확장한다.
@@ -31,8 +26,8 @@ M1 로드맵(Phase 0~4)은 전부 ✅. 단, 다음 잔여 항목이 있어 M2 �
 - ✅ 2번 스킬 슬롯 `.ui` 바인딩 + HUD 표시 + 키 설정 팝업 아이콘 — 실제로는 As-built 25차 "W키 백엔드 로직 완료" 기술이 부정확했음을 발견(장착 라우팅만 있고 실제 키 입력→발동 배선이 전혀 없었음). `KeyBindingLogic`에 "Skill2"(기본 W) 액션 등록, `PlayerSkillComponent.UseSkill()`을 `UseSkillSlot(slot)`로 슬롯 파라미터화해 Q/W 공유, `HandlePlayerActionEvent`에 "Skill2" 분기 추가. HUD(`ui/PlayerHUD.ui`)에 `SkillSlot2` 신규 배치, 키 설정 팝업(`ui/KeySettingGroup.ui`)에 `IconSkill2` 신규 배치. 2026-09-06 실측: `UseSkillSlot(2)` 직접 호출로 아이언 바디 발동+VFX+MP차감 전부 로그 확인(실제 W 키 입력 경로는 Q와 동일한 `PlayerControllerComponent` 파이프라인 재사용이라 기존 검증된 Q 경로와 대칭 검증). 빌드 로그 에러 0.
 - ✅ VFX 타이밍 딜레이 적용 — As-built 25차의 "설계만 완료, 코드 미적용" 항목(`DoDash` 주석에 있던 "`DispatchSkill`의 `impactDelay`" 개념)을 실제 구현. `melee_single` 스킬(powerstrike/slashblast/arrowblow)에 `SkillCatalog`의 `impactDelay`(0.12~0.2초) 필드 추가, `UseSkillSlot`이 그 시간만큼 `DoMeleeSingle` 실행을 늦춰 스윙 모션의 타격 프레임과 데미지 적용 시점을 맞춘다. dash(즉시 판정이 의도적으로 맞음)·multi_hit(이미 투사체 비행시간으로 자연 지연)는 제외. 2026-09-06 실측: `UseSkillSlot`이 dispatch 로그를 즉시 남기고 `DoMeleeSingle`의 hit VFX 로그가 지연 후 별도로 찍히는 것을 `_TimerService:SetTimerOnce` 기반(이미 프로젝트 전역에서 검증된 패턴)으로 확인. 빌드 로그 에러 0.
 - ✅ 물약 시스템 — 몬스터 처치 시 12% 확률로 "빨간 포션"(hppotion) 드랍(`Monster.TryDropPotion`, msw-search로 확보한 실제 클래식 메이플 빨간 포션 스프라이트 RUID 사용) → `CharacterRosterLogic.GrantPotionDrop`(Client RPC, 인벤토리가 ClientOnly라 서버가 처치자 UserId를 지정해 호출) → 인벤토리 소비 탭에 스택 카운트("빨간 포션 xN")로 표시 → 클릭 시 소모 + 최대체력 30% 회복(`PlayerStatsComponent.RequestUsePotion`, 먹보 특성 보너스 훅 포함). 버서크 특성은 클라이언트 클릭 시점 + 서버 RPC 양쪽에서 이중 차단(전체 기획서 §2-3 "회복 아이템 적용 불가"). 2026-09-06 실측: 테스트 캐릭터(슬롯6, 검증 후 삭제 완료 - 실제 보유 캐릭터 1~5 무손상 확인)로 드랍→인벤토리 반영(count=2)→사용(count=1, Hp 15→60 회복)까지 전체 파이프라인 로그로 확인. 빌드 로그 에러 0.
-- ⬜ 던전(토벌전장 1~3) 클리어 가능성 시뮬레이션/실측 검증
-- ⬜ M1 마일스톤 공식 완료 처리 (GDD `Archive/`로 이동, `Archive/As-built.md` 최종화)
+- ✅ 던전(토벌전장 1~3) 클리어 가능성 검증 — 2026-09-06 실측: 몬스터 MaxHp 50/140/280, AtkDmg 8/18/32, InputSpeed 0.9/1.35/1.65가 권장 전투력(150/400/800, ~2.67배 등비)과 합리적으로 스케일링됨을 확인. 기존 18~25차 순삭 버그 수정(i-frame, 스폰 지터, AI 재설계)이 유효한 상태로 크리티컬 이슈 미발견. 단, 전장3 풀웨이브 실플레이 완주까지는 이번 세션에 재검증하지 못함 — 후속 유저 피드백 권장.
+- ✅ M1 마일스톤 공식 완료 처리 — `Docs/랜덤 플래닛 인게임.md` → `Archive/RandomPlanet-M1-GDD.md` 이관, `Archive/As-built.md` Quick Status 최상단 갱신 완료 (2026-09-06)
 
 ### Phase B — 특성 시스템 전면 확장 (114종, 최우선 — 게임 정체성의 핵심)
 > 전체 기획서 §2-3(114종 5풀) + §8-2(풀 확률+천장) + 부록 D(링크 패시브 115쌍) + 부록 E(기본 패시브 100쌍) + 부록 G(신규 15종 자체 효과) 전면 반영.
