@@ -146,6 +146,11 @@ script Monster extends Component
             end
             stats:GrantXp(xpToGrant)
             stats:AddKill()
+            -- M2 Phase D(2026-09-06) - 전직 퀘스트 보스 게이트(전체 기획서 §2-5). 이 몬스터가 보스면
+            -- (FieldMiniBoss 등, IsBoss=true) 대기 중인 전직 요건을 해소한다.
+            if self.IsBoss then
+                stats:RecordBossKillForPromotion()
+            end
             -- M2 Phase B(2026-09-06) - 처치 시 확률 회복(healOnKill, 예: 금욕).
             local healSpec = _TraitEffectEngine:GetHealOnKill(stats.Trait)
             local player = attacker.PlayerComponent

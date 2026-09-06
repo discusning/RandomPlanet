@@ -43,6 +43,18 @@ script PlayerStatsComponent extends Component
     @Sync property integer EndedWaveReached = 0
     @Sync property boolean EndedFieldCleared = false
 
+    -- 전직 퀘스트 보스 게이트 (M2 Phase D, 2026-09-06, 전체 기획서 §2-5 "전직 퀘스트 보스 클리어") -
+    -- 레벨 요건(5/13/18)을 채워도 곧바로 스킬 티어를 지급하지 않고, 그 필드의 미니보스(FieldMiniBoss,
+    -- 이미 검증된 인프라 재사용 - 전용 "전직 퀘스트" 맵/보스를 새로 만들지 않음)를 처치해야 실제
+    -- 지급된다. Monster.GrantXpToAttacker가 IsBoss=true 처치를 감지해 RecordBossKillForPromotion을
+    -- 호출한다.
+    @Sync property boolean PromotionPending2 = false
+    @Sync property boolean PromotionPending3 = false
+    @Sync property boolean PromotionPending4 = false
+    @HideFromInspector property number PromotionMilestoneElapsed = 0
+    -- 계정 귀속 영구 저장 + 전역 리더보드 연동은 Phase H 몫 - 지금은 세션 내 최근 값만 보관.
+    @Sync property number LastPromotionClearSeconds = 0
+
     -- 1차 특성(MVP 6종, CharacterSelectStageController.InitRandomPools의 traitPool과 매칭) - 2026-08-16
     -- 유저 요청으로 순수 표시문구에서 실제 효과로 승격, 전투력(CP, CharacterInfoUIController) 산식에도
     -- 반영. 상인(아이템 드랍률)은 이 프로젝트에 루팅 시스템 자체가 없어 여전히 미구현 - 정직하게 비워둠.
@@ -338,21 +350,76 @@ script PlayerStatsComponent extends Component
         end
     end
 
+    method boolean HasTrait(string name)
+        -- Trait/Trait2(3차 전직 추가 특성) 어느 쪽이든 일치하면 true - 봉인된 자/외길/봉인구 같은
+        -- 전직 상호작용 특성이 Trait2로 나왔을 경우까지 함께 커버한다.
+        return self.Trait == name or self.Trait2 == name
+    end
+
     @ExecSpace("ServerOnly")
     method void GrantSkillTierIfMilestone(integer level)
-        -- 전직 레벨(기획서 §2-5: 5/13/18)에 도달하면 다음 스킬 티어를 자동 지급 - 실제 3택1 전직
-        -- 팝업(Phase 3+)이 없어서 GrantTierSkills가 각 카테고리 첫 후보를 자동 선택한다(PlayerSkillComponent
-        -- 참고). 2차=5, 3차=13, 4차=18.
+        -- 전직 레벨(기획서 §2-5: 5/13/18) 도달 판정. 2차=5, 3차=13, 4차=18. M2 Phase D(2026-09-06) -
+        -- 레벨 요건을 채워도 곧바로 지급하지 않고 PromotionPending*를 세운 뒤 전직 퀘스트 보스(필드
+        -- 미니보스) 처치를 기다린다(RecordBossKillForPromotion이 실제 지급을 수행).
         local tier = 0
         if level == 5 then tier = 2
         elseif level == 13 then tier = 3
         elseif level == 18 then tier = 4
         end
         if tier == 0 then return end
-        local skillComp = self.Entity:GetComponent("script.PlayerSkillComponent")
-        if isvalid(skillComp) then
-            skillComp:GrantTierSkills(tier)
+
+        -- 특성-전직 상호작용 (전체 기획서 §2-3 Hidden-bad 3종).
+        if self:HasTrait("봉인된 자") then
+            -- "전직을 1차까지만 가능" - 2차 이상 전부 영구 차단(대가로 시작 스탯 대폭 보너스는
+            -- basicEffect의 exp 보정과 별개로 TraitCatalog 데이터에 있어야 하며, 없다면 후속 보완 필요).
+            log("PlayerStats: 봉인된 자 - 전직 1차까지만 가능, tier=" .. tier .. " 요건 무시")
+            return
         end
+        if tier == 4 and self:HasTrait("봉인구") then
+            -- "4차 전직 불가(3차까지)".
+            log("PlayerStats: 봉인구 - 4차 전직 불가, tier4 요건 무시")
+            return
+        end
+
+        if tier == 2 then self.PromotionPending2 = true
+        elseif tier == 3 then self.PromotionPending3 = true
+        else self.PromotionPending4 = true
+        end
+        self.PromotionMilestoneElapsed = _UtilLogic.ElapsedSeconds
+        log("PlayerStats: 전직 조건(레벨" .. level .. ") 충족, tier=" .. tier .. " - 전직 퀘스트 보스(필드 미니보스) 처치 대기")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RecordBossKillForPromotion()
+        -- Monster.GrantXpToAttacker가 IsBoss=true 처치를 감지하면 호출. 대기 중인 전직 중 가장 낮은
+        -- 티어 하나를 해결(레벨업이 몰려 여러 티어가 동시에 대기 중이어도 한 번의 보스 처치는 1개만
+        -- 해소 - 실제로 그럴 일은 드물지만, 다음 미니보스로 이어서 해결하면 된다).
+        local tier = 0
+        if self.PromotionPending2 then tier = 2
+        elseif self.PromotionPending3 then tier = 3
+        elseif self.PromotionPending4 then tier = 4
+        end
+        if tier == 0 then return end
+
+        if tier == 2 then self.PromotionPending2 = false
+        elseif tier == 3 then self.PromotionPending3 = false
+        else self.PromotionPending4 = false
+        end
+
+        self.LastPromotionClearSeconds = _UtilLogic.ElapsedSeconds - self.PromotionMilestoneElapsed
+        log("PlayerStats: 전직 퀘스트 보스 처치 확인 tier=" .. tier .. " 클리어타임=" .. self.LastPromotionClearSeconds .. "초 (계정 귀속 영구 저장·전역 리더보드는 M2 Phase H)")
+
+        -- 외길(Hidden-bad) - "스킬 슬롯 2개로 제한(1차분만 유지)/이후 전직에서 스킬 획득이 중단" -
+        -- 보스는 정상적으로 처치하되(레벨/특성 진행은 막지 않음) 스킬 지급만 스킵.
+        if self:HasTrait("외길") then
+            log("PlayerStats: 외길 - 스킬 슬롯 2개 제한, tier=" .. tier .. " 스킬 지급 스킵")
+        else
+            local skillComp = self.Entity:GetComponent("script.PlayerSkillComponent")
+            if isvalid(skillComp) then
+                skillComp:GrantTierSkills(tier)
+            end
+        end
+
         -- M2 Phase B(2026-09-06) - 3차 전직(13레벨) 추가 특성 1회 재추첨(전체 기획서 §2-5, Trait2
         -- 선언부 주석 참고). 부패한 계약서(forceHiddenRerollAt13) 보유 시 Hidden 풀에서만 나온다.
         if tier == 3 and self.Trait2 == "" then
