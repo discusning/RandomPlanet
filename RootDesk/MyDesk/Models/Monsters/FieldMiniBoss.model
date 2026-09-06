@@ -7,8 +7,8 @@
   "Usage": 0,
   "UsePublish": 1,
   "UseService": 0,
-  "CoreVersion": "",
-  "StudioVersion": "",
+  "CoreVersion": "26.7.0.0",
+  "StudioVersion": "0.1.0.0",
   "DynamicLoading": 0,
   "ContentProto": {
     "Use": "Json",
@@ -65,7 +65,7 @@
           "Name": "ActionSheet",
           "ValueType": {
             "$type": "MODNativeType",
-            "type": "MOD.Core.MODSyncDictionary`2[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], MOD.Core, Version=26.5.0.0, Culture=neutral, PublicKeyToken=null"
+            "type": "MOD.Core.MODSyncDictionary`2[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
           },
           "Value": {
             "$type": "MOD.Core.MODSyncDictionary`2[[System.String, mscorlib],[System.String, mscorlib]], MOD.Core",
@@ -92,7 +92,7 @@
             "$type": "MODNativeType",
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 6
+          "Value": 6.0
         },
         {
           "TargetType": "MOD.Core.StateComponent",
@@ -108,7 +108,7 @@
           "Name": "BoxSize",
           "ValueType": {
             "$type": "MODNativeType",
-            "type": "MOD.Core.MODVector2, MOD.Core, Version=26.5.0.0, Culture=neutral, PublicKeyToken=null"
+            "type": "MOD.Core.MODVector2, MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
           },
           "Value": {
             "$type": "MOD.Core.MODVector2, MOD.Core",
@@ -121,11 +121,11 @@
           "Name": "ColliderOffset",
           "ValueType": {
             "$type": "MODNativeType",
-            "type": "MOD.Core.MODVector2, MOD.Core, Version=26.5.0.0, Culture=neutral, PublicKeyToken=null"
+            "type": "MOD.Core.MODVector2, MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
           },
           "Value": {
             "$type": "MOD.Core.MODVector2, MOD.Core",
-            "x": 0,
+            "x": 0.0,
             "y": 0.65
           }
         },
@@ -134,7 +134,7 @@
           "Name": "CollisionGroup",
           "ValueType": {
             "$type": "MODNativeType",
-            "type": "MOD.Core.Physics.CollisionGroup, MOD.Core, Version=26.5.0.0, Culture=neutral, PublicKeyToken=null"
+            "type": "MOD.Core.Physics.CollisionGroup, MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
           },
           "Value": {
             "$type": "MOD.Core.Physics.CollisionGroup, MOD.Core",
@@ -157,7 +157,7 @@
             "$type": "MODNativeType",
             "type": "System.Double, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 400
+          "Value": 400.0
         },
         {
           "TargetType": "script.Monster",
@@ -184,7 +184,7 @@
             "$type": "MODNativeType",
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 16
+          "Value": 16.0
         },
         {
           "TargetType": "script.MonsterAttack",
@@ -211,7 +211,7 @@
             "$type": "MODNativeType",
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 999
+          "Value": 999.0
         }
       ],
       "EventLinks": [],
