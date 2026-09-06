@@ -4,10 +4,14 @@ script PlayerSkillComponent extends Component
     -- 동시 진행"). 스킬 정의는 SkillCatalog(@Logic)에서 조회, 실제 수치는 PlayerAttack/
     -- PlayerStatsComponent/MovementComponent를 그때그때 읽고 쓴다(각 스탯 공식은 그쪽이 유일한 소유자).
     -- 8개 고정 슬롯(1~4차 x 버프/공격)에 보유 스킬을 저장하고, 그중 하나만 EquippedSkillId로 "Skill"
-    -- (Q)키에 실제 장착한다 - 전직/레벨업 3택1 선택 UI는 아직 없어(Phase 3+ 몫) 매 티어 첫 미보유
-    -- 후보를 자동 지급한다(GrantTierSkills). 캐릭터 생성 시점(1차)은 유저가 카드에서 공격/버프 각각
-    -- 전체 풀 안에서 직접 고른 두 스킬을 그대로 받는다(GrantInitialSkill, 2026-08-19 재설계 - 예전엔
-    -- 하나만 직접 고르고 반대 카테고리는 안 보이게 자동 배정됐음).
+    -- (Q)키에 실제 장착한다. 캐릭터 생성 시점(1차)은 유저가 카드에서 공격/버프 각각 전체 풀 안에서
+    -- 직접 고른 두 스킬을 그대로 받는다(GrantInitialSkill, 2026-08-19 재설계 - 예전엔 하나만 직접
+    -- 고르고 반대 카테고리는 안 보이게 자동 배정됐음).
+    -- 2026-09-06 (M2 Phase A) - 2/3/4차 전직 티어는 이전엔 GrantTierSkills가 각 카테고리 첫 후보를
+    -- 자동 지급했으나(3택1 UI 부재), 실제 3택1 선택 팝업(SkillChoiceUIController/ui/SkillChoiceGroup.ui,
+    -- AbilityChoiceUIController와 동일 아키텍처)으로 교체 - 버프 3택1을 먼저 띄우고 확정되면 이어서
+    -- 공격 3택1을 띄운다(TierQueued2~4가 여러 티어가 동시에 몰렸을 때의 대기열). 티어 진급마다 유저가
+    -- 실제로 버프 1개+공격 1개를 직접 고른다(전체 기획서 §04).
 
     @Sync property string BuffSkill1 = ""
     @Sync property string BuffSkill2 = ""
@@ -26,6 +30,22 @@ script PlayerSkillComponent extends Component
     -- 누르면 그 스킬의 카테고리에 따라 자동으로 맞는 슬롯에 들어간다(RequestSetEquippedSkill).
     @Sync property string EquippedSkillId2 = ""
     @Sync @HideFromInspector property number LastUseTime2 = -999
+    -- 2026-09-06 (M2 Phase A) - 티어 3택1 선택 팝업 상태. SkillChoicePending은 클라이언트가
+    -- OnSyncProperty로 감시하는 진입점(true가 되면 SkillChoiceUIController.ShowChoice 호출) -
+    -- AbilityChoicePending과 동일 패턴. PendingSkillChoice1~3은 이번 팝업의 후보 3개(카테고리 내
+    -- 풀이 3개 미만이면 빈 문자열로 채워짐 - UI가 빈 슬롯을 숨겨야 함).
+    @Sync @HideFromInspector property boolean SkillChoicePending = false
+    @Sync @HideFromInspector property string PendingSkillCategory = ""
+    @Sync @HideFromInspector property integer PendingSkillTier = 0
+    @Sync @HideFromInspector property string PendingSkillChoice1 = ""
+    @Sync @HideFromInspector property string PendingSkillChoice2 = ""
+    @Sync @HideFromInspector property string PendingSkillChoice3 = ""
+    -- 여러 레벨이 한 틱에 몰려 티어가 동시에 여러 개 진급할 때의 대기열(이능 팝업의
+    -- PendingAbilityChoices 카운터와 달리, 스킬 티어는 각각 서로 다른 후보 풀을 굴려야 해서 단순
+    -- 카운터로는 표현 불가 - 티어 번호별 불리언 플래그 3개로 대신한다. 최대 3개뿐이라 충분).
+    @HideFromInspector property boolean TierQueued2 = false
+    @HideFromInspector property boolean TierQueued3 = false
+    @HideFromInspector property boolean TierQueued4 = false
     -- 2026-08-19 유저 요청 - "버프 유지 시간이 전혀 안 보인다". 원인은 이 3개가 @Sync가 아니라서
     -- 클라이언트가 애초에 값을 읽을 수 없었던 것 - PlayerHUDController가 이 값들로 남은 시간을
     -- 표시한다(BuffExpireTime - _UtilLogic.ServerElapsedSeconds, 스킬 쿨다운 표시와 동일 패턴).
@@ -42,6 +62,16 @@ script PlayerSkillComponent extends Component
         if not self.BuffActive then return end
         if _UtilLogic.ElapsedSeconds < self.BuffExpireTime then return end
         self:RevertBuff()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSyncProperty(string name, any value)
+        -- Opens the skill-tier 3택1 popup for the local player only (RestrictedPlayerEntitySync
+        -- keeps other players' PlayerSkillComponent invisible to this client anyway, but the guard
+        -- is kept explicit to match this project's other per-player UI controllers).
+        if name ~= "SkillChoicePending" or value ~= true then return end
+        if not isvalid(_UserService.LocalPlayer) or self.Entity ~= _UserService.LocalPlayer then return end
+        _SkillChoiceUIController:ShowChoice(self.PendingSkillCategory, self.PendingSkillTier, self.PendingSkillChoice1, self.PendingSkillChoice2, self.PendingSkillChoice3)
     end
 
     @ExecSpace("ServerOnly")
@@ -85,25 +115,145 @@ script PlayerSkillComponent extends Component
 
     @ExecSpace("ServerOnly")
     method void GrantTierSkills(integer tier)
-        -- Auto-grants one unowned buff + one unowned attack skill into the given tier's slots (2/3/4
-        -- only - tier 1 is handled by GrantInitialSkill). No 3택1 choice UI exists yet (Phase 3+), so
-        -- this always takes the first rolled candidate - see header comment.
+        -- Called from PlayerStatsComponent.GrantSkillTierIfMilestone at levels 5/13/18 (tier 2/3/4).
+        -- Queues the tier instead of granting immediately - ProcessSkillTierQueue starts the actual
+        -- buff-then-attack 3택1 popup flow once no other choice is currently open.
         if tier < 2 or tier > 4 then return end
+        if tier == 2 then self.TierQueued2 = true
+        elseif tier == 3 then self.TierQueued3 = true
+        else self.TierQueued4 = true
+        end
+        log("PlayerSkill: GrantTierSkills queued tier=" .. tier)
+        self:ProcessSkillTierQueue()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ProcessSkillTierQueue()
+        -- Starts the next queued tier's buff choice once no choice popup is currently open. Tiers
+        -- are processed in ascending order (2 -> 3 -> 4) - a huge XP grant (a real overkill burst,
+        -- or a test script) that crosses multiple milestones in one GrantXp call queues all of them,
+        -- resolved one at a time.
+        --
+        -- Guard on PendingSkillTier (~= 0), NOT SkillChoicePending. SkillChoicePending's flip to true
+        -- is deliberately deferred by 0.1s in StartTierChoice (same-tick @Sync visibility pattern -
+        -- see that method) - within that 0.1s window it's still false even though a choice IS already
+        -- in flight. A second GrantTierSkills call landing inside that window (e.g. two milestones hit
+        -- in the same synchronous GrantXp loop) would otherwise see SkillChoicePending=false and start
+        -- a second StartTierChoice immediately, overwriting the first tier's Pending* fields before its
+        -- own deferred flip ever fires - silently discarding that tier's choice entirely (reproduced in
+        -- testing: a level 1->13 jump in one GrantXp call skipped tier 2's buff choice this way).
+        -- PendingSkillTier is set synchronously at the very top of StartTierChoice (no timer), so it is
+        -- a reliable "a choice is in flight" flag even during that window.
+        if self.PendingSkillTier ~= 0 then return end
+        local nextTier = 0
+        if self.TierQueued2 then nextTier = 2
+        elseif self.TierQueued3 then nextTier = 3
+        elseif self.TierQueued4 then nextTier = 4
+        end
+        if nextTier == 0 then return end
+        if nextTier == 2 then self.TierQueued2 = false
+        elseif nextTier == 3 then self.TierQueued3 = false
+        else self.TierQueued4 = false
+        end
+        self:StartTierChoice(nextTier, "buff")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StartTierChoice(integer tier, string category)
+        -- Rolls up to 3 unowned candidates for the given tier/category and opens the popup. If the
+        -- category's pool is already exhausted (0 candidates - possible once M2's full trait/skill
+        -- pools shrink via prior grants), skips straight to the next step instead of showing an
+        -- empty popup.
         local owned = self:GetOwnedSkillIds()
         local ownedIds = {}
         for _, entry in ipairs(owned) do
             table.insert(ownedIds, entry.id)
         end
+        local choices = _SkillCatalog:RollSkillChoices(category, ownedIds)
+        if #choices == 0 then
+            log("PlayerSkill: StartTierChoice tier=" .. tier .. " category=" .. category .. " pool exhausted, skipping")
+            self:AdvanceTierChoice(tier, category)
+            return
+        end
 
-        local buffChoices = _SkillCatalog:RollSkillChoices("buff", ownedIds)
-        if #buffChoices > 0 then
-            self:SetTierSlot("buff", tier, buffChoices[1])
+        self.PendingSkillTier = tier
+        self.PendingSkillCategory = category
+        self.PendingSkillChoice1 = choices[1] or ""
+        self.PendingSkillChoice2 = choices[2] or ""
+        self.PendingSkillChoice3 = choices[3] or ""
+
+        -- Deferred flip (같은 틱 @Sync 지연-가시성 패턴 - PlayerStatsComponent.MaybeOpenNextAbilityChoice
+        -- 와 동일한 이유) - SkillChoicePending이 true로 도착할 때 형제 필드(PendingSkillChoice1~3 등)가
+        -- 이미 이전 sync 틱에 도착해 있도록 한 틱 늦춰서 별도로 보낸다.
+        _TimerService:SetTimerOnce(function()
+            if not isvalid(self.Entity) then return end
+            self.SkillChoicePending = true
+            log("PlayerSkill: StartTierChoice tier=" .. tier .. " category=" .. category .. " choices=" .. choices[1] .. "/" .. tostring(choices[2]) .. "/" .. tostring(choices[3]))
+        end, 0.1)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void AdvanceTierChoice(integer tier, string category)
+        -- Called when a category's pool was empty (StartTierChoice) or after a choice resolves
+        -- (RequestResolveSkillChoice). Buff -> attack within the same tier; attack -> tier complete.
+        if category == "buff" then
+            self:StartTierChoice(tier, "attack")
+        else
+            self.PendingSkillTier = 0
+            self:ProcessSkillTierQueue()
         end
-        local atkChoices = _SkillCatalog:RollSkillChoices("attack", ownedIds)
-        if #atkChoices > 0 then
-            self:SetTierSlot("attack", tier, atkChoices[1])
+    end
+
+    @ExecSpace("Server")
+    method void RequestResolveSkillChoice(string chosenId)
+        -- Client-invoked (skill choice popup card click). senderUserId guards against resolving
+        -- another player's pending choice. Rejects an id that isn't one of the 3 rolled candidates
+        -- (spoofed / stale click) silently, mirroring RequestSetEquippedSkill's rejection pattern.
+        if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
+            return
         end
-        log("PlayerSkill: GrantTierSkills tier=" .. tier .. " buff=" .. tostring(buffChoices[1]) .. " atk=" .. tostring(atkChoices[1]))
+        if not self.SkillChoicePending then return end
+        if chosenId ~= self.PendingSkillChoice1 and chosenId ~= self.PendingSkillChoice2 and chosenId ~= self.PendingSkillChoice3 then
+            log_warning("PlayerSkill: RequestResolveSkillChoice rejected, not a rolled candidate: " .. tostring(chosenId))
+            return
+        end
+        local tier = self.PendingSkillTier
+        local category = self.PendingSkillCategory
+        self:SetTierSlot(category, tier, chosenId)
+        self.SkillChoicePending = false
+        self.PendingSkillCategory = ""
+        self.PendingSkillChoice1 = ""
+        self.PendingSkillChoice2 = ""
+        self.PendingSkillChoice3 = ""
+        log("PlayerSkill: RequestResolveSkillChoice tier=" .. tier .. " category=" .. category .. " chosen=" .. chosenId)
+        self:AdvanceTierChoice(tier, category)
+    end
+
+    @ExecSpace("Server")
+    method void RequestRerollSkillChoice()
+        -- 큐브마스터 특성 훅(전체 기획서 §2-3 "스킬 선택 시 제시 옵션 1회 재추첨 가능") - 이 특성이
+        -- 아직 축소 특성 풀(M1)에 없어 오늘은 사실상 항상 거부되지만, M2 Phase B에서 전체 114종
+        -- 특성 풀이 들어오면 이 메서드만으로 곧바로 동작한다(별도 배선 불필요).
+        if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
+            return
+        end
+        if not self.SkillChoicePending then return end
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        if not isvalid(statsComp) or statsComp.Trait ~= "큐브마스터" then
+            log("PlayerSkill: RequestRerollSkillChoice rejected, no 큐브마스터 trait")
+            return
+        end
+        local owned = self:GetOwnedSkillIds()
+        local ownedIds = {}
+        for _, entry in ipairs(owned) do
+            table.insert(ownedIds, entry.id)
+        end
+        local choices = _SkillCatalog:RollSkillChoices(self.PendingSkillCategory, ownedIds)
+        if #choices == 0 then return end
+        self.PendingSkillChoice1 = choices[1] or ""
+        self.PendingSkillChoice2 = choices[2] or ""
+        self.PendingSkillChoice3 = choices[3] or ""
+        log("PlayerSkill: 큐브마스터 reroll -> " .. choices[1])
     end
 
     @ExecSpace("ServerOnly")

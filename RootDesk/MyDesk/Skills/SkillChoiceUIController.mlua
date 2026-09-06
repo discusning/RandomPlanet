@@ -1,0 +1,141 @@
+@Logic
+script SkillChoiceUIController extends Logic
+    -- 스킬 티어 3택1 선택 팝업 (M2 Phase A, 2026-09-06) - AbilityChoiceUIController와 동일 아키텍처
+    -- (대기 큐는 서버 쪽 PlayerSkillComponent.TierQueued2~4가 소유, 이 컨트롤러는 순수 표시+클릭
+    -- 전달만 담당). PlayerSkillComponent.OnSyncProperty가 SkillChoicePending=true를 감지하면
+    -- ShowChoice를 호출한다. 카드 3장 중 하나를 클릭하면 그 카드에 표시된 스킬 id를 그대로
+    -- RequestResolveSkillChoice로 서버에 전달 - 후보 id는 로컬 텍스트가 아니라 이 컨트롤러가 직접
+    -- 들고 있는 choiceId1~3에서 읽는다(표시 텍스트를 파싱하지 않음).
+
+    property Entity skillChoiceGroup = "38a9fbde-f315-418c-9543-15cc70c58b22"
+    property TextGUIRendererComponent titleText = "6c21f01c-167a-4c67-9399-964f108a9a4c"
+    property TextGUIRendererComponent card1Title = "a612b2e7-6a35-4d39-8231-0ac50cffada0"
+    property TextGUIRendererComponent card1Tag = "548ebd4c-bf54-46a9-8bc4-5d2270d69a66"
+    property TextGUIRendererComponent card1Desc = "6db8b053-0b4c-449c-a2d5-d5eef26e126b"
+    property Entity btnCard1 = "3d0bc0fc-9d8a-416c-921b-654e0dadca81"
+    property TextGUIRendererComponent card2Title = "16684f82-9026-40c7-b6a2-0c4d3e16a107"
+    property TextGUIRendererComponent card2Tag = "5c8598eb-d070-4a56-8261-9b52c1c09c35"
+    property TextGUIRendererComponent card2Desc = "64b96be6-41f7-4acc-9d2a-dd88fc36e845"
+    property Entity btnCard2 = "7e45db92-a198-4051-8e62-182d3fc1e6c5"
+    property TextGUIRendererComponent card3Title = "0275c593-98f2-45c8-98c6-15034df3b785"
+    property TextGUIRendererComponent card3Tag = "8bce718b-b6e3-44ae-95f9-7041140e3b23"
+    property TextGUIRendererComponent card3Desc = "3663472d-58cd-407a-8676-7bdf2b678c46"
+    property Entity btnCard3 = "67115402-908e-403f-a931-bab34a2537c2"
+    property Entity btnReroll = "c7cc3c74-60ba-4b0c-a87c-bb3b627e07c5"
+    property Entity card3 = "4793a290-de89-4d2e-8b4f-9417b86f9f66"
+
+    @HideFromInspector property any handler1 = nil
+    @HideFromInspector property any handler2 = nil
+    @HideFromInspector property any handler3 = nil
+    @HideFromInspector property any rerollHandler = nil
+    @HideFromInspector property string choiceId1 = ""
+    @HideFromInspector property string choiceId2 = ""
+    @HideFromInspector property string choiceId3 = ""
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        if isvalid(self.skillChoiceGroup) then
+            self.skillChoiceGroup.Enable = false
+        end
+        if isvalid(self.btnCard1) then
+            self.handler1 = self.btnCard1:ConnectEvent(ButtonClickEvent, function() self:OnCardClicked(1) end)
+        end
+        if isvalid(self.btnCard2) then
+            self.handler2 = self.btnCard2:ConnectEvent(ButtonClickEvent, function() self:OnCardClicked(2) end)
+        end
+        if isvalid(self.btnCard3) then
+            self.handler3 = self.btnCard3:ConnectEvent(ButtonClickEvent, function() self:OnCardClicked(3) end)
+        end
+        if isvalid(self.btnReroll) then
+            self.rerollHandler = self.btnReroll:ConnectEvent(ButtonClickEvent, function() self:OnRerollClicked() end)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.handler1 and isvalid(self.btnCard1) then
+            self.btnCard1:DisconnectEvent(ButtonClickEvent, self.handler1)
+        end
+        if self.handler2 and isvalid(self.btnCard2) then
+            self.btnCard2:DisconnectEvent(ButtonClickEvent, self.handler2)
+        end
+        if self.handler3 and isvalid(self.btnCard3) then
+            self.btnCard3:DisconnectEvent(ButtonClickEvent, self.handler3)
+        end
+        if self.rerollHandler and isvalid(self.btnReroll) then
+            self.btnReroll:DisconnectEvent(ButtonClickEvent, self.rerollHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ShowChoice(string category, integer tier, string id1, string id2, string id3)
+        -- category="buff"|"attack", tier=2|3|4. id2/id3 may be "" when the category pool has fewer
+        -- than 3 unowned candidates left - that card is hidden instead of showing an empty skill.
+        self.choiceId1 = id1
+        self.choiceId2 = id2
+        self.choiceId3 = id3
+
+        local jobLabel = category == "buff" and "버프 스킬" or "공격 스킬"
+        if isvalid(self.titleText) then
+            self.titleText.Text = tier .. "차 전직 - " .. jobLabel .. " 선택"
+        end
+
+        self:FillCard(id1, self.card1Title, self.card1Tag, self.card1Desc, self.btnCard1)
+        self:FillCard(id2, self.card2Title, self.card2Tag, self.card2Desc, self.btnCard2)
+        self:FillCard(id3, self.card3Title, self.card3Tag, self.card3Desc, self.btnCard3)
+        if isvalid(self.card3) then
+            self.card3.Enable = id3 ~= ""
+        end
+
+        if isvalid(self.skillChoiceGroup) then
+            self.skillChoiceGroup.Enable = true
+        end
+        log("SkillChoiceUI: ShowChoice tier=" .. tier .. " category=" .. category .. " ids=" .. id1 .. "/" .. tostring(id2) .. "/" .. tostring(id3))
+    end
+
+    method void FillCard(string skillId, TextGUIRendererComponent titleComp, TextGUIRendererComponent tagComp, TextGUIRendererComponent descComp, Entity btn)
+        if skillId == "" then
+            if isvalid(btn) then btn.Enable = false end
+            return
+        end
+        if isvalid(btn) then btn.Enable = true end
+        local def = _SkillCatalog:GetSkillDef(skillId)
+        if def == nil then return end
+        if isvalid(titleComp) then titleComp.Text = def.name end
+        if isvalid(tagComp) then tagComp.Text = "[ " .. def.job .. " ]" end
+        if isvalid(descComp) then descComp.Text = def.desc end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCardClicked(integer cardIndex)
+        -- Optimistic hide - mirrors AbilityChoiceUIController.OnChoiceClicked. If the tier still has
+        -- a second category pending (buff -> attack), PlayerSkillComponent's server-side
+        -- StartTierChoice re-flips SkillChoicePending true a moment later, which re-triggers ShowChoice.
+        local chosenId = self.choiceId1
+        if cardIndex == 2 then chosenId = self.choiceId2
+        elseif cardIndex == 3 then chosenId = self.choiceId3
+        end
+        if chosenId == "" then return end
+        if isvalid(self.skillChoiceGroup) then
+            self.skillChoiceGroup.Enable = false
+        end
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return end
+        local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
+        if not isvalid(skillComp) then return end
+        skillComp:RequestResolveSkillChoice(chosenId)
+        log("SkillChoiceUI: OnCardClicked card=" .. cardIndex .. " id=" .. chosenId)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnRerollClicked()
+        -- 큐브마스터 훅 - 특성이 없으면 서버가 조용히 거부한다(PlayerSkillComponent.RequestRerollSkillChoice).
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return end
+        local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
+        if not isvalid(skillComp) then return end
+        skillComp:RequestRerollSkillChoice()
+        log("SkillChoiceUI: OnRerollClicked")
+    end
+
+end
