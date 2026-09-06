@@ -391,7 +391,22 @@ script PlayerSkillComponent extends Component
         end
 
         if def.kind == "melee_single" then
-            self:DoMeleeSingle(def)
+            -- 2026-09-06 (M2 Phase A) - VFX 타이밍 딜레이 적용(As-built 25차 "설계만 완료, 코드
+            -- 미적용" 항목 - DoDash 주석에 있던 "DispatchSkill의 impactDelay" 개념을 실제로 구현).
+            -- 지금까지 melee_single은 키 입력과 같은 프레임에 즉시 판정이 나가서, 스윙 모션의 초반
+            -- 프레임에 이미 데미지가 적용되는 것처럼 보였다(모션은 PlaySkillMotion으로 방금 시작했는데
+            -- 타격은 그 즉시 발생). def.impactDelay(SkillCatalog, 기본 0)만큼 실제 판정을 늦춰서
+            -- 스윙 애니메이션의 타격 프레임과 데미지 적용 시점을 맞춘다. dash는 의도적으로 제외(위
+            -- DoDash 주석 참고 - 돌진 자체가 스윙이라 즉시 판정이 맞음), multi_hit(럭키 세븐)은 이미
+            -- 투사체 비행시간으로 자연스러운 지연이 있어 별도 적용 불필요.
+            local impactDelay = def.impactDelay or 0
+            if impactDelay > 0 then
+                _TimerService:SetTimerOnce(function()
+                    if isvalid(self.Entity) then self:DoMeleeSingle(def) end
+                end, impactDelay)
+            else
+                self:DoMeleeSingle(def)
+            end
         elseif def.kind == "ranged_single" or def.kind == "ranged_pierce" then
             self:DoRanged(def, def.kind == "ranged_pierce")
         elseif def.kind == "multi_hit" then

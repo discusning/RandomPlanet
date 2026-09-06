@@ -115,8 +115,13 @@ script SkillCatalog extends Logic
         -- 추가(PlayerSkillComponent.DoDash). luckyseven도 DPS 계수가 가장 낮았던 편(0.429)이라
         -- coef 0.5->0.6으로 소폭 상향(다단히트 특성상 체감 딜레이가 있어 완전히 맞추진 않음).
         local defs = {
-            powerstrike = { id = "powerstrike", name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
-            slashblast = { id = "slashblast", name = "슬래시 블러스트", job = "검사", kind = "melee_single", coef = 1.0, wide = true, cooldown = 4.0, mpCost = 10, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", desc = "전방의 넓은 범위를 베어 그 안의 모든 적에게 평타의 100% 피해를 입힙니다." },
+            -- impactDelay (2026-09-06, M2 Phase A) - VFX 타이밍 딜레이. 키 입력 즉시 스윙 모션은
+            -- 시작되지만(PlayerSkillComponent.PlaySkillMotion) 실제 판정은 이 값만큼 늦춰서 스윙의
+            -- 타격 프레임과 데미지 적용 시점을 맞춘다(PlayerSkillComponent.UseSkillSlot 참고). 값은
+            -- 각 스킬 모션의 체감 스윙 속도에 맞춘 추정치 - 실제 애니메이션 프레임 데이터를 정밀
+            -- 측정한 것은 아니며, 실플레이 피드백에 따라 조정 예정.
+            powerstrike = { id = "powerstrike", name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
+            slashblast = { id = "slashblast", name = "슬래시 블러스트", job = "검사", kind = "melee_single", coef = 1.0, wide = true, cooldown = 4.0, mpCost = 10, impactDelay = 0.2, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", desc = "전방의 넓은 범위를 베어 그 안의 모든 적에게 평타의 100% 피해를 입힙니다." },
             -- 아이언 바디 (2026-08-19 전 스킬 이펙트 일괄 재검증 - 이번엔 GIF를 프레임 단위로 직접
             -- 열어서 확인): 이전 buffVfxRuid("1838b57c...", "파워 가드" affected 클립)는 실제로는
             -- 12프레임 중 겨우 3프레임에만 내용이 있고 그마저도 거의 흰색에 가까운 연한 살구색이라
@@ -152,7 +157,7 @@ script SkillCatalog extends Logic
             -- 교체(다른 근접 단일히트 스킬과 동일 파이프라인, PlayerSkillComponent.DoMeleeSingle).
             -- hitVfxRuid는 실제 "애로우 블로우" 팩(skill/300.img/skill/3001004, findPacksContaining로
             -- 재확인)의 hit/0 요소 - 기존 "ball"(투사체용 화살 그래픽)은 더 이상 맞지 않아 교체.
-            arrowblow = { id = "arrowblow", name = "애로우 블로우", job = "궁수", kind = "melee_single", coef = 1.2, cooldown = 2.0, mpCost = 8, hitVfxRuid = "84a473e004a34fdea67aa74a87dc75c6", desc = "활로 전방의 적을 강하게 가격해 평타의 120% 피해를 입힙니다." },
+            arrowblow = { id = "arrowblow", name = "애로우 블로우", job = "궁수", kind = "melee_single", coef = 1.2, cooldown = 2.0, mpCost = 8, impactDelay = 0.12, hitVfxRuid = "84a473e004a34fdea67aa74a87dc75c6", desc = "활로 전방의 적을 강하게 가격해 평타의 120% 피해를 입힙니다." },
             focus = { id = "focus", name = "포커스", job = "궁수", kind = "buff", duration = 6.0, testableEffect = "accuracy", accuracyBonus = 30, inertNote = "회피 상승 부분은 비활성(몬스터 공격 파이프라인 없음)", cooldown = 12.0, mpCost = 12, auraType = "SpinField", auraColor = Color(1.0, 0.85, 0.3, 0.9), buffVfxRuid = "0d68db29ec2046f4bb2a64e6f03b745b", desc = "일정 시간 명중률이 30 증가합니다." },
             -- 럭키 세븐 (2026-08-17 메이플랜드/클래식 메이플스토리 자료 조사 후 확인 - 의도적 타협):
             -- 실제로는 도적 1차가 아니라 어쌔신(2차) 스킬 - 실제 도적 1차 스킬은 님블 바디/디스오더
