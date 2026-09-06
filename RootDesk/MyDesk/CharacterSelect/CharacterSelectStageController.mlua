@@ -102,7 +102,8 @@ script CharacterSelectStageController extends Component
         -- field, so recency is approximated by the numeric suffix of each item's `dname` (e.g.
         -- "hair-12809"), which appears to be an incrementing catalog id (higher = added later).
         -- Not a guaranteed release-date sort, but the best available proxy - see Gotchas.
-        self._T.traitPool = { "상인", "버서크", "단단함", "날렵함", "균형", "절약가" }
+        -- M2 Phase B(2026-09-06) - 특성 추첨은 TraitRollLogic(전체 115종, 5풀 가중치)로 이관,
+        -- 축소 6종 풀(traitPool)은 제거.
         -- bodyPool fixed to a single skin tone 2026-07-20 ("뽀송 꽃잎 피부") - user wants body/skin
         -- no longer randomized, only hair/face still roll. A 1-item pool keeps CreateCharacter's
         -- existing RandomIntegerRange(1, #pool) pick working unchanged (always resolves to this one).
@@ -215,7 +216,9 @@ script CharacterSelectStageController extends Component
         end
 
         local stats = self:RollStats()
-        local trait = self._T.traitPool[_UtilLogic:RandomIntegerRange(1, #self._T.traitPool)]
+        -- M2 Phase B(2026-09-06) - 축소 풀(6종)에서 전체 특성 풀(115종, TraitRollLogic의 5풀
+        -- 가중치+천장)로 교체.
+        local trait = _TraitRollLogic:RollTrait()
         local look = {
             body = self._T.bodyPool[_UtilLogic:RandomIntegerRange(1, #self._T.bodyPool)],
             hair = self._T.hairPool[_UtilLogic:RandomIntegerRange(1, #self._T.hairPool)],

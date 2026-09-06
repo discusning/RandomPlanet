@@ -1,0 +1,301 @@
+@Logic
+script TraitCatalog extends Logic
+    -- 전체 특성 115종 데이터 (Docs/랜덤 플래닛 전체 기획서.md §2-3 5풀 목록 + 부록 D 링크 패시브 +
+    -- 부록 E 기본 패시브 + 부록 G 신규 15종). M2 Phase B(2026-09-06) 신설.
+    --
+    -- pool: "hg"=Hidden-good(20%) "avg"=average(35%) "bad"=bad(20%) "gmb"=Gamble(18%) "hb"=Hidden-bad(7%)
+    -- legacy=true: M1부터 이미 완전히 커스텀 구현된 6종(상인/버서크/단단함/날렵함/균형/절약가) 중
+    --   버서크만 legacy로 유지(반응형 공격력 - PlayerStatsComponent.BerserkTick, 자체 서사와 강하게
+    --   결합된 유일한 메커니즘이라 범용 엔진으로 옮기지 않음). 나머지 5종은 이번에 범용 엔진으로
+    --   이관하되 기존 수치를 그대로 보존(회귀 없음) - 상인은 실제 드랍 시스템(물약)이 생겨 원래
+    --   의도(드랍률)로 복원.
+    -- basicEffect: TraitEffectEngine이 해석하는 파라미터 테이블. 필드가 없으면(nil) "아직 수치
+    --   구현 없음"(부록 D-3 🔴/🟡 중 새 서브시스템이 필요한 것들 - 도트, 소환, 순간이동 교체,
+    --   스냅샷 롤백, 영구 재화, 스탯 구슬 등) - UI 툴팁 텍스트(basicName/basicDesc)는 전부 채워져
+    --   있으므로 표시는 정상이나 실제 수치는 §M2-GDD Phase B에 정직하게 미구현으로 기록됨.
+    --   지원 필드(전부 선택): atk(공격력%) atkF(공격력 고정치) cc(크리확률+) cm(크리배율+)
+    --   as(공격속도%) acc(명중+) ev(회피%) ms(이속 고정치) msm(이속%) hp(최대체력%) hpF(최대체력 고정)
+    --   mp(최대MP%) dr(피해감소%) mpc(스킬MP소모%, 음수=감소) drop(드랍률%) exp(경험치%) kb(넉백저항+)
+    --   shieldOnHit={chance,pct} (피격 시 확률로 최대체력 pct%만큼 방어막 생성, PlayerHit이 소모)
+    --   healOnKill={chance,pct} (처치 시 확률로 최대체력 pct% 즉시 회복)
+    -- linkEffect: Phase C(링크 캐릭터 실효과 연결)가 소비할 예정 - 지금은 텍스트만.
+    property table Defs = {}
+
+    method void OnBeginPlay()
+        -- ExecSpace 미지정(양쪽 실행) - 서버 로직(PlayerStatsComponent 등)과 클라이언트 UI
+        -- (AbilityChoiceUIController/CharacterInfoUIController 등) 양쪽 다 이 데이터를 읽어야 한다.
+        self:BuildDefs()
+    end
+
+    method void BuildDefs()
+        local d = {}
+
+        -- ===== Hidden-good (20%, 27종) =====
+        d["상인"] = { pool="hg", basicName="노다지", basicDesc="드랍률+15%", basicEffect={drop=0.15},
+            linkName="감정가", linkDesc="획득 스탯 구슬 종류 미리 표시" }
+        d["버서크"] = { pool="hg", basicName="피의 대가", basicDesc="체력이 낮을수록 공격력 증가(자해 없음)", legacy=true,
+            linkName="고립의 힘", linkDesc="링크 1슬롯만 활성 시 전스탯+12%" }
+        d["링크 마스터"] = { pool="hg", basicName="각성", basicDesc="이능 획득 시 3초간 전 스탯 대폭 상승",
+            linkName="인연 심화", linkDesc="링크 캐릭터 20레벨+ 시 효과+25%" }
+        d["시간여행자"] = { pool="hg", basicName="유산", basicDesc="클리어 시 영구 재화+15% (영구재화 시스템 선행 필요)",
+            linkName="시간 도약", linkDesc="매 판 첫 3분간 파티 경험치 획득량+20%" }
+        d["부활자"] = { pool="hg", basicName="불굴", basicDesc="치명적 피해를 1회 Hp 1로 버팀", basicEffect={reviveOnce=true},
+            linkName="재림의 축복", linkDesc="파티 중 위기(HP10%↓) 캐릭터에게 낮은 확률로 짧은 무적" }
+        d["먹보"] = { pool="hg", basicName="생명 전환", basicDesc="회복 아이템 효과량 증가", basicEffect={potionMult=0.5},
+            linkName="포식의 나눔", linkDesc="파티 회복 아이템 효과량+15%" }
+        d["분신(도플갱어)"] = { pool="hg", basicName="콤보 마스터", basicDesc="무피격 시간 비례 데미지 증가 (분신 소환은 선행 서브시스템 필요)",
+            linkName="표식 공유", linkDesc="파티가 표식 능력 획득" }
+        d["메아리"] = { pool="hg", basicName="무영창", basicDesc="공격 시 낮은 확률로 스킬 쿨다운 즉시 초기화", basicEffect={onHitCooldownReset=0.05},
+            linkName="되돌림 지원", linkDesc="회피 성공 시 데미지 증가" }
+        d["자석술사"] = { pool="hg", basicName="처치 연쇄", basicDesc="단시간 다중 처치 시 폭발적 버프 (드랍 흡수 서브시스템 선행 필요)",
+            linkName="자기 폭풍", linkDesc="처치 시 낮은 확률로 주변 드랍을 강제 즉시 흡수" }
+        d["마노"] = { pool="hg", basicName="파괴 본능", basicDesc="공격력+8%", basicEffect={atk=0.08},
+            linkName="예지", linkDesc="다음 웨이브·보스 정보 표시" }
+        d["마나실드"] = { pool="hg", basicName="가시 갑옷", basicDesc="피격 시 낮은 확률로 반사 피해 + 소형 방어막", basicEffect={shieldOnHit={chance=0.15,pct=0.08}},
+            linkName="방어막 나눔", linkDesc="판 시작 시 파티 전원에게 1회성 소형 방어막" }
+        d["큐브마스터"] = { pool="hg", basicName="재추첨 숙련", basicDesc="이능/스킬 선택지 재추첨 가능", basicEffect={rerollChoice=true},
+            linkName="이능 지원", linkDesc="이능 선택지 낮은 확률 상위 옵션" }
+        d["연성술사"] = { pool="hg", basicName="잔류 마력", basicDesc="처치 시 낮은 확률로 경험치 추가 획득", basicEffect={healOnKill=nil, onKillBonusExp=0.20},
+            linkName="복제의 비법", linkDesc="파티 스탯 구슬 획득 시 낮은 확률로 추가 1개 생성" }
+        d["처형자"] = { pool="hg", basicName="강타", basicDesc="평타 데미지+12%", basicEffect={atk=0.12},
+            linkName="첫 피 지원", linkDesc="사냥터 첫 처치 시 파티 버프" }
+        d["가속"] = { pool="hg", basicName="폭발적 성장", basicDesc="레벨당 공격속도 소폭 누적", basicEffect={as=0.10},
+            linkName="가속 공유", linkDesc="콤보 유지 시 파티 공속 누적" }
+        d["흡혈귀"] = { pool="hg", basicName="주문 증폭", basicDesc="가하는 피해의 5%를 체력으로 회복", basicEffect={lifestealPct=0.05},
+            linkName="흡혈의 계약", linkDesc="파티 전원 가하는 피해의 1% 흡혈" }
+        d["저격수"] = { pool="hg", basicName="일점", basicDesc="크리 확률↓ 대신 크리 데미지 대폭↑", basicEffect={cc=-0.05, cm=0.35},
+            linkName="엄호 사격", linkDesc="평타 시 낮은 확률로 지원사격 1회 추가" }
+        d["재생력"] = { pool="hg", basicName="최후의 반격", basicDesc="3초간 무피격 시 초당 체력 회복", basicEffect={regenIfUnhit={seconds=3, pct=0.03}},
+            linkName="연승 지원", linkDesc="무피격 시간 비례 파티 데미지 증가" }
+        d["수호자"] = { pool="hg", basicName="연쇄 치명", basicDesc="12초마다 받는 치명타 1회 무효", basicEffect={periodicShield={interval=12, pct=0.30}},
+            linkName="피격회피지원", linkDesc="파티 피격 직전 회피 확률 소폭 증가" }
+        d["천부적 재능"] = { pool="hg", basicName="도살자", basicDesc="이능 선택 시 선택지 1개 추가", basicEffect={extraAbilityChoice=true},
+            linkName="정찰", linkDesc="중간 보스 등장 예고" }
+        d["진화의 손길"] = { pool="hg", basicName="진화의 손길", basicDesc="같은 스킬 누적 50회 사용 시 진화형으로 자동 교체 (선행 서브시스템 필요)",
+            linkName="진화 지원", linkDesc="링크 배치 시 스킬 진화 필요 사용 횟수−20%" }
+        d["환영 교체"] = { pool="hg", basicName="환영 교체", basicDesc="스킬키로 분신과 위치 교체 + 소형 피해 (선행 서브시스템 필요)",
+            linkName="잔상 지원", linkDesc="대시/회피 시 짧은 무적시간 부여" }
+        d["메아리치는 발걸음"] = { pool="hg", basicName="메아리치는 발걸음", basicDesc="이동 중 지나온 자리에 화상 장판 (도트 프레임워크 선행 필요)",
+            linkName="발자국 지원", linkDesc="파티 이동 경로에 약한 화상 장판 공유" }
+        d["차원의 틈"] = { pool="hg", basicName="차원의 틈", basicDesc="크리 시 낮은 확률로 주변 몬스터를 끌어당김", basicEffect={onCritPullChance=0.08},
+            linkName="중력 지원", linkDesc="크리 시 낮은 확률로 적 이동속도 감소" }
+        d["동전 던지기 사형집행인"] = { pool="hg", basicName="동전 던지기 사형집행인", basicDesc="크리 시 낮은 확률(약5%)로 대상 즉사(보스 제외)", basicEffect={onCritExecuteChance=0.05},
+            linkName="처형 지원", linkDesc="파티 공격이 체력10%↓ 적 처치 시 확정타" }
+        d["시간을 거스르는 자"] = { pool="hg", basicName="시간을 거스르는 자", basicDesc="치명적 피해를 받으면 3초 전으로 복구(런당 1회) (스냅샷 버퍼 선행 필요)",
+            linkName="인연의 메아리", linkDesc="런당 1회 액티브 캐릭터 사망 직전 0.5초 무적" }
+        d["스피드스터"] = { pool="hg", basicName="스피드스터", basicDesc="힘/지능 계수 −70%, 대신 이동속도 계수 2.5배 + 이동속도 초과분 10%p당 공격력·스킬데미지+6%(상한+90%)", basicEffect={speedster=true},
+            linkName="질풍 지원", linkDesc="파티 전원 이동 속도 소폭 증가" }
+
+        -- ===== average (35%, 20종) =====
+        d["균형"] = { pool="avg", basicName="거인의 힘", basicDesc="모든 스탯 소폭 증가(+1)", legacy=true,
+            linkName="조화의 진", linkDesc="파티 전 스탯 균등하게 소폭 증가" }
+        d["견습"] = { pool="avg", basicName="채집가", basicDesc="경험치 획득+12%", basicEffect={exp=0.12},
+            linkName="동문수학", linkDesc="파티 경험치 획득량+8%" }
+        d["절약가"] = { pool="avg", basicName="명상의 여운", basicDesc="스킬 MP 소모 감소(30%)", legacy=true,
+            linkName="쿨다운 파동", linkDesc="스킬 사용 시 낮은 확률로 파티 쿨다운 소폭 감소" }
+        d["단단함"] = { pool="avg", basicName="철의 의지", basicDesc="방어력 증가(피해감소 12%)", legacy=true,
+            linkName="굳건한 진", linkDesc="파티 전원 피격 시 낮은 확률로 소형 방어막" }
+        d["강건함"] = { pool="avg", basicName="생명력 순환", basicDesc="최대 체력 증가(+15%)", basicEffect={hp=0.15},
+            linkName="생명의 샘", linkDesc="판 시작 시 파티 전원 최대체력 소량 즉시 회복" }
+        d["날렵함"] = { pool="avg", basicName="질풍", basicDesc="이동 속도 증가", legacy=true,
+            linkName="발걸음 지원", linkDesc="파티 이동속도+10%" }
+        d["집중"] = { pool="avg", basicName="급소 감각", basicDesc="웨이브당 첫 타격은 항상 크리티컬", basicEffect={firstHitCritOnWaveStart=true},
+            linkName="예리한 감각", linkDesc="파티 매 웨이브 첫 공격 필중" }
+        d["행운아"] = { pool="avg", basicName="치명타 강화", basicDesc="크리 데미지+20%", basicEffect={cm=0.20},
+            linkName="운명의 클로버", linkDesc="처치 시 낮은 확률로 다음 공격 크리 확정" }
+        d["수련생"] = { pool="avg", basicName="연계", basicDesc="스킬 MP 소모−20%", basicEffect={mpc=-0.20},
+            linkName="영창 보조", linkDesc="낮은 확률로 파티 스킬 무료 시전" }
+        d["회복가"] = { pool="avg", basicName="재생", basicDesc="초당 소량 체력 회복(전투 중)", basicEffect={regenIfUnhit={seconds=0, pct=0.01}},
+            linkName="집중 보조", linkDesc="파티 스킬 데미지+8%" }
+        d["근면"] = { pool="avg", basicName="성실한 손", basicDesc="경험치 획득+8%", basicEffect={exp=0.08},
+            linkName="자성", linkDesc="파티 스탯 구슬 획득량+8%" }
+        d["민첩한 손"] = { pool="avg", basicName="재빠른 손놀림", basicDesc="공격 속도+10%", basicEffect={as=0.10},
+            linkName="연속 타격 지원", linkDesc="같은 적 연속 타격 시 낮은 확률로 즉시 재행동" }
+        d["끈기"] = { pool="avg", basicName="경감", basicDesc="받는 피해−6%", basicEffect={dr=0.06},
+            linkName="회피 지원", linkDesc="파티 회피+5%" }
+        d["탐험가"] = { pool="avg", basicName="바람 걸음", basicDesc="이동 속도 증가", basicEffect={msm=0.12},
+            linkName="발견의 길잡이", linkDesc="파티 드랍률+8%" }
+        d["명상가"] = { pool="avg", basicName="확장", basicDesc="최대 MP+15%", basicEffect={mp=0.15},
+            linkName="지혜의 등불", linkDesc="스킬 사용 시 소형 범위 확산" }
+        d["투지"] = { pool="avg", basicName="투지의 일격", basicDesc="체력이 낮을수록 크리티컬 데미지 증가", basicEffect={lowHpCritMult={threshold=0.4, value=0.25}},
+            linkName="투지의 메아리", linkDesc="파티 중 크리 시 낮은 확률로 팀 전체 크리데미지 버프" }
+        d["절제"] = { pool="avg", basicName="전투 개시", basicDesc="받는 피해−5%", basicEffect={dr=0.05},
+            linkName="절제된 방어", linkDesc="파티 받는 피해−5%" }
+        d["친화력"] = { pool="avg", basicName="만찬", basicDesc="회복 아이템 효과+30%", basicEffect={potionMult=0.30},
+            linkName="유산 계승", linkDesc="링크 레벨 비례 경험치 보너스" }
+        d["신중함"] = { pool="avg", basicName="약점 간파", basicDesc="적을 처음 맞힐 때 데미지+20%", basicEffect={firstHitBonus=0.20},
+            linkName="신중한 조언", linkDesc="파티 첫 피격 1회 피해 20% 경감(런당 1회)" }
+        d["적응력"] = { pool="avg", basicName="연격", basicDesc="처치 누적 시 전 스탯 아주 소폭 증가(낮은 상한)", basicEffect={killStackAtk={perKill=0.005, cap=0.15}},
+            linkName="적응의 나눔", linkDesc="파티 처치 누적 시 전 스탯 아주 소폭 증가(공유)" }
+        d["피부 갈이"] = { pool="avg", basicName="치장", basicDesc="5·10·15·20레벨마다 코스튬 자동 진화(전투 효과 없음, 순수 비주얼)", basicEffect={cosmetic=true},
+            linkName="치장 지원", linkDesc="링크 20레벨+ 시 코스튬 진화 이펙트 추가" }
+
+        -- ===== bad (20%, 20종) =====
+        d["저주받은"] = { pool="bad", basicName="흡정", basicDesc="스킬 명중 시 MP 소량 회복", basicEffect={mpc=-0.08},
+            linkName="저주 반사", linkDesc="파티가 받는 디버프를 낮은 확률로 반사" }
+        d["둔재"] = { pool="bad", basicName="재활용", basicDesc="경험치 획득−8%(대신 게이트 입장권 낮은 확률 미소모, 선행 필요)", basicEffect={exp=-0.08},
+            linkName="조언자", linkDesc="파티 15레벨 이하 경험치+20%" }
+        d["약골"] = { pool="bad", basicName="방벽 숙련", basicDesc="최대 체력−10%, 대신 피격 시 낮은 확률로 방어막", basicEffect={hp=-0.10, shieldOnHit={chance=0.10,pct=0.06}},
+            linkName="완충", linkDesc="파티 받는 피해−6%" }
+        d["외골수"] = { pool="bad", basicName="복리", basicDesc="링크 패시브 효과 절반(대신 넉백·경직 저항 증가)", basicEffect={kb=0.15},
+            linkName="넉백 지원", linkDesc="파티 넉백·경직 저항 증가" }
+        d["굼뜸"] = { pool="bad", basicName="가속 회로", basicDesc="이동 속도−10%, 대신 처치 시 2초간 이속·공속+10%", basicEffect={msm=-0.10},
+            linkName="느긋한 방벽", linkDesc="파티 방어력+8%" }
+        d["둔감"] = { pool="bad", basicName="정밀", basicDesc="명중률−10, 대신 명중 시 데미지+10%", basicEffect={acc=-10, atk=0.10},
+            linkName="둔감한 방벽", linkDesc="파티 상태이상 시 낮은 확률로 즉시 해제" }
+        d["유리몸"] = { pool="bad", basicName="보호막 생성", basicDesc="방어력 감소, 대신 15초마다 소형 방어막", basicEffect={dr=-0.08, periodicShieldGrant={interval=15, pct=0.10}},
+            linkName="안전 확보", linkDesc="파티 입장 후 첫 피격 무효" }
+        d["낭비벽"] = { pool="bad", basicName="마나 순환", basicDesc="스킬 MP 소모+15%, 대신 처치 시 MP 회복", basicEffect={mpc=0.15},
+            linkName="풍족한 지원", linkDesc="파티 MP 소모−8%" }
+        d["느림보"] = { pool="bad", basicName="이중 시전", basicDesc="공격 속도−10%, 대신 낮은 확률로 스킬 2연발", basicEffect={as=-0.10},
+            linkName="여유로운 걸음", linkDesc="파티 이동속도+8%" }
+        d["박복"] = { pool="bad", basicName="행운의 칼날", basicDesc="크리티컬 확률−4%, 대신 크리 시 낮은 확률로 즉시 재행동", basicEffect={cc=-0.04},
+            linkName="박복한 자의 위로", linkDesc="파티 회복 아이템 드랍 확률+10%" }
+        d["빈손"] = { pool="bad", basicName="흡수", basicDesc="드랍률−10%, 대신 가하는 피해의 4% 흡혈", basicEffect={drop=-0.10, lifestealPct=0.04},
+            linkName="통행증", linkDesc="게이트 입장권 획득 확률 증가(선행 필요)" }
+        d["단명"] = { pool="bad", basicName="응급 지원", basicDesc="자연 회복 불가(회복 아이템은 가능), 대신 체력20%↓ 시 회복량+40%", basicEffect={potionMult=0.40},
+            linkName="응급 지원", linkDesc="파티 체력20%↓ 시 회복량+40%" }
+        d["허약"] = { pool="bad", basicName="파쇄", basicDesc="공격력−8%, 대신 방어 관통 소폭", basicEffect={atk=-0.08},
+            linkName="허약함의 대가", linkDesc="파티 최대 체력+8%" }
+        d["산만함"] = { pool="bad", basicName="연속 스텝", basicDesc="스킬 쿨다운+10%, 대신 대시 후 3초간 공속+12%", basicEffect={mpc=0.05},
+            linkName="재시전 지원", linkDesc="낮은 확률로 파티 스킬 2연발" }
+        d["옹졸함"] = { pool="bad", basicName="인내의 일격", basicDesc="구슬 획득량−8%, 대신 무피격 시간 비례 데미지 증가", basicEffect={exp=-0.08},
+            linkName="저축", linkDesc="파티 연속 처치 유지 시 구슬 획득+10%" }
+        d["겁쟁이"] = { pool="bad", basicName="반격 태세", basicDesc="보스전 받는 피해 증가, 대신 피격 직후 다음 공격+20%", basicEffect={dr=-0.05},
+            linkName="후위 엄호", linkDesc="파티 후방 피해−15%" }
+        d["무딘 칼"] = { pool="bad", basicName="치명 흡수", basicDesc="크리 데미지−10%, 대신 크리 시 체력 소폭 회복", basicEffect={cm=-0.10},
+            linkName="무딘 날의 마무리", linkDesc="파티 크리티컬 데미지+8%" }
+        d["게으름"] = { pool="bad", basicName="흡수 자동화", basicDesc="드랍 자동 흡수(범위 감소 대신)", basicEffect={drop=-0.05},
+            linkName="흡수 자동화", linkDesc="파티 드랍 자동 흡수" }
+        d["변덕"] = { pool="bad", basicName="출혈", basicDesc="이능 선택지 중 1종 비활성, 대신 처치 시 낮은 확률로 드랍 2배", basicEffect={exp=-0.03},
+            linkName="불확실한 운", linkDesc="처치 시 낮은 확률 드랍 2배, 낮은 확률 드랍 없음" }
+        d["저주의 표식"] = { pool="bad", basicName="둔화", basicDesc="주기적 짧은 디버프, 대신 타격 시 적 이동속도 감소", basicEffect={atk=-0.03},
+            linkName="표식의 저주", linkDesc="파티 공격이 적에게 표식 부여, 표식 대상 피해+8%" }
+
+        -- ===== Gamble (18%, 24종) =====
+        d["올인"] = { pool="gmb", basicName="화상", basicDesc="공격력 대폭↑, 방어력 대폭↓", basicEffect={atk=0.30, dr=-0.20},
+            linkName="마무리 지원", linkDesc="25%↓ 적 처치 피해+15%" }
+        d["양날검"] = { pool="gmb", basicName="파훼", basicDesc="크리 시 추가 데미지 큼, 빗나가면 자해", basicEffect={cm=0.30, dr=-0.05},
+            linkName="연격 지원", linkDesc="연속 처치 시 데미지 누적" }
+        d["럭키 세븐"] = { pool="gmb", basicName="빙결", basicDesc="7초마다 랜덤 버프 또는 디버프", basicEffect={periodicRandomBuff={interval=7}},
+            linkName="행운의 순환", linkDesc="7초마다 파티에게 낮은 확률로 랜덤 소형 버프" }
+        d["한 방"] = { pool="gmb", basicName="최후의 저항", basicDesc="최대 체력 1/3 시작, 데미지 약 2배", basicEffect={hp=-0.67, atk=1.0},
+            linkName="한 방의 각오", linkDesc="파티 첫 공격 데미지+10%, 대신 받는 피해+5%" }
+        d["도박꾼"] = { pool="gmb", basicName="감전", basicDesc="적 처치 시 50% 확률 드랍 2배/50% 확률 0", basicEffect={dropGamble=true},
+            linkName="재화 폭죽", linkDesc="처치 시 낮은 확률 재화 즉시 획득(선행 필요)" }
+        d["룰렛"] = { pool="gmb", basicName="그림자 스텝", basicDesc="입장 시 전 스탯 랜덤 재분배(총량 ±30%)", basicEffect={statReshuffle=0.30},
+            linkName="조율", linkDesc="판마다 링크스킬 1개 무작위 2배" }
+        d["복불복 상자"] = { pool="gmb", basicName="중독", basicDesc="스탯 구슬이 큰 값 또는 0으로 드랍(경험치로 근사)", basicEffect={expGamble=true},
+            linkName="행운 룰렛", linkDesc="10초마다 랜덤 소형 버프" }
+        d["회전룰렛"] = { pool="gmb", basicName="냉정한 응수", basicDesc="스킬 사용 시 10% 확률로 쿨다운 즉시 초기화/10% 확률로 2배", basicEffect={onSkillCooldownRoulette=0.10},
+            linkName="돌아가는 운명", linkDesc="파티 스킬 사용 시 낮은 확률로 쿨다운 초기화 또는 2배" }
+        d["양극화"] = { pool="gmb", basicName="역공 본능", basicDesc="크리티컬 확률 대폭 증가, 비크리 시 데미지 대폭 감소", basicEffect={cc=0.15, atk=-0.15},
+            linkName="양극의 나눔", linkDesc="파티 크리 확률+8%, 대신 비크리 시 데미지−5%" }
+        d["폭탄 돌리기"] = { pool="gmb", basicName="분노의 반동", basicDesc="처치 시 폭발(주변 적 피해), 가끔 자신도 피해", basicEffect={atk=0.10, dr=-0.05},
+            linkName="폭심 지원", linkDesc="크리 시 낮은 확률로 소형 폭발" }
+        d["운명의 동전"] = { pool="gmb", basicName="되받아치기", basicDesc="피격 시 50% 확률 피해 무효/50% 확률 2배", basicEffect={coinFlipDefense=true},
+            linkName="동전의 양면", linkDesc="파티 받는 피해 낮은 확률 무효, 낮은 확률 2배" }
+        d["광란의 질주"] = { pool="gmb", basicName="대시", basicDesc="공격·이동 속도 대폭 증가, 가끔 조작 미세 흔들림", basicEffect={as=0.20, msm=0.25},
+            linkName="질주의 여파", linkDesc="파티 이동속도+10%, 가끔 조작 미세 흔들림" }
+        d["한탕주의"] = { pool="gmb", basicName="보스 특화", basicDesc="영구 재화 평소 획득 0, 클리어 시 일확천금(선행 필요)",
+            linkName="한탕의 나눔", linkDesc="파티 클리어 시 영구재화+10%" }
+        d["시한폭탄"] = { pool="gmb", basicName="카운터", basicDesc="시간이 갈수록 공격력 누적 증가, 일정 시간마다 자해 피해", basicEffect={timeStackAtk={perSecond=0.002, cap=0.30}},
+            linkName="저체력 각성", linkDesc="체력15%↓ 파티 크리+20%" }
+        d["광부의 곡괭이"] = { pool="gmb", basicName="막판 스퍼트", basicDesc="스탯 구슬 획득 시 낮은 확률로 잭팟(경험치로 근사)", basicEffect={onKillBonusExp=0.10},
+            linkName="유대의 기록", linkDesc="누적 판수 비례 링크효과 성장" }
+        d["미친 과학자"] = { pool="gmb", basicName="약화", basicDesc="이능 효과 2배, 단 효과가 무작위로 결정(선택 불가)",
+            linkName="공명의 유대", linkDesc="다른 슬롯 링크효율+10%" }
+        d["럭키/언럭키 데이"] = { pool="gmb", basicName="집중 시전", basicDesc="입장 시 그 런 전체에 행운(전 스탯+) 또는 불운(전 스탯−) 부여", basicEffect={luckyDayRoll={good=0.10, bad=-0.08}},
+            linkName="증폭기", linkDesc="파티 스탯 계열 링크효과+20%" }
+        d["카지노"] = { pool="gmb", basicName="전투 회복", basicDesc="MP 대신 '칩'으로 스킬 사용(선행 필요, 현재는 MP 그대로)",
+            linkName="칩 나눔", linkDesc="파티가 낮은 확률로 처치 시 칩(재화) 획득(선행 필요)" }
+        d["블러프"] = { pool="gmb", basicName="응급 처치", basicDesc="체력 1로 시작, 회피율 극대화", basicEffect={hp=-0.90, ev=0.30},
+            linkName="반격 지원", linkDesc="파티 피격 직후 다음 공격+12%" }
+        d["양날의 축복"] = { pool="gmb", basicName="파열", basicDesc="좋은 특성 1개 + 나쁜 특성 1개를 동시에 무작위 부여(선행 필요)",
+            linkName="양날의 나눔", linkDesc="파티에게 낮은 확률로 버프 또는 디버프 동시 부여" }
+        d["오염의 씨앗"] = { pool="gmb", basicName="오염의 씨앗", basicDesc="스탯 구슬 획득 시 낮은 확률로 등급 격상(경험치로 근사)", basicEffect={onKillBonusExp=0.08},
+            linkName="감염 지원", linkDesc="낮은 확률로 처치 시 파티 전원 짧은 전스탯 버프" }
+        d["부패한 계약서"] = { pool="gmb", basicName="부패한 계약서", basicDesc="3차 전직 추가 특성 추첨이 무조건 Hidden 풀에서만 나옴", basicEffect={forceHiddenRerollAt13=true},
+            linkName="계약 지원", linkDesc="이능 선택지가 낮은 확률로 상위 등급으로 대체" }
+        d["영혼 포획자"] = { pool="gmb", basicName="영혼 포획자", basicDesc="몬스터 처치 시 낮은 확률로 5초간 아군 전환(선행 서브시스템 필요)",
+            linkName="포획 지원", linkDesc="낮은 확률로 처치 시 파티에게 짧은 무적 프레임" }
+        d["기생하는 대가"] = { pool="gmb", basicName="기생하는 대가", basicDesc="HP10%↓ 도달 시 링크 캐릭터 HP 소모해 채움(런당 1회, 링크 시스템 선행 필요)",
+            linkName="희생 지원", linkDesc="링크 캐릭터 HP 일부 소모해 액티브 최대체력 판 동안 소폭 증가" }
+
+        -- ===== Hidden-bad (7%, 23종) =====
+        d["봉인된 자"] = { pool="hb", basicName="스승의 인도", basicDesc="전직 1차까지만 가능(선행 필요), 대신 경험치+25%", basicEffect={exp=0.25},
+            linkName="스승의 인도", linkDesc="파티 경험치+12%" }
+        d["불운"] = { pool="hb", basicName="후원", basicDesc="드랍률 0, 대신 처치 경험치 2배", basicEffect={drop=-1.0, exp=1.0},
+            linkName="후원", linkDesc="파티 클리어 시 영구재화+20%(선행 필요)" }
+        d["유리대포"] = { pool="hb", basicName="수호 기도", basicDesc="최대 체력−50%, 대신 모든 데미지+50%", basicEffect={hp=-0.50, atk=0.50},
+            linkName="수호 기도", linkDesc="25초마다 파티 치명타 무효" }
+        d["외길"] = { pool="hb", basicName="일격필살 지원", basicDesc="스킬 슬롯 2개로 제한(선행 필요), 대신 보유 스킬 데미지+60%", basicEffect={atk=0.60},
+            linkName="일격필살 지원", linkDesc="파티 크리 시 낮은 확률로 확정 추가타" }
+        d["금욕"] = { pool="hb", basicName="재생 지원", basicDesc="회복 아이템 사용 불가, 대신 처치 시 체력 소폭 회복", basicEffect={noPotion=true, healOnKill={chance=1.0, pct=0.04}},
+            linkName="재생 지원", linkDesc="비전투 시 파티 회복 속도 증가" }
+        d["고독"] = { pool="hb", basicName="연결의 대가", basicDesc="링크 패시브를 받지 못함, 대신 전 스탯+30%", basicEffect={atk=0.30, cc=0.05, acc=10, msm=0.15},
+            linkName="연결의 대가", linkDesc="다른 슬롯 링크효율+15%" }
+        d["빈곤의 서약"] = { pool="hb", basicName="청빈의 나눔", basicDesc="영구 재화 획득 0(선행 필요), 대신 경험치+15%", basicEffect={exp=0.15},
+            linkName="청빈의 나눔", linkDesc="파티 스탯 구슬 획득량+15%" }
+        d["무모함"] = { pool="hb", basicName="무모한 돌격", basicDesc="방어력 0, 대신 크리티컬 확률+30%", basicEffect={dr=-0.30, cc=0.30},
+            linkName="무모한 돌격", linkDesc="파티 첫 공격 데미지+15%" }
+        d["시한부"] = { pool="hb", basicName="위기의 지원", basicDesc="입장 후 제한시간 초과 시 즉사(선행 필요), 대신 경험치·드랍 대폭 증가", basicEffect={exp=0.40, drop=0.40},
+            linkName="위기의 지원", linkDesc="체력30%↓ 파티 데미지+12%" }
+        d["침묵의 맹세"] = { pool="hb", basicName="마력 순환", basicDesc="MP 소모 스킬 사용 불가(선행 필요), 대신 평타 데미지 3배", basicEffect={atk=1.0},
+            linkName="마력 순환", linkDesc="파티 MP 소모−12%" }
+        d["깨진 그릇"] = { pool="hb", basicName="깨진 그릇의 공명", basicDesc="최대 MP 0, 대신 스킬 쿨다운−40%", basicEffect={mp=-1.0, mpc=-0.40},
+            linkName="깨진 그릇의 공명", linkDesc="파티 스킬 쿨다운−10%" }
+        d["외눈"] = { pool="hb", basicName="단일 지원", basicDesc="명중률 대폭 감소, 대신 명중 시 데미지 2배", basicEffect={acc=-25, atk=0.80},
+            linkName="단일 지원", linkDesc="단일 적 상대 시 파티 데미지+10%" }
+        d["박애주의자"] = { pool="hb", basicName="결속", basicDesc="본인 데미지−30%, 대신 링크 패시브 효율 3배", basicEffect={atk=-0.30},
+            linkName="결속", linkDesc="링크 2슬롯 모두 활성 시 전스탯+6%" }
+        d["도굴꾼"] = { pool="hb", basicName="보스전 지원", basicDesc="보스에게 받는 피해 2배, 대신 보스 처치 보상 3배", basicEffect={exp=0.20},
+            linkName="보스전 지원", linkDesc="파티 보스전 데미지+12%" }
+        d["약속된 죽음"] = { pool="hb", basicName="유대의 절정", basicDesc="부활·회복 전부 불가, 대신 전 스탯+25%", basicEffect={noPotion=true, atk=0.25, cc=0.04, acc=8, msm=0.12},
+            linkName="유대의 절정", linkDesc="링크 2슬롯 20레벨+ 시 전스탯+8%" }
+        d["무게추"] = { pool="hb", basicName="무게추의 안정", basicDesc="이동 속도 대폭 감소, 대신 받는 피해−40%+넉백 면역", basicEffect={msm=-0.40, dr=0.40, kb=1.0},
+            linkName="무게추의 안정", linkDesc="파티 넉백·경직 저항+15%" }
+        d["봉인구"] = { pool="hb", basicName="총화", basicDesc="4차 전직 불가(선행 필요), 대신 스킬 데미지+40%", basicEffect={atk=0.40},
+            linkName="총화", linkDesc="파티 전 스탯+3%" }
+        d["운명론자"] = { pool="hb", basicName="확정된 가호", basicDesc="이능 재추첨·특성 변경 불가(선행 필요), 대신 시작 스탯+40%", basicEffect={atk=0.15, cc=0.03, acc=6, msm=0.10},
+            linkName="확정된 가호", linkDesc="파티 전 스탯+3%(고정)" }
+        d["고행자"] = { pool="hb", basicName="만시지탄", basicDesc="레벨업 시 스탯 자동 증가 없음(선행 필요), 대신 시작 스탯 보너스+경험치 1.5배", basicEffect={exp=0.50},
+            linkName="고행의 깨달음", linkDesc="파티 경험치 획득량+10%" }
+        d["순교자"] = { pool="hb", basicName="회피 기동", basicDesc="체력이 낮을수록 데미지 급증, 대신 자연 회복 불가+체력 상한−30%", basicEffect={hp=-0.30, lowHpAtkMult={threshold=1.0, value=0.5}},
+            linkName="최후의 인연", linkDesc="런당 1회 사망 시 HP10% 재기" }
+        d["거울 갑옷"] = { pool="hb", basicName="반사의 축복", basicDesc="받는 피해의 100%를 그대로 반사, 대신 자신도 그대로 받음", basicEffect={mirrorDamage=1.0},
+            linkName="반사의 축복", linkDesc="파티가 받는 근접 피해 일부 반사" }
+        d["거리의 방랑자"] = { pool="hb", basicName="탐험 지원", basicDesc="웨이브 몬스터 수+25%, 대신 스탯 구슬 드랍량도+25%", basicEffect={exp=0.25},
+            linkName="탐험 지원", linkDesc="몬스터 게이트에서 스탯 구슬 획득량 대폭 증가(선행 필요)" }
+        d["굶주린 살점"] = { pool="hb", basicName="고통 공유", basicDesc="피격당할 때마다 공격력 소폭 누적(런 종료까지 유지), 대신 시작 체력 낮음", basicEffect={hp=-0.20, hitStackAtk={perHit=0.02, cap=0.40}},
+            linkName="고통 공유", linkDesc="파티가 피격당할 때마다 낮은 확률로 짧은 공격력 버프" }
+
+        self.Defs = d
+        log("TraitCatalog: built " .. self:CountDefs() .. " trait definitions")
+    end
+
+    method integer CountDefs()
+        local n = 0
+        for _ in pairs(self.Defs) do n = n + 1 end
+        return n
+    end
+
+    method table GetTraitDef(string name)
+        return self.Defs[name]
+    end
+
+    method table GetAllTraitNames()
+        local names = {}
+        for k, _ in pairs(self.Defs) do table.insert(names, k) end
+        return names
+    end
+
+    method table GetPoolNames(string pool)
+        local names = {}
+        for k, v in pairs(self.Defs) do
+            if v.pool == pool then table.insert(names, k) end
+        end
+        return names
+    end
+
+end

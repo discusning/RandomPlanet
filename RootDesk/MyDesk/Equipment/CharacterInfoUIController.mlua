@@ -255,13 +255,16 @@ script CharacterInfoUIController extends Component
         -- 버서크는 자해 DoT를 제거하고 실제로 맞아 깎인 체력 비율에 비례하는 순수 반응형 공격력
         -- 보너스로 재설계(자해/흡혈 문구는 실제 구현과 안 맞아 삭제 - PlayerStatsComponent.BerserkTick
         -- 주석에 재설계 사유 기록).
-        if trait == "상인" then return "몬스터 처치 경험치 +20% (아이템 드랍률 효과는 루팅 시스템 도입 후 적용 예정)"
+        if trait == "상인" then return "드랍률 +15% (물약 드랍 확률에 실제 반영, M2 Phase B)"
         elseif trait == "버서크" then return "실제로 몬스터에게 맞아 깎인 체력 비율에 비례해 공격력이 최대 +60% 상승합니다(체력을 스스로 깎지 않는 반응형 특성 - 다칠수록 강해집니다)"
         elseif trait == "단단함" then return "전투력 산정 시 생존 배율 +12% (실제 피해 경감은 몬스터 공격 파이프라인 도입 후 적용 예정)"
         elseif trait == "날렵함" then return "이동 속도 +0.6"
         elseif trait == "균형" then return "STR/DEX/INT/LUK 전부 +1 (공격력·명중·크리·이동속도 등 모든 파생 스탯에 함께 반영)"
         elseif trait == "절약가" then return "스킬 MP 소모 30% 감소"
         end
+        -- M2 Phase B(2026-09-06) - 나머지 109종은 TraitCatalog(115종 데이터) 조회.
+        local def = _TraitCatalog:GetTraitDef(trait)
+        if def then return def.basicDesc end
         return ""
     end
 

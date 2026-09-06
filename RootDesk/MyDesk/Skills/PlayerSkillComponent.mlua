@@ -347,6 +347,9 @@ script PlayerSkillComponent extends Component
         local mpCost = def.mpCost
         if isvalid(statsComp) and statsComp.Trait == "절약가" then
             mpCost = math.floor(mpCost * 0.7)
+        elseif isvalid(statsComp) and statsComp.MpCostMultiplier ~= 0 then
+            -- M2 Phase B(2026-09-06) - 신규 특성(수련생/낭비벽/깨진 그릇 등)의 범용 MP소모% 효과.
+            mpCost = math.max(0, math.floor(mpCost * (1 + statsComp.MpCostMultiplier)))
         end
         -- magicguard (testableEffect="mpfree") makes skill MP cost free for its own duration - see
         -- DoBuff/RevertBuff. Check/deduction below is skipped entirely while it's active.

@@ -1,0 +1,47 @@
+@Logic
+script TraitRollLogic extends Logic
+    -- 특성 5풀 가중치 추첨 (M2 Phase B, 2026-09-06). Docs/랜덤 플래닛 전체 기획서.md §8-2 최종
+    -- 재조정값: Hidden-good 20% / average 35% / bad 20% / Gamble 18% / Hidden-bad 7%.
+    -- Hidden-bad 완화 천장(§8-2): "40회 무출현 시 41번째 확정 지급" - 이번 구현은 **세션 한정**
+    -- 카운터(월드 인스턴스 재시작 시 초기화)다. 계정 영구 저장(DataStorage)까지 연결하는 것은
+    -- CharacterRosterLogic의 저장 스키마를 건드려야 해서(기존 검증된 로스터 저장/로드 흐름에 필드
+    -- 추가) 리스크 대비 이번 패스 범위 밖으로 남겨둠 - Docs/RandomPlanet-M2-GDD.md Phase B 참고.
+    @HideFromInspector property integer HiddenBadMissStreak = 0
+
+    method string RollTrait()
+        self.HiddenBadMissStreak = self.HiddenBadMissStreak + 1
+        local pool = self:RollPool()
+        if pool == "hb" then self.HiddenBadMissStreak = 0 end
+        return self:PickFromPool(pool)
+    end
+
+    method string RollPool()
+        if self.HiddenBadMissStreak > 40 then return "hb" end
+        local roll = _UtilLogic:RandomDouble()
+        -- 누적 구간: hb 7% -> gmb 18% -> hg 20% -> bad 20% -> avg 35% (합 100%)
+        if roll < 0.07 then return "hb"
+        elseif roll < 0.25 then return "gmb"
+        elseif roll < 0.45 then return "hg"
+        elseif roll < 0.65 then return "bad"
+        else return "avg"
+        end
+    end
+
+    method string PickFromPool(string pool)
+        local names = _TraitCatalog:GetPoolNames(pool)
+        if #names == 0 then return "균형" end
+        return names[_UtilLogic:RandomIntegerRange(1, #names)]
+    end
+
+    method string RollDifferentTrait(string current)
+        -- 현재 특성과 다른 결과가 나올 때까지 재추첨(이능 "특성 변경" / 3차 전직 추가 추첨 등에서 사용).
+        local pick = self:RollTrait()
+        local guard = 0
+        while pick == current and guard < 30 do
+            pick = self:RollTrait()
+            guard = guard + 1
+        end
+        return pick
+    end
+
+end

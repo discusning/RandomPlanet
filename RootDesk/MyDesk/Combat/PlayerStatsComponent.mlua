@@ -76,6 +76,16 @@ script PlayerStatsComponent extends Component
     @Sync @HideFromInspector property string PendingTraitPreview = ""
     @HideFromInspector property integer BonusStatPoints = 3
 
+    -- M2 Phase B(2026-09-06) - 범용 특성 엔진(TraitEffectEngine)이 매 RecalculateDerived마다 채우는
+    -- 3개 채널. legacy 특성(버서크/절약가/균형/단단함/날렵함)은 이 필드들을 쓰지 않고 기존 전용
+    -- 코드를 그대로 유지한다 - 신규 109종 중 exp/drop/mpCost 계열 효과가 있는 특성만 값이 채워진다.
+    @Sync property number MpCostMultiplier = 0
+    @Sync property number DropRateMultiplier = 0
+    @Sync property number ExpMultiplier = 0
+    -- 부활자(Hidden-good, basicEffect.reviveOnce) - 런당 1회 소모. PlayerHit.HandleHitEvent가 치명적
+    -- 피해 직전에 확인한다.
+    @Sync @HideFromInspector property boolean ReviveUsedThisRun = false
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- Seeds sane combat defaults before the real roster stats arrive via ApplyStats
@@ -105,6 +115,7 @@ script PlayerStatsComponent extends Component
         self.RunEnded = false
         self.EndedWaveReached = 0
         self.EndedFieldCleared = false
+        self.ReviveUsedThisRun = false
         self:RecalculateDerived()
         self:UpdateZoneState()
         log("PlayerStats: ApplyStats str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " level=" .. self.Level .. " trait=" .. self.Trait)
@@ -123,15 +134,11 @@ script PlayerStatsComponent extends Component
         -- 일어난 킬에서만 호출하도록 수정 - "레벨업 시 완전 회복"은 그대로 유지, "모든 킬마다 회복"만
         -- 제거.
         --
-        -- 상인(1차 특성) - 2026-08-25까지 완전히 비활성이었다(원래 의도인 "아이템 드랍률"은 이
-        -- 프로젝트에 루팅 시스템 자체가 없어 구현 불가 - SkillCatalog 스타일 comment 관례대로
-        -- 정직하게 비워뒀었음). 이번 특성 전수 재점검(버서크 자해 DoT 리포트 계기)에서 "상인만
-        -- 유일하게 숫자 하나도 안 바뀌는 특성"으로 확인돼, 정보력/시세 감각이라는 캐릭터 컨셉에
-        -- 맞는 임시 대체 효과로 처치 경험치 +20%를 부여 - 실제 루팅 시스템이 생기면 그쪽으로
-        -- 이전하는 게 정석(다른 특성들의 "실제 파이프라인 생기면 이전" 패턴과 동일).
-        if self.Trait == "상인" then
-            amount = math.floor(amount * 1.2)
-        end
+        -- M2 Phase B(2026-09-06) - 상인은 이제 실제 드랍 시스템(물약, Monster.TryDropPotion)이 생겨
+        -- 원래 의도(아이템 드랍률)로 복원됐다(DropRateMultiplier 경유) - 여기의 처치경험치+20% 임시
+        -- 대체 효과는 제거. 대신 범용 특성 엔진의 ExpMultiplier(TraitEffectEngine, 견습/근면/불운/
+        -- 시간여행자 등 exp 계열 특성)를 전 특성 공통으로 적용한다.
+        amount = math.floor(amount * (1 + self.ExpMultiplier))
         self.CurrentXp = self.CurrentXp + amount
         local leveledUp = false
         local levelsGained = 0
@@ -175,18 +182,10 @@ script PlayerStatsComponent extends Component
     end
 
     method string RollDifferentTrait()
-        -- CharacterSelectStageController.InitRandomPools의 traitPool과 동일한 6종 목록 - 현재
-        -- 특성과 다른 것이 나올 때까지 재추첨(항상 "변경"이 되도록, 같은 특성이 다시 나와 아무 일도
-        -- 안 일어난 것처럼 보이는 상황 방지).
-        local pool = { "상인", "버서크", "단단함", "날렵함", "균형", "절약가" }
-        if #pool <= 1 then return pool[1] end
-        local pick = pool[_UtilLogic:RandomIntegerRange(1, #pool)]
-        local guard = 0
-        while pick == self.Trait and guard < 20 do
-            pick = pool[_UtilLogic:RandomIntegerRange(1, #pool)]
-            guard = guard + 1
-        end
-        return pick
+        -- M2 Phase B(2026-09-06) - 축소 6종 풀 대신 TraitRollLogic(전체 115종, 5풀 가중치+천장)로
+        -- 이관. 현재 특성과 다른 것이 나올 때까지 재추첨하는 정책은 유지(RollDifferentTrait 내부에서
+        -- 처리).
+        return _TraitRollLogic:RollDifferentTrait(self.Trait)
     end
 
     @ExecSpace("Server")
@@ -320,19 +319,15 @@ script PlayerStatsComponent extends Component
         if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
             return
         end
-        if self.Trait == "버서크" then
-            log("PlayerStats: RequestUsePotion rejected - 버서크 특성")
+        if self.Trait == "버서크" or _TraitEffectEngine:IsPotionBlocked(self.Trait) then
+            log("PlayerStats: RequestUsePotion rejected - " .. self.Trait .. " 특성")
             return
         end
         local player = self.Entity.PlayerComponent
         if not isvalid(player) or player.MaxHp <= 0 then return end
-        local healPercent = 0.3
-        -- 먹보 특성 훅(전체 기획서 §2-3 "회복 아이템 회복량 증가") - 축소 특성 풀(M1)에 아직 없어
-        -- 오늘은 항상 미적용이지만, M2 Phase B에서 전체 특성 풀이 들어오면 이 조건만으로 곧바로
-        -- 동작한다(큐브마스터 재추첨 훅과 동일 패턴).
-        if self.Trait == "먹보" then
-            healPercent = healPercent * 1.5
-        end
+        -- M2 Phase B - 먹보를 포함한 potionMult 계열 전부 TraitCatalog/TraitEffectEngine 경유(먹보의
+        -- 예전 하드코딩 x1.5는 여기서 제거 - basicEffect={potionMult=0.5}로 동일 수치 이전, 중복 적용 방지).
+        local healPercent = 0.3 * (1 + _TraitEffectEngine:GetPotionEffectMult(self.Trait))
         local healAmount = math.floor(player.MaxHp * healPercent)
         local before = player.Hp
         player.Hp = math.min(player.MaxHp, player.Hp + healAmount)
@@ -409,6 +404,11 @@ script PlayerStatsComponent extends Component
         -- 버서크 보너스는 여기서 0으로 리셋 - 버서크가 아니면 BerserkTick 타이머가 애초에 돌지
         -- 않으므로(UpdateBerserkZoneState) 특성을 바꾼(캐릭터 교체) 경우에도 이전 보정이 남지 않는다.
         self.BerserkDamageBonusPercent = 0
+        -- M2 Phase B 범용 채널도 매번 리셋 후 아래 엔진 호출이 다시 채운다(특성 변경 시 이전 값이
+        -- 남지 않도록 - 위 버서크 리셋과 동일한 이유).
+        self.MpCostMultiplier = 0
+        self.DropRateMultiplier = 0
+        self.ExpMultiplier = 0
 
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if isvalid(attack) then
@@ -439,6 +439,11 @@ script PlayerStatsComponent extends Component
                 move.InputSpeed = move.InputSpeed + 0.6
             end
         end
+
+        -- M2 Phase B - 신규 109종 특성의 플랫/퍼센트 계열 효과 적용(legacy 특성은 위에서 이미
+        -- 처리됐으므로 엔진이 조용히 no-op). 반드시 STR/DEX/INT/LUK 파생 계산이 끝난 뒤에 호출해야
+        -- 곱연산 순서가 맞는다(예: atk% 특성이 STR 기반 공격력 위에 곱해짐).
+        _TraitEffectEngine:ApplyToStats(self, effStr, effDex, effInt, effLuk)
 
         local attackDamage = isvalid(attack) and attack.AttackDamage or -1
         local critChance = isvalid(attack) and attack.CriticalChance or -1

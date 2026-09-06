@@ -103,8 +103,19 @@ script Monster extends Component
         if not isvalid(attacker) then return end
         local stats = attacker:GetComponent("script.PlayerStatsComponent")
         if isvalid(stats) then
-            stats:GrantXp(self.XpReward)
+            local bonusExpChance = _TraitEffectEngine:GetOnKillBonusExpChance(stats.Trait)
+            local xpToGrant = self.XpReward
+            if bonusExpChance > 0 and _UtilLogic:RandomDouble() < bonusExpChance then
+                xpToGrant = math.floor(xpToGrant * 1.5)
+            end
+            stats:GrantXp(xpToGrant)
             stats:AddKill()
+            -- M2 Phase B(2026-09-06) - 처치 시 확률 회복(healOnKill, 예: 금욕).
+            local healSpec = _TraitEffectEngine:GetHealOnKill(stats.Trait)
+            local player = attacker.PlayerComponent
+            if healSpec and isvalid(player) and player.Hp > 0 and _UtilLogic:RandomDouble() < (healSpec.chance or 0) then
+                player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * (healSpec.pct or 0))
+            end
         end
         self:TryDropPotion(attacker)
     end
@@ -115,8 +126,16 @@ script Monster extends Component
         -- (실제 사용 시점에 EquipmentLogic/PlayerHit 쪽에서 거부하면 충분 - 물약 시스템의 사용 단계
         -- 참고). 금욕 특성도 동일 규칙이나 현재 축소 특성 풀(M1)에 없어 아직 해당 없음.
         if not isvalid(attacker) or not isvalid(attacker.PlayerComponent) then return end
+        -- M2 Phase B(2026-09-06) - 상인(노다지/§2-3 "아이템 드랍률")을 비롯한 DropRateMultiplier
+        -- 계열 특성이 실제로 이 드랍 확률에 반영된다(원래 임시 대체였던 처치경험치 효과는 제거됨).
+        local statsComp = attacker:GetComponent("script.PlayerStatsComponent")
+        local dropMult = 1.0
+        if isvalid(statsComp) then
+            dropMult = math.max(0, 1 + statsComp.DropRateMultiplier)
+        end
+        local effectiveChance = math.min(100, self.PotionDropChance * dropMult)
         local roll = _UtilLogic:RandomIntegerRange(1, 100)
-        if roll > self.PotionDropChance then return end
+        if roll > effectiveChance then return end
         _CharacterRosterLogic:GrantPotionDrop("hppotion", 1, attacker.PlayerComponent.UserId)
         log("Monster: potion drop -> hppotion x1 to userId=" .. tostring(attacker.PlayerComponent.UserId))
     end

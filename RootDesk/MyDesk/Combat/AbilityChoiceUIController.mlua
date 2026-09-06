@@ -75,15 +75,17 @@ script AbilityChoiceUIController extends Logic
     end
 
     method string TraitBlurb(string trait)
-        -- Mirrors Equipment/CharacterInfoUIController.TraitDesc's short blurbs (kept local - this
-        -- controller doesn't have a reference to that UI's entity, and the text is display-only).
-        if trait == "상인" then return "처치 경험치 +20% (드랍률 효과는 루팅 시스템 도입 후 적용 예정)"
+        -- M2 Phase B(2026-09-06) - TraitCatalog(115종) 조회로 교체. legacy 6종은 기존 하드코딩
+        -- 문구를 그대로 유지(실측 검증된 정확한 수치 표현), 나머지 109종은 catalog의 basicDesc.
+        if trait == "상인" then return "드랍률+15% (물약 드랍 확률에 실제 반영)"
         elseif trait == "버서크" then return "실제로 맞아서 체력이 깎일수록 공격력↑ (최대 +60%, 자해 없음)"
         elseif trait == "단단함" then return "전투력 생존 배율 +12%"
         elseif trait == "날렵함" then return "이동 속도 +0.6"
         elseif trait == "균형" then return "STR/DEX/INT/LUK 전부 +1"
         elseif trait == "절약가" then return "스킬 MP 소모 30% 감소"
         end
+        local def = _TraitCatalog:GetTraitDef(trait)
+        if def then return def.basicDesc end
         return ""
     end
 

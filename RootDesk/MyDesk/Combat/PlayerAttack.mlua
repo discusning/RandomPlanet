@@ -86,11 +86,20 @@ script PlayerAttack extends AttackComponent
         -- 없어(OnAttack은 defender만 받음) 정확한 실피해가 아닌 AttackDamage 근사치를 쓴다 - 이
         -- 프로젝트의 CP 지표 자체도 같은 수준의 근사이므로 일관된 선택.
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
-        if not isvalid(statsComp) or statsComp.Trait ~= "버서크" then return end
+        if not isvalid(statsComp) then return end
         local player = self.Entity.PlayerComponent
         if not isvalid(player) or player.Hp <= 0 then return end
-        local heal = self.AttackDamage * 0.15
-        player.Hp = math.min(player.MaxHp, player.Hp + heal)
+        if statsComp.Trait == "버서크" then
+            local heal = self.AttackDamage * 0.15
+            player.Hp = math.min(player.MaxHp, player.Hp + heal)
+            return
+        end
+        -- M2 Phase B(2026-09-06) - 범용 흡혈 특성(흡혈귀/빈손 등, TraitCatalog basicEffect.lifestealPct).
+        local lifestealPct = _TraitEffectEngine:GetLifestealPct(statsComp.Trait)
+        if lifestealPct > 0 then
+            local heal = self.AttackDamage * lifestealPct
+            player.Hp = math.min(player.MaxHp, player.Hp + heal)
+        end
     end
 
     method boolean IsAttackTarget(Entity defender, string attackInfo)
