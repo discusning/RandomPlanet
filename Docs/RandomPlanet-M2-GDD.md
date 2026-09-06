@@ -28,7 +28,7 @@ M1 로드맵(Phase 0~4)은 전부 ✅. 단, 다음 잔여 항목이 있어 M2 �
 ### Phase A — M1 잔여 정리 + 마일스톤 클로즈 (선행 필수)
 - ⬜ 커밋 안 된 5개 파일 diff 검토 후 커밋 (Maker 자동 정규화인지 실질 변경인지 확인)
 - ✅ 스킬 티어 3택1 선택 팝업 (버프 3택1 → 공격 3택1 순차 진행, 큐브마스터 재추첨 훅 포함 — 전체 기획서 §07 "스킬 선택 팝업") — `GrantTierSkills`를 자동지급에서 실제 선택 흐름으로 교체. 신규 `Skills/SkillChoiceUIController.mlua` + `ui/SkillChoiceGroup.ui`(AbilityChoiceUIController와 동일 아키텍처). 2026-09-06 실측 검증: 레벨 1→13 강제 점프로 티어2·3 동시 발생 시나리오까지 포함해 버프→공격 순차 팝업, 서버 권한 검증(senderUserId), 큐 처리(TierQueued2~4) 전부 로그로 확인. **검증 중 실버그 발견·수정**: 여러 티어가 같은 프레임에 동시 발생하면(대량 XP) 앞 티어의 선택이 뒤 티어에 덮어써지는 레이스 컨디션(`ProcessSkillTierQueue`가 `SkillChoicePending`의 의도적 0.1초 지연 플립을 즉시성 플래그로 오용) 발견 → `PendingSkillTier~=0` 기준으로 교체해 해결. 빌드 로그 에러 0.
-- ⬜ 2번 스킬 슬롯 `.ui` 바인딩 + HUD 표시 + 키 설정 팝업 아이콘
+- ✅ 2번 스킬 슬롯 `.ui` 바인딩 + HUD 표시 + 키 설정 팝업 아이콘 — 실제로는 As-built 25차 "W키 백엔드 로직 완료" 기술이 부정확했음을 발견(장착 라우팅만 있고 실제 키 입력→발동 배선이 전혀 없었음). `KeyBindingLogic`에 "Skill2"(기본 W) 액션 등록, `PlayerSkillComponent.UseSkill()`을 `UseSkillSlot(slot)`로 슬롯 파라미터화해 Q/W 공유, `HandlePlayerActionEvent`에 "Skill2" 분기 추가. HUD(`ui/PlayerHUD.ui`)에 `SkillSlot2` 신규 배치, 키 설정 팝업(`ui/KeySettingGroup.ui`)에 `IconSkill2` 신규 배치. 2026-09-06 실측: `UseSkillSlot(2)` 직접 호출로 아이언 바디 발동+VFX+MP차감 전부 로그 확인(실제 W 키 입력 경로는 Q와 동일한 `PlayerControllerComponent` 파이프라인 재사용이라 기존 검증된 Q 경로와 대칭 검증). 빌드 로그 에러 0.
 - ⬜ VFX 타이밍 딜레이 적용 (설계 완료분 코드화)
 - ⬜ 물약 시스템 (드랍 → 인벤토리 소비 탭 → 사용 → HP 회복, 버서크/금욕 특성 적용 불가 규칙 연결)
 - ⬜ 던전(토벌전장 1~3) 클리어 가능성 시뮬레이션/실측 검증

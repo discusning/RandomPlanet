@@ -317,18 +317,28 @@ script PlayerSkillComponent extends Component
     @ExecSpace("ServerOnly")
     @EventSender("Self")
     handler HandlePlayerActionEvent(PlayerActionEvent event)
-        -- Resolves the player's skill key (Q) into UseSkill(). Mirrors PlayerAttack's own
-        -- ActionName-filtered handler pattern for the "Attack" key.
-        if event.ActionName ~= "Skill" then return end
-        self:UseSkill()
+        -- Resolves the player's skill keys into UseSkillSlot(). Mirrors PlayerAttack's own
+        -- ActionName-filtered handler pattern for the "Attack" key. "Skill"(Q)=slot 1(공격),
+        -- "Skill2"(W)=slot 2(버프) - see EquippedSkillId2 선언부 주석 + KeyBindingLogic.BuildRegistry.
+        if event.ActionName == "Skill" then
+            self:UseSkillSlot(1)
+        elseif event.ActionName == "Skill2" then
+            self:UseSkillSlot(2)
+        end
     end
 
     @ExecSpace("ServerOnly")
-    method void UseSkill()
-        if self.EquippedSkillId == "" then return end
-        local def = _SkillCatalog:GetSkillDef(self.EquippedSkillId)
+    method void UseSkillSlot(integer slot)
+        -- 2026-09-06 (M2 Phase A) - UseSkill()을 슬롯 파라미터화해서 Q(1)/W(2) 양쪽이 쿨다운·MP
+        -- 차감·절약가/mpfree 처리 등 동일 로직을 공유하도록 통합(기존엔 슬롯 2가 아예 발동 경로가
+        -- 없었음 - As-built 25차 "W키 백엔드 로직 완료"는 장착 라우팅만 완료된 상태였고 실제 키
+        -- 입력을 UseSkill로 연결하는 배선이 빠져있었다).
+        local equippedId = slot == 2 and self.EquippedSkillId2 or self.EquippedSkillId
+        if equippedId == "" then return end
+        local def = _SkillCatalog:GetSkillDef(equippedId)
         if def == nil then return end
-        if _UtilLogic.ElapsedSeconds - self.LastUseTime < def.cooldown then
+        local lastUseTime = slot == 2 and self.LastUseTime2 or self.LastUseTime
+        if _UtilLogic.ElapsedSeconds - lastUseTime < def.cooldown then
             return
         end
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
@@ -348,11 +358,15 @@ script PlayerSkillComponent extends Component
             end
         end
 
-        self.LastUseTime = _UtilLogic.ElapsedSeconds
+        if slot == 2 then
+            self.LastUseTime2 = _UtilLogic.ElapsedSeconds
+        else
+            self.LastUseTime = _UtilLogic.ElapsedSeconds
+        end
         if not mpFreeActive then
             statsComp.CurrentMp = statsComp.CurrentMp - mpCost
         end
-        log("PlayerSkill: use " .. def.name .. " (kind=" .. def.kind .. " mp=" .. mpCost .. (mpFreeActive and " [mpfree]" or "") .. ")")
+        log("PlayerSkill: use " .. def.name .. " slot=" .. slot .. " (kind=" .. def.kind .. " mp=" .. mpCost .. (mpFreeActive and " [mpfree]" or "") .. ")")
 
         -- Skill use and the basic attack (PlayerAttack.DoAttack) are driven by two independent,
         -- unlinked cooldown timers - PlayerControllerComponent fires a fresh PlayerActionEvent

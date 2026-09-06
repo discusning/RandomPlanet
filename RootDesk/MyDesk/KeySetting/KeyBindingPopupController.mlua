@@ -14,6 +14,7 @@ script KeyBindingPopupController extends Component
     -- every handler method the way the original 2-icon version needed.
     property Entity iconAttack = "c367b4c7-da4a-45e6-ad6a-065705a1186b"
     property Entity iconSkill = "ca9d8410-f17d-4de1-9690-73789ad488c0"
+    property Entity iconSkill2 = "61207b89-0a0f-4303-a500-9bc09ea23ccf"
     property Entity iconInventory = "03b91a10-46fb-4cf0-b1bf-1b46dea4afb2"
     property Entity iconEquipment = "c16dcab1-1061-4651-b64c-34c6306027cc"
     property Entity iconCharacterInfo = "00cb1532-63ec-4bfd-b8bb-788bec66d2b7"
@@ -45,6 +46,7 @@ script KeyBindingPopupController extends Component
         self._T.icons = {
             { actionName = "Attack", entity = self.iconAttack },
             { actionName = "Skill", entity = self.iconSkill },
+            { actionName = "Skill2", entity = self.iconSkill2 },
             { actionName = "Inventory", entity = self.iconInventory },
             { actionName = "Equipment", entity = self.iconEquipment },
             { actionName = "CharacterInfo", entity = self.iconCharacterInfo },

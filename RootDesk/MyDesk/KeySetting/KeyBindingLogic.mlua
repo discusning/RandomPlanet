@@ -39,6 +39,7 @@ script KeyBindingLogic extends Logic
         return {
             { actionName = "Attack", displayName = "공격", defaultKey = KeyboardKey.LeftControl, kind = "controllerAction" },
             { actionName = "Skill", displayName = "스킬1", defaultKey = KeyboardKey.Q, kind = "controllerAction" },
+            { actionName = "Skill2", displayName = "스킬2", defaultKey = KeyboardKey.W, kind = "controllerAction" },
             { actionName = "Inventory", displayName = "인벤토리", defaultKey = KeyboardKey.I, kind = "uiToggle" },
             { actionName = "Equipment", displayName = "장비", defaultKey = KeyboardKey.E, kind = "uiToggle" },
             { actionName = "CharacterInfo", displayName = "캐릭터정보", defaultKey = KeyboardKey.C, kind = "uiToggle" },
