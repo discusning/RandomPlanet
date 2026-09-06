@@ -21,6 +21,10 @@ script Monster extends Component
     property number Evasion = 0
     @Sync @HideFromInspector property boolean DisorderActive = false
     @HideFromInspector property number DisorderOriginalEvasion = 0
+    -- 물약 시스템 (M2 Phase A, 2026-09-06 - 전체 기획서 §3-3 "회복 아이템: 드랍으로 획득"). 퍼센트
+    -- 정수(0~100) - 기본 12%로 시작, 전장 몬스터별로 `MapBuilder.patchComponent`나 개별 `.model`
+    -- 값으로 오버라이드 가능(FieldMonster1~3 티어별 밸런스 조정과 동일 패턴).
+    property integer PotionDropChance = 12
 
     method void OnBeginPlay()
         -- Initializes HP and wires the defender-side damage skin id.
@@ -102,6 +106,19 @@ script Monster extends Component
             stats:GrantXp(self.XpReward)
             stats:AddKill()
         end
+        self:TryDropPotion(attacker)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TryDropPotion(Entity attacker)
+        -- 버서크 특성은 회복 아이템 적용 불가(전체 기획서 §2-3) - 드랍 자체는 굳이 막지 않는다
+        -- (실제 사용 시점에 EquipmentLogic/PlayerHit 쪽에서 거부하면 충분 - 물약 시스템의 사용 단계
+        -- 참고). 금욕 특성도 동일 규칙이나 현재 축소 특성 풀(M1)에 없어 아직 해당 없음.
+        if not isvalid(attacker) or not isvalid(attacker.PlayerComponent) then return end
+        local roll = _UtilLogic:RandomIntegerRange(1, 100)
+        if roll > self.PotionDropChance then return end
+        _CharacterRosterLogic:GrantPotionDrop("hppotion", 1, attacker.PlayerComponent.UserId)
+        log("Monster: potion drop -> hppotion x1 to userId=" .. tostring(attacker.PlayerComponent.UserId))
     end
 
 end

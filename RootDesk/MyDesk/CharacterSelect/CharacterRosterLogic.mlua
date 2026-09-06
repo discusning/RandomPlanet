@@ -458,4 +458,49 @@ script CharacterRosterLogic extends Logic
         _TeleportService:TeleportToMapPosition(player, Vector3(-0.276143551, 1.86000013, 0), "choice_map")
     end
 
+    @ExecSpace("Client")
+    method void GrantPotionDrop(string potionId, integer amount)
+        -- 물약 시스템 (M2 Phase A, 2026-09-06 - Docs/랜덤 플래닛 전체 기획서.md §3-3 "회복 아이템:
+        -- 드랍으로 획득"). 서버(Monster.TryDropPotion, ServerOnly)가 처치자의 UserId를 targetUserId로
+        -- 지정해 호출하는 Client RPC - 이 프로젝트의 인벤토리(EquipmentLogic/roster.inventory)는
+        -- 처음부터 전부 ClientOnly라(계정 데이터는 클라이언트 소유, 저장만 서버 RPC) 서버가 직접
+        -- 인벤토리 배열을 건드릴 수 없다. 활성 캐릭터가 없는 극히 짧은 타이밍(전장 이탈 직후 등)이면
+        -- 조용히 무시 - 물약 하나 유실이 재시도할 만한 문제가 아니라고 판단(다음 킬에서 다시 드랍 시도됨).
+        local idx = self:GetActiveIndex()
+        if idx == nil then return end
+        local roster = self:GetRoster()
+        local data = roster[idx]
+        if data == nil then return end
+        data.inventory = data.inventory or {}
+
+        -- 장비/주문서(1인스턴스=1개)와 달리 물약은 인스턴스 자체가 count 필드로 스택 수량을 들고
+        -- 있다 - 같은 potionId 인스턴스를 찾아 count만 올리고, 없으면 새로 하나 추가.
+        local existing = nil
+        for _, inst in ipairs(data.inventory) do
+            if inst.potionId == potionId then
+                existing = inst
+                break
+            end
+        end
+        if existing ~= nil then
+            existing.count = (existing.count or 1) + amount
+        else
+            table.insert(data.inventory, { potionId = potionId, count = amount })
+        end
+        self:SaveRoster()
+        log("CharacterRoster: GrantPotionDrop potionId=" .. potionId .. " +" .. amount .. " total=" .. tostring(existing ~= nil and existing.count or amount))
+        self:RefreshInventoryWindowIfOpen()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshInventoryWindowIfOpen()
+        local invGroup = _EntityService:GetEntityByPath("/ui/InventoryGroup")
+        if isvalid(invGroup) and invGroup.Enable then
+            local invController = invGroup:GetComponent("script.InventoryUIController")
+            if isvalid(invController) then
+                invController:Refresh()
+            end
+        end
+    end
+
 end

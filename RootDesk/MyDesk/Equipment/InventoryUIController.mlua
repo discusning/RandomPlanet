@@ -192,7 +192,7 @@ script InventoryUIController extends Component
         -- further changes here - the tab exists and works, just empty until such items exist.
         if inst.itemId ~= nil then
             return "equip"
-        elseif inst.scrollId ~= nil then
+        elseif inst.scrollId ~= nil or inst.potionId ~= nil then
             return "consumable"
         end
         return "misc"
@@ -272,6 +272,18 @@ script InventoryUIController extends Component
                         sprite.Color = self:_ScrollSelectedColor()
                     end
                     nameText.Text = (tpl ~= nil) and tpl.name or "?"
+                elseif inst.potionId ~= nil then
+                    -- 물약 - 인스턴스 자체가 count로 스택 수량을 들고 있다(scrollId와 달리 1인스턴스=
+                    -- 1개가 아님, EquipmentLogic.GetPotionTemplate/CharacterRosterLogic.GrantPotionDrop
+                    -- 참고). 이름 옆에 "xN"으로 스택 수량 표시.
+                    local tpl = _EquipmentLogic:GetPotionTemplate(inst.potionId)
+                    if tpl ~= nil and tpl.ruid ~= nil and tpl.ruid ~= "" then
+                        sprite.ImageRUID = DataRef(tpl.ruid)
+                    else
+                        sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
+                    end
+                    sprite.Color = self:_GearColor()
+                    nameText.Text = (tpl ~= nil) and (tpl.name .. " x" .. tostring(inst.count or 1)) or "?"
                 else
                     sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
                     sprite.Color = self:_MiscColor()
@@ -315,8 +327,38 @@ script InventoryUIController extends Component
                 _EquipmentLogic:SetSelectedInventoryIndex(index)
             end
             self:Refresh()
+        elseif inst.potionId ~= nil then
+            self:UsePotion(index, inst)
         end
         -- Misc items have no click behavior yet - nothing in the catalog produces one.
+    end
+
+    @ExecSpace("ClientOnly")
+    method void UsePotion(integer index, table inst)
+        -- 물약 사용 (M2 Phase A, 2026-09-06). 버서크 특성(전체 기획서 §2-3 "회복 아이템 적용 불가")은
+        -- 소모 자체를 막아 아이템 낭비를 방지 - 서버 쪽 PlayerStatsComponent.RequestUsePotion도 동일
+        -- 조건을 한 번 더 검사하지만(방어적 이중 체크), 클릭 시점에 바로 막아주는 게 UX상 더 낫다.
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return end
+        local stats = localPlayer:GetComponent("script.PlayerStatsComponent")
+        if isvalid(stats) and stats.Trait == "버서크" then
+            log("Inventory: potion use blocked - 버서크 특성은 회복 아이템 적용 불가")
+            return
+        end
+        local data = self:GetActiveCharacterData()
+        if data == nil then return end
+        local inv = data.inventory
+        if inv == nil or inv[index] == nil then return end
+
+        inst.count = (inst.count or 1) - 1
+        if inst.count <= 0 then
+            table.remove(inv, index)
+        end
+        _CharacterRosterLogic:SaveRoster()
+        if isvalid(stats) then
+            stats:RequestUsePotion()
+        end
+        self:Refresh()
     end
 
     @ExecSpace("ClientOnly")

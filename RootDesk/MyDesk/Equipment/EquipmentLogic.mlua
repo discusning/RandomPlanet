@@ -78,6 +78,16 @@ script EquipmentLogic extends Logic
         return self._T.scrollCatalog[scrollId]
     end
 
+    method table GetPotionTemplate(string potionId)
+        -- 물약 시스템 (M2 Phase A, 2026-09-06) - 아직 단일 종류뿐이라 아이템/주문서처럼 별도
+        -- UserDataSet을 만들지 않고 하드코딩(불필요한 인프라 회피, 종류가 늘어나면 그때 이관).
+        -- RUID는 msw-search로 확보한 실제 클래식 메이플스토리 "빨간 포션" 스프라이트.
+        if potionId == "hppotion" then
+            return { id = "hppotion", name = "빨간 포션", ruid = "234aca1a4ce946119b68e3717991e775", healPercent = 0.3 }
+        end
+        return nil
+    end
+
     method table ListItemTemplates()
         local out = {}
         for _, slot in ipairs(self:GetSlotList()) do

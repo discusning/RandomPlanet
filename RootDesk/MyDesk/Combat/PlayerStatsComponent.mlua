@@ -309,6 +309,36 @@ script PlayerStatsComponent extends Component
         log("PlayerStats: TriggerRunEnd level=" .. self.EndedLevel .. " kills=" .. self.EndedKillCount .. " survivalSeconds=" .. string.format("%.1f", self.EndedSurvivalSeconds))
     end
 
+    @ExecSpace("Server")
+    method void RequestUsePotion()
+        -- 물약 사용 (M2 Phase A, 2026-09-06 - 전체 기획서 §3-3). 인벤토리 자체는 ClientOnly라
+        -- 아이템 소모는 InventoryUIController.UsePotion이 이미 처리했고(클릭 시점에 버서크 특성도
+        -- 한 번 걸러짐), 여기서는 실제 HP 회복(서버 권한 필요)만 담당 - 이중 방어로 버서크를 한 번
+        -- 더 검사(클라이언트 우회로 이 RPC만 직접 호출해도 회복은 막힘, 다만 이미 소모된 물약
+        -- 자체는 이 프로젝트의 다른 인벤토리 조작(장비/주문서)과 동일하게 클라이언트 신뢰 기반이라
+        -- 되돌리지 않음 - 솔로 PvE라 악용 실익이 없다고 판단).
+        if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
+            return
+        end
+        if self.Trait == "버서크" then
+            log("PlayerStats: RequestUsePotion rejected - 버서크 특성")
+            return
+        end
+        local player = self.Entity.PlayerComponent
+        if not isvalid(player) or player.MaxHp <= 0 then return end
+        local healPercent = 0.3
+        -- 먹보 특성 훅(전체 기획서 §2-3 "회복 아이템 회복량 증가") - 축소 특성 풀(M1)에 아직 없어
+        -- 오늘은 항상 미적용이지만, M2 Phase B에서 전체 특성 풀이 들어오면 이 조건만으로 곧바로
+        -- 동작한다(큐브마스터 재추첨 훅과 동일 패턴).
+        if self.Trait == "먹보" then
+            healPercent = healPercent * 1.5
+        end
+        local healAmount = math.floor(player.MaxHp * healPercent)
+        local before = player.Hp
+        player.Hp = math.min(player.MaxHp, player.Hp + healAmount)
+        log("PlayerStats: RequestUsePotion healed " .. (player.Hp - before) .. " -> Hp=" .. player.Hp .. "/" .. player.MaxHp)
+    end
+
     @ExecSpace("ClientOnly")
     method void OnSyncProperty(string name, any value)
         -- Fires once RunEnded finishes syncing to this client - only ever true for the local player's
