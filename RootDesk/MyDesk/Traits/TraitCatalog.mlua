@@ -37,7 +37,7 @@ script TraitCatalog extends Logic
             linkName="고립의 힘", linkDesc="링크 1슬롯만 활성 시 전스탯+12%" }
         d["링크 마스터"] = { pool="hg", basicName="각성", basicDesc="이능 획득 시 3초간 전 스탯 대폭 상승",
             linkName="인연 심화", linkDesc="링크 캐릭터 20레벨+ 시 효과+25%" }
-        d["시간여행자"] = { pool="hg", basicName="유산", basicDesc="클리어 시 영구 재화+15% (영구재화 시스템 선행 필요)",
+        d["시간여행자"] = { pool="hg", basicName="유산", basicDesc="클리어 시 영구 재화+15%", basicEffect={clearCurrencyBonus=0.15},
             linkEffect={exp=0.10}, linkName="시간 도약", linkDesc="매 판 첫 3분간 파티 경험치 획득량+20%" }
         d["부활자"] = { pool="hg", basicName="불굴", basicDesc="치명적 피해를 1회 Hp 1로 버팀", basicEffect={reviveOnce=true},
             linkName="재림의 축복", linkDesc="파티 중 위기(HP10%↓) 캐릭터에게 낮은 확률로 짧은 무적" }
@@ -197,7 +197,7 @@ script TraitCatalog extends Logic
             linkName="동전의 양면", linkDesc="파티 받는 피해 낮은 확률 무효, 낮은 확률 2배" }
         d["광란의 질주"] = { pool="gmb", basicName="대시", basicDesc="공격·이동 속도 대폭 증가, 가끔 조작 미세 흔들림", basicEffect={as=0.20, msm=0.25},
             linkEffect={msm=0.06}, linkName="질주의 여파", linkDesc="파티 이동속도+10%, 가끔 조작 미세 흔들림" }
-        d["한탕주의"] = { pool="gmb", basicName="보스 특화", basicDesc="영구 재화 평소 획득 0, 클리어 시 일확천금(선행 필요)",
+        d["한탕주의"] = { pool="gmb", basicName="보스 특화", basicDesc="영구 재화 평소 획득 0, 클리어 시 일확천금(기본의 5배)",
             linkName="한탕의 나눔", linkDesc="파티 클리어 시 영구재화+10%" }
         d["시한폭탄"] = { pool="gmb", basicName="카운터", basicDesc="시간이 갈수록 공격력 누적 증가, 일정 시간마다 자해 피해", basicEffect={timeStackAtk={perSecond=0.002, cap=0.30}},
             linkEffect={cc=0.04}, linkName="저체력 각성", linkDesc="체력15%↓ 파티 크리+20%" }
@@ -235,7 +235,7 @@ script TraitCatalog extends Logic
             linkName="재생 지원", linkDesc="비전투 시 파티 회복 속도 증가" }
         d["고독"] = { pool="hb", basicName="연결의 대가", basicDesc="링크 패시브를 받지 못함, 대신 전 스탯+30%", basicEffect={atk=0.30, cc=0.05, acc=10, msm=0.15},
             linkName="연결의 대가", linkDesc="다른 슬롯 링크효율+15%(현재 미구현 - 조건부 교차-슬롯 효과, Docs/RandomPlanet-M2-GDD.md Phase C 참고)" }
-        d["빈곤의 서약"] = { pool="hb", basicName="청빈의 나눔", basicDesc="영구 재화 획득 0(선행 필요), 대신 경험치+15%", basicEffect={exp=0.15},
+        d["빈곤의 서약"] = { pool="hb", basicName="청빈의 나눔", basicDesc="영구 재화 획득 없음, 대신 경험치+15%", basicEffect={exp=0.15},
             linkEffect={drop=0.08}, linkName="청빈의 나눔", linkDesc="파티 스탯 구슬 획득량+15%" }
         d["무모함"] = { pool="hb", basicName="무모한 돌격", basicDesc="방어력 0, 대신 크리티컬 확률+30%", basicEffect={dr=-0.30, cc=0.30},
             linkEffect={atk=0.05, dr=-0.03}, linkName="무모한 돌격", linkDesc="파티 첫 공격 데미지+15%" }

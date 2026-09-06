@@ -1,0 +1,92 @@
+@Logic
+script AccountUpgradeUIController extends Logic
+    -- 계정 강화 팝업 (M2 Phase G, 2026-09-06) - choice_map의 "강화" 월드 버튼(BtnUpgrade, 신규
+    -- WorldButton.model 인스턴스)에서 열린다. EndingUIController/AbilityChoiceUIController와 동일한
+    -- 아키텍처(Entity/컴포넌트 참조를 직접 property로 주입한 독립 @Logic) - ui/AccountUpgradeGroup.ui의
+    -- 엔티티 UUID를 그대로 하드코딩.
+    property Entity upgradeGroup = "98f45772-5f04-420c-b920-d99a17652e47"
+    property TextGUIRendererComponent currencyText = "c23fd7ac-c7e1-4001-920d-7d968d2642b4"
+    property TextGUIRendererComponent levelText = "d2da7a28-3d59-4226-afa5-a1a8270afbbc"
+    property TextGUIRendererComponent costText = "3c0e8b32-7199-446c-85a8-cddbe0102ac8"
+    property Entity btnUpgrade = "ae3bcd9f-b7a1-458d-9ccc-b83c864504b3"
+    property Entity btnClose = "f6f6f995-00e1-45b6-b67c-e58aa634605b"
+
+    @HideFromInspector property any upgradeHandler = nil
+    @HideFromInspector property any closeHandler = nil
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        if isvalid(self.upgradeGroup) then
+            self.upgradeGroup.Enable = false
+        end
+        if isvalid(self.btnUpgrade) then
+            self.upgradeHandler = self.btnUpgrade:ConnectEvent(ButtonClickEvent, self.OnUpgradeClicked)
+        end
+        if isvalid(self.btnClose) then
+            self.closeHandler = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.upgradeHandler and isvalid(self.btnUpgrade) then
+            self.btnUpgrade:DisconnectEvent(ButtonClickEvent, self.upgradeHandler)
+        end
+        if self.closeHandler and isvalid(self.btnClose) then
+            self.btnClose:DisconnectEvent(ButtonClickEvent, self.closeHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        -- choice_map의 BtnUpgrade 월드 버튼 터치 핸들러(CharacterSelectStageController)가 호출.
+        if isvalid(self.upgradeGroup) then
+            self.upgradeGroup.Enable = true
+        end
+        self:RefreshDisplay()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshDisplay()
+        -- AccountCurrencyLogic.OnLoaded/OnCurrencyGranted/OnUpgradeResult가 상태 변경마다 호출한다.
+        -- 팝업이 닫혀있어도 안전하게 텍스트만 갱신(다음에 열었을 때 최신값이 바로 보이도록).
+        if not _AccountCurrencyLogic:IsLoadComplete() then
+            return
+        end
+        local value = _AccountCurrencyLogic:GetCurrency()
+        local level = _AccountCurrencyLogic:GetUpgradeLevel()
+        local maxLevel = _AccountCurrencyLogic.MaxUpgradeLevel
+        if isvalid(self.currencyText) then
+            self.currencyText.Text = "보유 정수: " .. value
+        end
+        if isvalid(self.levelText) then
+            self.levelText.Text = "강화 레벨: " .. level .. " / " .. maxLevel
+        end
+        if isvalid(self.costText) then
+            if level >= maxLevel then
+                self.costText.Text = "최대 레벨 도달"
+            else
+                self.costText.Text = "다음 비용: " .. _AccountCurrencyLogic:ComputeNextCost(level)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnUpgradeClicked()
+        _AccountCurrencyLogic:RequestPurchaseUpgrade()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        if isvalid(self.upgradeGroup) then
+            self.upgradeGroup.Enable = false
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnPurchaseResult(boolean success)
+        self:RefreshDisplay()
+        log("AccountUpgradeUI: OnPurchaseResult success=" .. tostring(success))
+    end
+
+end

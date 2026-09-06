@@ -9,6 +9,9 @@ script CharacterSelectStageController extends Component
     property Entity countText = "16584510-7692-4526-a5ca-89716f9ff30e"
     property Entity cardGroup = "1879e4ab-8a6e-4f06-9c8c-3370223bebe3"
     property Entity squadGroup = "5f96f6e4-814c-42e0-b42a-2b5926f6723b"
+    -- M2 Phase G(2026-09-06) - 계정 강화 팝업(AccountUpgradeGroup.ui)을 여는 월드 버튼(WorldButton.model
+    -- 신규 인스턴스, choice_map CountText 바로 아래 배치).
+    property Entity btnUpgrade = "2fd2ba7e-0928-4225-ad22-e59a3ab6fe44"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -28,6 +31,13 @@ script CharacterSelectStageController extends Component
         -- not per-standee TouchReceiveComponent/TouchEvent - see OnScreenTouched for why.
         local hScreen = _InputService:ConnectEvent(ScreenTouchEvent, self.OnScreenTouched)
         table.insert(self._T.handlers, { entity = _InputService, eventType = ScreenTouchEvent, eventHandler = hScreen })
+
+        -- M2 Phase G(2026-09-06) - 계정 강화 팝업을 여는 월드 버튼(TouchReceiveComponent 기반이라
+        -- 표준 TouchEvent 사용 - ButtonClickEvent는 .ui 전용).
+        if isvalid(self.btnUpgrade) then
+            local hUpgrade = self.btnUpgrade:ConnectEvent(TouchEvent, self.OnUpgradeButtonTouched)
+            table.insert(self._T.handlers, { entity = self.btnUpgrade, eventType = TouchEvent, eventHandler = hUpgrade })
+        end
 
         log("CharacterSelectStage: OnBeginPlay, standee1 valid=" .. tostring(isvalid(self.standee1)) .. " standee6 valid=" .. tostring(isvalid(self.standee6)) .. " cardGroup valid=" .. tostring(isvalid(self.cardGroup)))
         -- HideLocalPlayer/ShowLocalPlayer moved to CharacterRosterLogic (2026-07-23) so the Lobby's
@@ -217,8 +227,9 @@ script CharacterSelectStageController extends Component
 
         local stats = self:RollStats()
         -- M2 Phase B(2026-09-06) - 축소 풀(6종)에서 전체 특성 풀(115종, TraitRollLogic의 5풀
-        -- 가중치+천장)로 교체.
-        local trait = _TraitRollLogic:RollTrait()
+        -- 가중치+천장)로 교체. M2 Phase G(2026-09-06) - 계정 영구 강화("좋은 특성 가중치 상승")
+        -- 레벨을 여기서 넘긴다(캐릭터 생성 시점에만 적용, TraitRollLogic.RollTrait 주석 참고).
+        local trait = _TraitRollLogic:RollTrait(_AccountCurrencyLogic:GetUpgradeLevel())
         local look = {
             body = self._T.bodyPool[_UtilLogic:RandomIntegerRange(1, #self._T.bodyPool)],
             hair = self._T.hairPool[_UtilLogic:RandomIntegerRange(1, #self._T.hairPool)],
@@ -269,8 +280,10 @@ script CharacterSelectStageController extends Component
     @ExecSpace("ClientOnly")
     method table RollStats()
         -- Distributes 20 total points across STR/DEX/INT/LUK with a minimum of 1 each (GDD 8-1 baseline).
+        -- M2 Phase G(2026-09-06) - 계정 영구 강화("시작 스탯 보너스") 레벨당 +1 포인트 추가.
         local values = { 1, 1, 1, 1 }
-        for i = 1, 16 do
+        local totalPicks = 16 + _AccountCurrencyLogic:GetUpgradeLevel()
+        for i = 1, totalPicks do
             local pick = _UtilLogic:RandomIntegerRange(1, 4)
             values[pick] = values[pick] + 1
         end
@@ -359,7 +372,16 @@ script CharacterSelectStageController extends Component
         end
         self._T.pendingOpenCard = false
 
-        self.countText.TextRendererComponent.Text = "오늘 생성 가능: " .. _CharacterRosterLogic:GetDailyRemaining() .. "/6"
+        -- M2 Phase G(2026-09-06) - 계정 재화(정수) 표시 추가. 로드 전이면 "..."로 표시(짧은 순간이라
+        -- 별도 폴링 없이 다음 RefreshStage 호출(생성/삭제/선택 등)에서 자연히 갱신됨).
+        local currencyStr = _AccountCurrencyLogic:IsLoadComplete() and tostring(_AccountCurrencyLogic:GetCurrency()) or "..."
+        self.countText.TextRendererComponent.Text = "오늘 생성 가능: " .. _CharacterRosterLogic:GetDailyRemaining() .. "/6  |  정수: " .. currencyStr
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnUpgradeButtonTouched(TouchEvent event)
+        -- choice_map의 "강화" 월드 버튼 - 계정 강화 팝업(AccountUpgradeGroup.ui)을 연다.
+        _AccountUpgradeUIController:Show()
     end
 
     @ExecSpace("Server")

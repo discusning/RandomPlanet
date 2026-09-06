@@ -66,10 +66,10 @@ M1 로드맵(Phase 0~4 + Phase 2.5) 전 항목 ✅ 달성. GDD는 `Archive/Rando
 - ⬜ 토벌전장 선택 UI에 난이도 선택 추가
 
 ### Phase G — 재화 · 계정 메타 진행
-- ⬜ 영구 재화 시스템 (런 클리어 정산 → 계정 귀속)
-- ⬜ 상인 특성의 실제 드랍률 2배 효과를 이 재화/아이템 드랍 시스템에 연결 (25차에 처치경험치로 임시 대체했던 것 원복)
-- ⬜ 계정 영구 강화 (좋은 특성 가중치 상승 / 시작 스탯 보너스 / 게이트 입장권 보유 한도 증가)
-- ⬜ 빈곤의 서약·한탕주의 특성의 특수 재화 규칙 연결
+- ✅ 영구 재화 시스템 (런 클리어 정산 → 계정 귀속) — 2026-09-06 구현+실측 검증 완료. 신규 `Meta/AccountCurrencyLogic.mlua`(`@Logic`, RestGaugeLogic과 동일한 계정 UserDataStorage 패턴). `PlayerStatsComponent.GrantRunEndCurrency()`가 `TriggerRunEnd()`(사망/ENDING) 시점에 `도달레벨×5 + 처치수×2 + floor(생존초/10)` 공식으로 정산·적립. Maker 실측: level=7/kills=12/survival=95s → base=68, 정확히 일치 확인, 계정에 68 적립 후 클라이언트 `OnCurrencyGranted` 왕복까지 로그로 확인.
+- ✅ 상인 특성의 실제 드랍률 효과 — 이미 M2 Phase B(TraitCatalog `basicEffect={drop=0.15}` + `Monster.TryDropPotion`의 `DropRateMultiplier`)에서 완료된 상태였음을 재확인(25차 처치경험치 임시 대체는 이미 원복됨). 이번 세션은 검증만 수행.
+- ✅ 계정 영구 강화 — 2026-09-06 구현+실측 검증 완료(설계 범위: "시작 스탯 보너스" + "좋은 특성 가중치 상승" 통합 1개 트랙, 레벨 0~10, 비용 50×(레벨+1) 선형 누진). `CharacterSelectStageController.RollStats()`가 레벨당 +1 총 스탯 포인트(실측: 레벨1→합계21 확인), `TraitRollLogic.RollPool(bonusLevel)`이 레벨당 hb/bad에서 0.5%p씩 걷어 hg로 이동(레벨10 상한 5%p, 실측: 레벨1/60롤 표본에서 에러 없이 정상 동작 확인 — "캐릭터 생성 시"로 범위 한정, 이능 재추첨 등 런 중간 재추첨은 미적용). 신규 `Meta/AccountUpgradeUIController.mlua` + `ui/AccountUpgradeGroup.ui`(파치먼트/브라운 톤, 기존 EndingGroup 패턴 재사용) + choice_map에 "강화" 월드 버튼(`WorldButton.model` 신규 인스턴스) 배치. 실측: 팝업 오픈→구매(정수 436→436-100 남았어야 할 다음 비용까지 텍스트 정확 표시)→레벨 1 반영까지 로그+엔티티 텍스트 직접 조회로 확인. **게이트 입장권 보유 한도 증가는 미구현**(몬스터 게이트 자체가 Phase E 미착수라 입장권 시스템이 없음 — 정직하게 기록).
+- ✅ 빈곤의 서약·한탕주의 특성의 특수 재화 규칙 — 2026-09-06 구현+실측 검증 완료. `GrantRunEndCurrency`가 두 특성을 트레잇 이름으로 직접 분기(기존 봉인된 자/외길/봉인구 패턴과 동일 원칙): 빈곤의 서약=항상 0(실측 확인), 한탕주의=평소 0(실측 확인)·클리어 시에만 기본의 5배(실측: base68→340 정확히 일치). 시간여행자(`clearCurrencyBonus=0.15`)도 함께 구현+실측(68→78, floor(68×1.15) 일치).
 
 ### Phase H — 리더보드 · 명예의 전당
 - ⬜ `msw-packages` 랭킹 패키지 확인 후 채택 여부 결정

@@ -467,7 +467,37 @@ script PlayerStatsComponent extends Component
             controller.Enable = false
         end
         self.RunEnded = true
+        self:GrantRunEndCurrency()
         log("PlayerStats: TriggerRunEnd level=" .. self.EndedLevel .. " kills=" .. self.EndedKillCount .. " survivalSeconds=" .. string.format("%.1f", self.EndedSurvivalSeconds))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantRunEndCurrency()
+        -- M2 Phase G(2026-09-06) - 전체 기획서 §6-1/§6-2 "클리어 정산 -> 계정 메타 강화". 도달
+        -- 레벨/처치수/생존시간 기반으로 영구 재화(정수)를 계산해 AccountCurrencyLogic에 적립한다.
+        -- 빈곤의 서약(평소 획득 0)/한탕주의(평소 획득 0, 클리어 시 5배 일확천금)는 기존 특성-전직
+        -- 상호작용(봉인된 자/외길/봉인구)과 동일하게 트레잇 이름으로 직접 분기 - 이 둘은 "0으로
+        -- 억제"라는 규칙이라 가산형 basicEffect 채널로 표현하기 애매하기 때문. 시간여행자만
+        -- clearCurrencyBonus(가산형 채널)로 범용 엔진을 거친다.
+        local player = self.Entity.PlayerComponent
+        if not isvalid(player) then return end
+        local baseCurrency = self.EndedLevel * 5 + self.EndedKillCount * 2 + math.floor(self.EndedSurvivalSeconds / 10)
+        local granted = 0
+        if self:HasTrait("빈곤의 서약") then
+            granted = 0
+        elseif self:HasTrait("한탕주의") then
+            granted = self.EndedFieldCleared and (baseCurrency * 5) or 0
+        else
+            local bonus = _TraitEffectEngine:GetClearCurrencyBonus(self.Trait)
+            if self.Trait2 ~= "" then
+                bonus = bonus + _TraitEffectEngine:GetClearCurrencyBonus(self.Trait2)
+            end
+            granted = math.floor(baseCurrency * (1 + bonus))
+        end
+        if granted > 0 then
+            _AccountCurrencyLogic:GrantCurrency(player.ProfileCode, granted, player.UserId)
+        end
+        log("PlayerStats: GrantRunEndCurrency base=" .. baseCurrency .. " granted=" .. granted .. " trait=" .. self.Trait)
     end
 
     @ExecSpace("Server")

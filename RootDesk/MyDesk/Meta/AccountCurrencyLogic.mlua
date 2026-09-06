@@ -1,0 +1,140 @@
+@Logic
+script AccountCurrencyLogic extends Logic
+    -- 계정 영구 재화 + 계정 영구 강화 (M2 Phase G, 2026-09-06 - 전체 기획서 §6-1 "영구 재화: 클리어
+    -- 정산 -> 계정 메타 강화" + §6-2 "계정 영구 강화 예시: 시작 스탯 보너스 / 좋은 특성 가중치 상승").
+    -- RestGaugeLogic/BestRecordLogic과 동일한 계정 UserDataStorage 패턴(profileCode 기준) 재사용.
+    -- 클라이언트가 로드 결과를 self._T에 캐시해둬서, ClientOnly 소비처(CreateCharacter의 시작 스탯
+    -- 보너스, TraitRollLogic의 좋은 특성 가중치)가 서버 왕복 없이 즉시 읽을 수 있게 한다.
+    property string StorageName = "AccountCurrency"
+    property integer MaxUpgradeLevel = 10
+    property integer UpgradeBaseCost = 50
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.value = 0
+        self._T.upgradeLevel = 0
+        self._T.loadComplete = false
+        self:RequestLoad()
+    end
+
+    @ExecSpace("ClientOnly")
+    method number GetCurrency()
+        return self._T.value
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer GetUpgradeLevel()
+        return self._T.upgradeLevel
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsLoadComplete()
+        return self._T.loadComplete == true
+    end
+
+    method integer ComputeNextCost(integer level)
+        -- 양쪽에서 다 쓰는 순수 계산(서버는 RequestPurchaseUpgrade 검증용, 클라이언트는 UI 표시용).
+        return self.UpgradeBaseCost * (level + 1)
+    end
+
+    @ExecSpace("Server")
+    method void RequestLoad()
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local profileCode = player.PlayerComponent.ProfileCode
+        local state = self:LoadState(profileCode)
+        self:OnLoaded(state.value, state.upgradeLevel)
+    end
+
+    @ExecSpace("ServerOnly")
+    method table LoadState(string profileCode)
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local errorCode, raw = storage:GetAndWait(self.StorageName)
+        local value, level = 0, 0
+        if errorCode == 0 and raw ~= nil and raw ~= "" then
+            local decoded = _HttpService:JSONDecode(raw)
+            value = decoded.value or 0
+            level = decoded.upgradeLevel or 0
+        end
+        return { value = value, upgradeLevel = level }
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SaveState(string profileCode, number value, integer level)
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local json = _HttpService:JSONEncode({ value = value, upgradeLevel = level })
+        storage:SetAsync(self.StorageName, json, function(errorCode, key)
+            if errorCode ~= 0 then
+                log_error("AccountCurrency: SetAsync failed, errorCode=" .. tostring(errorCode))
+            end
+        end)
+    end
+
+    @ExecSpace("Client")
+    method void OnLoaded(number value, integer level)
+        self._T.value = value
+        self._T.upgradeLevel = level
+        self._T.loadComplete = true
+        log("AccountCurrency: loaded value=" .. value .. " upgradeLevel=" .. level)
+        _AccountUpgradeUIController:RefreshDisplay()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantCurrency(string profileCode, integer amount, string userId)
+        -- PlayerStatsComponent.GrantRunEndCurrency(런 종료 정산)에서 호출 - Server RPC 응답이 아니라
+        -- 서버 자체 판단으로 트리거되므로(사망 이벤트) senderUserId가 없어, 알려야 할 클라이언트를
+        -- 직접 targetUserId로 지정해야 한다(OnCurrencyGranted 호출부 참고).
+        if amount <= 0 then return end
+        local state = self:LoadState(profileCode)
+        local newValue = state.value + amount
+        self:SaveState(profileCode, newValue, state.upgradeLevel)
+        log("AccountCurrency: granted " .. amount .. " to profileCode=" .. profileCode .. " -> total=" .. newValue)
+        self:OnCurrencyGranted(amount, newValue, userId)
+    end
+
+    @ExecSpace("Client")
+    method void OnCurrencyGranted(number amount, number newValue)
+        self._T.value = newValue
+        _AccountUpgradeUIController:RefreshDisplay()
+        log("AccountCurrency: OnCurrencyGranted amount=" .. amount .. " newValue=" .. newValue)
+    end
+
+    @ExecSpace("Server")
+    method void RequestPurchaseUpgrade()
+        -- 공격대 편성창의 "강화" 버튼(AccountUpgradeUIController) -> 여기로 온다. 레벨당 비용이
+        -- 오르는 단순 선형 누진(ComputeNextCost) - 최대 레벨(10) 도달 시 더 이상 구매 불가.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then return end
+        local profileCode = player.PlayerComponent.ProfileCode
+        local state = self:LoadState(profileCode)
+        if state.upgradeLevel >= self.MaxUpgradeLevel then
+            self:OnUpgradeResult(false, state.value, state.upgradeLevel)
+            return
+        end
+        local cost = self:ComputeNextCost(state.upgradeLevel)
+        if state.value < cost then
+            self:OnUpgradeResult(false, state.value, state.upgradeLevel)
+            return
+        end
+        local newValue = state.value - cost
+        local newLevel = state.upgradeLevel + 1
+        self:SaveState(profileCode, newValue, newLevel)
+        log("AccountCurrency: purchased upgrade level=" .. newLevel .. " cost=" .. cost .. " remaining=" .. newValue)
+        self:OnUpgradeResult(true, newValue, newLevel)
+    end
+
+    @ExecSpace("Client")
+    method void OnUpgradeResult(boolean success, number newValue, integer newLevel)
+        -- Server RPC(RequestPurchaseUpgrade)의 응답 - senderUserId 컨텍스트 안에서 호출되므로
+        -- targetUserId를 명시하지 않아도 요청한 클라이언트에게 자동으로 돌아온다(이 프로젝트의
+        -- RestGaugeLogic.OnGaugeLoaded와 동일한 기존 검증 패턴).
+        if success then
+            self._T.value = newValue
+            self._T.upgradeLevel = newLevel
+        end
+        _AccountUpgradeUIController:OnPurchaseResult(success)
+    end
+
+end

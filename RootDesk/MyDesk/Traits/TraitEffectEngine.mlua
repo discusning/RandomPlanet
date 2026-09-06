@@ -153,6 +153,14 @@ script TraitEffectEngine extends Logic
         return mod.forceHiddenRerollAt13 == true
     end
 
+    -- M2 Phase G(2026-09-06) - 시간여행자(clearCurrencyBonus) 전용. 빈곤의 서약/한탕주의는 "영구 재화
+    -- 0"이라는 억제 규칙이라 가산형 채널로 표현하기 애매해 PlayerStatsComponent.GrantRunEndCurrency가
+    -- 이 둘은 기존 특성-전직 상호작용(봉인된 자/외길/봉인구)과 동일하게 트레잇 이름으로 직접 분기한다.
+    method number GetClearCurrencyBonus(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.clearCurrencyBonus or 0
+    end
+
     @ExecSpace("ServerOnly")
     method void ApplyToStats(PlayerStatsComponent stats, string trait, number effStr, number effDex, number effInt, number effLuk)
         -- PlayerStatsComponent.RecalculateDerived 말미에서 호출 - Trait1/Trait2 각각에 대해 한 번씩
