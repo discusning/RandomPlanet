@@ -138,7 +138,9 @@ script PlayerAttack extends AttackComponent
             return
         end
         -- M2 Phase B(2026-09-06) - 범용 흡혈 특성(흡혈귀/빈손 등, TraitCatalog basicEffect.lifestealPct).
-        local lifestealPct = _TraitEffectEngine:GetLifestealPct(statsComp.Trait)
+        -- M2 Phase C(2026-09-06) - Trait2와 링크 패시브(LinkLifestealBonus)의 흡혈도 함께 합산.
+        local trait2Lifesteal = (statsComp.Trait2 ~= "") and _TraitEffectEngine:GetLifestealPct(statsComp.Trait2) or 0
+        local lifestealPct = _TraitEffectEngine:GetLifestealPct(statsComp.Trait) + trait2Lifesteal + statsComp.LinkLifestealBonus
         if lifestealPct > 0 then
             local heal = self.AttackDamage * lifestealPct
             player.Hp = math.min(player.MaxHp, player.Hp + heal)

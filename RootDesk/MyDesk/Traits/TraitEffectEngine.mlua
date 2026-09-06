@@ -160,7 +160,58 @@ script TraitEffectEngine extends Logic
         -- 단단함/날렵함)은 이미 자체 로직으로 처리됐으므로 GetBasicModifiers가 빈 테이블을 반환해 이
         -- 메서드는 안전하게 no-op된다. trait 파라미터를 명시로 받는 이유: stats.Trait만 읽으면 두
         -- 번째 특성(Trait2)의 효과를 적용할 방법이 없기 때문.
-        local mod = self:GetBasicModifiers(trait)
+        self:ApplyModifiersToStats(stats, self:GetBasicModifiers(trait), 1.0)
+    end
+
+    -- ===== M2 Phase C (2026-09-06) — 링크 패시브 실효과 =====
+    -- linkEffect는 basicEffect와 동일한 채널(atk/cc/cm/as/acc/ev/ms/msm/hp/hpF/mp/dr/mpc/drop/exp/kb)을
+    -- 재사용한다 - 부록 D의 "파티 전체에 적용되는 소폭 지원 효과"라는 성격이 이 채널들로 충분히
+    -- 표현되기 때문. 링크 캐릭터가 5레벨 미만 텍스트(예지/치장 지원 등 표시성) 또는 새 서브시스템이
+    -- 필요한 효과(랜덤 버프/재화/아이템 자동흡수 등)는 basicEffect와 동일한 원칙으로 linkEffect
+    -- 필드 자체를 비워 정직하게 미구현으로 남긴다(115종 중 링크 효과 수치가 실제로 있는 것은 부분
+    -- 집합 - Docs/RandomPlanet-M2-GDD.md Phase C 참고).
+    method table GetLinkModifiers(string trait)
+        local def = _TraitCatalog:GetTraitDef(trait)
+        if not def or not def.linkEffect then return {} end
+        return def.linkEffect
+    end
+
+    method number GetLinkPotionMult(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.potionMult or 0
+    end
+
+    method number GetLinkLifestealBonus(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.lifestealPct or 0
+    end
+
+    -- 링크 효율 보정계수(전체 기획서 §2-6) - 액티브(플레이어블) 캐릭터 본인이 보유한 특성이 자신이
+    -- "받는" 링크 효과 전체에 곱연산으로 적용된다. 링크 캐릭터 쪽 특성이 아니라 본인 특성 기준.
+    method number GetLinkEfficiencyMultiplier(string trait, string trait2)
+        if trait == "고독" or trait2 == "고독" then return 0 end
+        if trait == "박애주의자" or trait2 == "박애주의자" then return 3.0 end
+        if trait == "링크 마스터" or trait2 == "링크 마스터" then return 1.2 end
+        if trait == "외골수" or trait2 == "외골수" then return 0.5 end
+        if trait == "친화력" or trait2 == "친화력" then return 1.1 end
+        return 1.0
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyLinkToStats(PlayerStatsComponent stats, string trait, number scale)
+        -- 링크 캐릭터 1명분의 linkEffect를 액티브 캐릭터에게 적용. scale은
+        -- GetLinkEfficiencyMultiplier(본인 특성 기준)가 곱해진 값 - 호출부(RecalculateDerived)에서
+        -- 이미 계산해 넘긴다.
+        self:ApplyModifiersToStats(stats, self:GetLinkModifiers(trait), scale)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyModifiersToStats(PlayerStatsComponent stats, table mod, number scale)
+        -- ApplyToStats(본인 특성, scale=1.0)와 ApplyLinkToStats(링크 특성, scale=효율계수) 공용 본체.
+        -- scale~=1.0인 경우 퍼센트/고정치 필드 전부에 동일하게 곱해 적용 강도를 조절한다(효율 0이면
+        -- 사실상 전부 스킵 - 고독 특성의 "링크를 받지 못함"을 자연스럽게 표현).
+        if scale == 0 then return end
+        local s = function(v) return v * scale end
 
         local attack = stats.Entity:GetComponent("script.PlayerAttack")
         local player = stats.Entity.PlayerComponent
@@ -168,66 +219,68 @@ script TraitEffectEngine extends Logic
 
         if isvalid(attack) then
             if mod.atk then
-                attack.AttackDamage = attack.AttackDamage * (1 + mod.atk)
+                attack.AttackDamage = attack.AttackDamage * (1 + s(mod.atk))
                 stats.BaseAttackDamage = attack.AttackDamage
             end
             if mod.atkF then
-                attack.AttackDamage = attack.AttackDamage + mod.atkF
+                attack.AttackDamage = attack.AttackDamage + s(mod.atkF)
                 stats.BaseAttackDamage = attack.AttackDamage
             end
             if mod.cc then
-                attack.CriticalChance = math.max(0, math.min(0.9, attack.CriticalChance + mod.cc))
+                attack.CriticalChance = math.max(0, math.min(0.9, attack.CriticalChance + s(mod.cc)))
             end
             if mod.cm then
-                attack.CritDamageMultiplier = math.max(1.0, attack.CritDamageMultiplier + mod.cm)
+                attack.CritDamageMultiplier = math.max(1.0, attack.CritDamageMultiplier + s(mod.cm))
             end
             if mod.as then
                 -- 공격속도% -> 쿨다운을 반비례로 축소 (PlayerStatsComponent의 DEX 공식과 동일 패턴).
-                attack.AttackCooldownSeconds = attack.AttackCooldownSeconds / (1 + mod.as)
+                attack.AttackCooldownSeconds = attack.AttackCooldownSeconds / (1 + s(mod.as))
             end
             if mod.acc then
-                attack.Accuracy = attack.Accuracy + mod.acc
+                attack.Accuracy = attack.Accuracy + s(mod.acc)
             end
         end
 
         if mod.dr then
-            stats.DamageReductionPercent = math.max(-1.0, math.min(0.9, stats.DamageReductionPercent + mod.dr))
+            stats.DamageReductionPercent = math.max(-1.0, math.min(0.9, stats.DamageReductionPercent + s(mod.dr)))
         end
         if mod.mpc then
-            stats.MpCostMultiplier = mod.mpc
+            -- 2026-09-06(Phase C) - 기존엔 대입(overwrite)이라 Trait2/링크가 이전 값을 덮어썼다.
+            -- 여러 출처(본인 특성+Trait2+링크 최대2)가 함께 기여하도록 가산으로 변경(더 정확한 합산).
+            stats.MpCostMultiplier = stats.MpCostMultiplier + s(mod.mpc)
         end
         if mod.drop then
-            stats.DropRateMultiplier = mod.drop
+            stats.DropRateMultiplier = stats.DropRateMultiplier + s(mod.drop)
         end
         if mod.exp then
-            stats.ExpMultiplier = mod.exp
+            stats.ExpMultiplier = stats.ExpMultiplier + s(mod.exp)
         end
         if mod.kb then
-            stats.KnockbackResistance = math.max(0, math.min(1.0, stats.KnockbackResistance + mod.kb))
+            stats.KnockbackResistance = math.max(0, math.min(1.0, stats.KnockbackResistance + s(mod.kb)))
         end
         if mod.ev then
-            stats.EvasionPercent = math.max(0, math.min(0.9, stats.EvasionPercent + mod.ev))
+            stats.EvasionPercent = math.max(0, math.min(0.9, stats.EvasionPercent + s(mod.ev)))
         end
 
         if isvalid(player) then
             if mod.hp then
-                player.MaxHp = math.max(1, math.floor(player.MaxHp * (1 + mod.hp)))
+                player.MaxHp = math.max(1, math.floor(player.MaxHp * (1 + s(mod.hp))))
             end
             if mod.hpF then
-                player.MaxHp = math.max(1, player.MaxHp + mod.hpF)
+                player.MaxHp = math.max(1, player.MaxHp + s(mod.hpF))
             end
         end
 
         if mod.mp then
-            stats.MaxMp = math.max(0, math.floor(stats.MaxMp * (1 + mod.mp)))
+            stats.MaxMp = math.max(0, math.floor(stats.MaxMp * (1 + s(mod.mp))))
         end
 
         if isvalid(move) then
             if mod.ms then
-                move.InputSpeed = move.InputSpeed + mod.ms
+                move.InputSpeed = move.InputSpeed + s(mod.ms)
             end
             if mod.msm then
-                move.InputSpeed = math.max(0.2, move.InputSpeed * (1 + mod.msm))
+                move.InputSpeed = math.max(0.2, move.InputSpeed * (1 + s(mod.msm)))
             end
         end
     end

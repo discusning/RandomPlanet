@@ -86,8 +86,14 @@ script SquadFormationController extends Component
             else
                 btn.Enable = true
                 local label = "Lv." .. c.level .. " " .. c.trait
+                -- M2 Phase C(2026-09-06) - 링크 패시브 미리보기. 15레벨 미만이면 어떤 패시브가
+                -- 잠겨있는지 이름만 함께 보여주고, 15레벨 이상이면 실제 적용될 효과 설명까지 노출.
+                local traitDef = _TraitCatalog:GetTraitDef(c.trait)
+                local linkName = (traitDef ~= nil) and traitDef.linkName or nil
                 if c.level < 15 then
-                    label = label .. " [패시브 15레벨 필요]"
+                    label = label .. " [패시브 15레벨 필요" .. (linkName ~= nil and (": " .. linkName) or "") .. "]"
+                elseif traitDef ~= nil and traitDef.linkDesc ~= nil then
+                    label = label .. "\n링크: " .. traitDef.linkDesc
                 end
                 btn.TextGUIRendererComponent.Text = label
                 local isSelected = false
@@ -115,7 +121,9 @@ script SquadFormationController extends Component
         for slot, candidateIdx in ipairs(self._T.selectedLinks) do
             for _, c in ipairs(self._T.candidates) do
                 if c.index == candidateIdx then
-                    labels[slot] = "링크 " .. slot .. ": Lv." .. c.level .. " (" .. c.trait .. ")"
+                    local traitDef = _TraitCatalog:GetTraitDef(c.trait)
+                    local suffix = (traitDef ~= nil and traitDef.linkDesc ~= nil and c.level >= 15) and (" - " .. traitDef.linkDesc) or ""
+                    labels[slot] = "링크 " .. slot .. ": Lv." .. c.level .. " (" .. c.trait .. ")" .. suffix
                 end
             end
         end

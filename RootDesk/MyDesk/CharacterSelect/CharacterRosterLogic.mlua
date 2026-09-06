@@ -300,11 +300,46 @@ script CharacterRosterLogic extends Logic
 
     @ExecSpace("ClientOnly")
     method void ConfirmSquad(table linkIndices)
-        -- Called by the squad-formation popup's "확정" button. Just records the choice - actual
-        -- link-passive effects require the trait/combat systems from Phase 3+.
+        -- Called by the squad-formation popup's "확정" button.
+        -- M2 Phase C(2026-09-06) - 이제 실제 링크 패시브 효과를 즉시 서버에 반영한다(예전엔 선택
+        -- 저장만 하고 "Phase 3+ 필요"로 미뤄뒀던 부분).
         self._T.squadLinks = linkIndices
         log("CharacterRoster: squad confirmed, linkCount=" .. #linkIndices)
         self:SaveRoster()
+        self:PushSquadLinksToServer()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void UpdateActiveLevel(integer level)
+        -- M2 Phase C(2026-09-06) - 버그 수정: 로스터의 캐릭터별 level 필드가 생성 시점(1) 이후 전혀
+        -- 갱신되지 않아 링크 캐릭터의 "15레벨 이상" 조건이 실질적으로 영원히 충족 불가능했다.
+        -- PlayerStatsComponent.OnSyncProperty("Level")이 레벨업마다 이 메서드를 호출한다.
+        local idx = self:GetActiveIndex()
+        if idx == nil then return end
+        local data = self._T.data[idx]
+        if data == nil or data.level == level then return end
+        data.level = level
+        self:SaveRoster()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PushSquadLinksToServer()
+        -- M2 Phase C(2026-09-06) - 확정된 squadLinks(최대 2개의 로스터 인덱스)를 실제 { trait, level }
+        -- 배열로 풀어서 로컬 플레이어의 PlayerStatsComponent(서버 권한)에 전달. 로스터가 ClientOnly라
+        -- 서버는 이 호출 없이는 누가 링크인지 전혀 모른다 - 공격대 확정 직후, 그리고 캐릭터
+        -- 진입/교체 직후(RequestEnterGame/SwapActiveCharacter 호출부) 함께 호출된다.
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return end
+        local statsComp = localPlayer:GetComponent("script.PlayerStatsComponent")
+        if not isvalid(statsComp) then return end
+        local links = {}
+        for _, idx in ipairs(self._T.squadLinks) do
+            local data = self._T.data[idx]
+            if data ~= nil then
+                table.insert(links, { trait = data.trait, level = data.level })
+            end
+        end
+        statsComp:UpdateSquadLinks(links)
     end
 
     @ExecSpace("ClientOnly")

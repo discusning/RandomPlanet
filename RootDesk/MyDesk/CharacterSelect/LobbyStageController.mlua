@@ -143,6 +143,8 @@ script LobbyStageController extends Component
         }
         _CharacterRosterLogic:SetActiveIndex(idx)
         _CharacterRosterLogic:SwapActiveCharacter(data.look, data.equipment, stats, standeePos, data.atkSkillId, data.buffSkillId)
+        -- M2 Phase C(2026-09-06) - 캐릭터 교체 직후 새 활성 캐릭터 기준으로 공격대 링크 패시브 재반영.
+        _CharacterRosterLogic:PushSquadLinksToServer()
         self:RefreshLobbyStandees()
         log("LobbyStage: swapped active character to slot " .. idx)
     end

@@ -210,6 +210,8 @@ script CharacterCardController extends Component
                 trait = self._T.characterData.trait,
             }
             controller:RequestEnterGame(self._T.look, self._T.equipment, stats, self._T.characterData.atkSkillId, self._T.characterData.buffSkillId)
+            -- M2 Phase C(2026-09-06) - 진입 직후 현재 공격대 편성의 링크 패시브를 서버에 반영.
+            _CharacterRosterLogic:PushSquadLinksToServer()
         end
         self:HideCard()
     end
