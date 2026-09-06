@@ -25,6 +25,9 @@ script Monster extends Component
     -- 정수(0~100) - 기본 12%로 시작, 전장 몬스터별로 `MapBuilder.patchComponent`나 개별 `.model`
     -- 값으로 오버라이드 가능(FieldMonster1~3 티어별 밸런스 조정과 동일 패턴).
     property integer PotionDropChance = 12
+    -- M2 Phase B 2단계(2026-09-06) - 동전 던지기 사형집행인(onCritExecuteChance)의 "보스 제외" 규칙용.
+    -- 기본값 false, 미니보스 개체(FieldMiniBoss)만 true로 오버라이드된다.
+    property boolean IsBoss = false
 
     method void OnBeginPlay()
         -- Initializes HP and wires the defender-side damage skin id.
@@ -78,6 +81,29 @@ script Monster extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void TakeReflectedDamage(number amount)
+        -- 거울 갑옷 특성(PlayerHit.HandleHitEvent)의 피해 반사 전용 진입점 - 일반 HandleHitEvent(실제
+        -- HitEvent 기반)를 타지 않고 직접 Hp만 깎아, 반사 데미지가 다시 새 HitEvent를 만들어 서로
+        -- 무한 반사하는 상황 자체를 원천 차단한다. 처치까지는 이어지되(Dead 호출), XP 지급은 하지
+        -- 않는다(반사로 죽은 경우 "누가 처치했는가"가 모호한 엣지 케이스 - 의도적으로 생략).
+        if self.IsDead or amount <= 0 then return end
+        local originalHp = self.Hp
+        self.Hp = self.Hp - amount
+        if self.Hp > 0 or originalHp <= 0 then return end
+        self:Dead()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ExecuteKill(Entity attacker)
+        -- 동전 던지기 사형집행인(크리 시 낮은 확률 즉사, 보스 제외) 전용 처치 경로 - PlayerAttack.OnAttack이
+        -- 크리 판정 직후 호출한다. HandleHitEvent와 동일한 처치 시퀀스(XP 지급 + Dead)를 그대로 재사용.
+        if self.IsDead or self.IsBoss then return end
+        self.Hp = 0
+        self:GrantXpToAttacker(attacker)
+        self:Dead()
+    end
+
+    @ExecSpace("ServerOnly")
     method void ApplyDisorder(number evasionReduction, number duration)
         -- 도적 1차 액티브 "디스에이블" 대상 - 진짜 원본 효과(적 회피 감소) 그대로, 이미 살아있는
         -- Evasion 소비처(PlayerAttack.IsAttackTarget의 명중 굴림)를 재사용하므로 새 파이프라인
@@ -108,6 +134,16 @@ script Monster extends Component
             if bonusExpChance > 0 and _UtilLogic:RandomDouble() < bonusExpChance then
                 xpToGrant = math.floor(xpToGrant * 1.5)
             end
+            -- M2 Phase B 2단계(2026-09-06) - 복불복 상자(expGamble, 스탯 구슬을 경험치로 근사): 50%
+            -- 확률로 2배, 50% 확률로 0.
+            if _TraitEffectEngine:HasExpGamble(stats.Trait) then
+                if _UtilLogic:RandomDouble() < 0.5 then
+                    xpToGrant = xpToGrant * 2
+                else
+                    xpToGrant = 0
+                end
+                log("Monster: 복불복 상자 expGamble -> " .. xpToGrant)
+            end
             stats:GrantXp(xpToGrant)
             stats:AddKill()
             -- M2 Phase B(2026-09-06) - 처치 시 확률 회복(healOnKill, 예: 금욕).
@@ -115,6 +151,13 @@ script Monster extends Component
             local player = attacker.PlayerComponent
             if healSpec and isvalid(player) and player.Hp > 0 and _UtilLogic:RandomDouble() < (healSpec.chance or 0) then
                 player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * (healSpec.pct or 0))
+            end
+            -- M2 Phase B 2단계 - 적응력(killStackAtk) - 처치 누적 시 전 스탯 아주 소폭 증가를
+            -- 공격력으로 근사 적용(상한까지).
+            local killStack = _TraitEffectEngine:GetKillStackAtk(stats.Trait)
+            if killStack ~= nil then
+                stats.KillStackAtkPercent = math.min(killStack.cap or 1.0, stats.KillStackAtkPercent + (killStack.perKill or 0))
+                stats:RecomputeDynamicAttackDamage()
             end
         end
         self:TryDropPotion(attacker)
@@ -136,8 +179,17 @@ script Monster extends Component
         local effectiveChance = math.min(100, self.PotionDropChance * dropMult)
         local roll = _UtilLogic:RandomIntegerRange(1, 100)
         if roll > effectiveChance then return end
-        _CharacterRosterLogic:GrantPotionDrop("hppotion", 1, attacker.PlayerComponent.UserId)
-        log("Monster: potion drop -> hppotion x1 to userId=" .. tostring(attacker.PlayerComponent.UserId))
+        -- M2 Phase B 2단계(2026-09-06) - 도박꾼(dropGamble): 처치 시 50% 확률 드랍 2배/50% 확률 0.
+        local dropCount = 1
+        if _TraitEffectEngine:HasDropGamble(isvalid(statsComp) and statsComp.Trait or "") then
+            dropCount = (_UtilLogic:RandomDouble() < 0.5) and 2 or 0
+        end
+        if dropCount <= 0 then
+            log("Monster: 도박꾼 dropGamble -> 0 (drop denied)")
+            return
+        end
+        _CharacterRosterLogic:GrantPotionDrop("hppotion", dropCount, attacker.PlayerComponent.UserId)
+        log("Monster: potion drop -> hppotion x" .. dropCount .. " to userId=" .. tostring(attacker.PlayerComponent.UserId))
     end
 
 end

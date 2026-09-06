@@ -73,7 +73,23 @@ script PlayerAttack extends AttackComponent
     end
 
     method boolean CalcCritical(Entity attacker, Entity defender, string attackInfo)
-        return _UtilLogic:RandomDouble() < self.CriticalChance
+        -- M2 Phase B 2단계(2026-09-06) - 집중(firstHitCritOnWaveStart): 웨이브가 바뀐 뒤 첫 타격은
+        -- 항상 크리티컬. statsComp.LastCritWaveNumber로 "이번 웨이브에 이미 소비했는지" 추적.
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        if isvalid(statsComp) and _TraitEffectEngine:HasFirstHitCritOnWaveStart(statsComp.Trait) then
+            local map = self.Entity.CurrentMap
+            if isvalid(map) then
+                local spawner = map:GetComponent("script.FieldWaveSpawner")
+                if isvalid(spawner) and spawner.WaveNumber ~= statsComp.LastCritWaveNumber then
+                    statsComp.LastCritWaveNumber = spawner.WaveNumber
+                    self._T.lastWasCrit = true
+                    return true
+                end
+            end
+        end
+        local result = _UtilLogic:RandomDouble() < self.CriticalChance
+        self._T.lastWasCrit = result
+        return result
     end
 
     method float GetCriticalDamageRate()
@@ -89,6 +105,33 @@ script PlayerAttack extends AttackComponent
         if not isvalid(statsComp) then return end
         local player = self.Entity.PlayerComponent
         if not isvalid(player) or player.Hp <= 0 then return end
+
+        -- M2 Phase B 2단계(2026-09-06) - 메아리(onHitCooldownReset): 명중한 공격마다 확률로 현재
+        -- 장착된 두 스킬 슬롯의 쿨다운을 즉시 초기화. 트레잇과 무관하게 항상 실행(값이 없으면 0으로
+        -- no-op).
+        local cdResetChance = _TraitEffectEngine:GetOnHitCooldownReset(statsComp.Trait)
+        if cdResetChance > 0 and _UtilLogic:RandomDouble() < cdResetChance then
+            local skillComp = self.Entity:GetComponent("script.PlayerSkillComponent")
+            if isvalid(skillComp) then
+                skillComp.LastUseTime = -999
+                skillComp.LastUseTime2 = -999
+                log("PlayerAttack: 메아리 무영창 - 쿨다운 초기화")
+            end
+        end
+
+        -- 동전 던지기 사형집행인(onCritExecuteChance) - 이번 타격이 크리였을 때만 발동, 보스는 제외
+        -- (Monster.ExecuteKill 내부에서 IsBoss로 재확인).
+        if self._T.lastWasCrit then
+            local executeChance = _TraitEffectEngine:GetOnCritExecuteChance(statsComp.Trait)
+            if executeChance > 0 and _UtilLogic:RandomDouble() < executeChance then
+                local monster = defender:GetComponent("script.Monster")
+                if isvalid(monster) then
+                    monster:ExecuteKill(self.Entity)
+                    log("PlayerAttack: 동전 던지기 사형집행인 - 즉사 발동")
+                end
+            end
+        end
+
         if statsComp.Trait == "버서크" then
             local heal = self.AttackDamage * 0.15
             player.Hp = math.min(player.MaxHp, player.Hp + heal)

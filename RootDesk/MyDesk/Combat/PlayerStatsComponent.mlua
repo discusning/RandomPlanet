@@ -86,6 +86,26 @@ script PlayerStatsComponent extends Component
     -- 피해 직전에 확인한다.
     @Sync @HideFromInspector property boolean ReviveUsedThisRun = false
 
+    -- M2 Phase B 2단계(2026-09-06 후속 패스) - 새 서브시스템 없이 표현 가능한 확률/주기/누적 트리거들.
+    -- 방어막(마나실드/수호자/유리몸/약골) - PlayerHit이 Hp를 깎기 전에 먼저 이 값을 소모한다.
+    @Sync property number ShieldAmount = 0
+    @HideFromInspector property integer ShieldTickElapsed = 0
+    @HideFromInspector property integer CombatTimerId = 0
+    -- 누적형 공격력 보너스 3종(적응력/굶주린 살점/시한폭탄) + 저체력 조건부(투지) + 럭키데이(1회
+    -- 고정치) - 전부 BaseAttackDamage 위에 함께 곱해진다(RecomputeDynamicAttackDamage 참고). 버서크와
+    -- 원리상 동일한 "Base 위에 매번 곱연산" 패턴을 그대로 재사용해 여러 타이머가 서로 덮어쓰지 않는다.
+    @HideFromInspector property number HitStackAtkPercent = 0
+    @HideFromInspector property number KillStackAtkPercent = 0
+    @HideFromInspector property number TimeStackAtkPercent = 0
+    @HideFromInspector property number LowHpBonusAtkPercent = 0
+    @HideFromInspector property number LuckyDayAtkPercent = 0
+    -- 순교자(lowHpCritMult)가 크리 데미지 배율에 얹는 보너스의 베이스라인 - RecalculateDerived가 매번
+    -- (ApplyToStats 이후) 갱신해서 CombatTick의 매 틱 조건부 가산이 드리프트하지 않게 한다.
+    @HideFromInspector property number BaseCritDamageMultiplier = 0
+    -- 마지막으로 "웨이브당 첫 타격 확정 크리"(집중)를 소비한 웨이브 번호 - PlayerAttack.CalcCritical
+    -- 참고. 여기 두는 이유: 캐릭터 교체(ApplyStats) 시 함께 리셋되어야 하는 런-스코프 상태이기 때문.
+    @HideFromInspector property integer LastCritWaveNumber = -1
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- Seeds sane combat defaults before the real roster stats arrive via ApplyStats
@@ -116,6 +136,38 @@ script PlayerStatsComponent extends Component
         self.EndedWaveReached = 0
         self.EndedFieldCleared = false
         self.ReviveUsedThisRun = false
+        -- M2 Phase B 2단계 - 캐릭터 교체마다 런-스코프 누적 상태를 전부 초기화(이전 캐릭터의 스택이
+        -- 새 캐릭터로 새는 것을 방지 - 위 BerserkDamageBonusPercent 리셋과 동일한 이유).
+        self.ShieldAmount = 0
+        self.ShieldTickElapsed = 0
+        self.HitStackAtkPercent = 0
+        self.KillStackAtkPercent = 0
+        self.TimeStackAtkPercent = 0
+        self.LowHpBonusAtkPercent = 0
+        self.LastCritWaveNumber = -1
+        -- 룰렛(statReshuffle) - 입장 시 스탯 총량을 ±range 범위로 재조정 후 4종에 재분배.
+        local reshuffle = _TraitEffectEngine:GetStatReshuffle(self.Trait)
+        if reshuffle ~= nil then
+            local total = self.Str + self.Dex + self.Intel + self.Luk
+            local variance = reshuffle.range or 0
+            local factor = 1 + (_UtilLogic:RandomDouble() * 2 - 1) * variance
+            local newTotal = math.max(4, math.floor(total * factor))
+            local vals = { 1, 1, 1, 1 }
+            for i = 1, (newTotal - 4) do
+                local idx = _UtilLogic:RandomIntegerRange(1, 4)
+                vals[idx] = vals[idx] + 1
+            end
+            self.Str, self.Dex, self.Intel, self.Luk = vals[1], vals[2], vals[3], vals[4]
+            log("PlayerStats: 룰렛 statReshuffle total " .. total .. " -> " .. newTotal)
+        end
+        -- 럭키/언럭키 데이(luckyDayRoll) - 판마다 1회 굴려 런 내내 유지되는 고정 공격력 보너스/페널티.
+        self.LuckyDayAtkPercent = 0
+        local luckyRoll = _TraitEffectEngine:GetLuckyDayRoll(self.Trait)
+        if luckyRoll ~= nil then
+            local isGood = _UtilLogic:RandomDouble() < 0.5
+            self.LuckyDayAtkPercent = isGood and (luckyRoll.good or 0) or (luckyRoll.bad or 0)
+            log("PlayerStats: 럭키/언럭키 데이 -> " .. (isGood and "GOOD" or "BAD") .. " atk%=" .. self.LuckyDayAtkPercent)
+        end
         self:RecalculateDerived()
         self:UpdateZoneState()
         log("PlayerStats: ApplyStats str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " level=" .. self.Level .. " trait=" .. self.Trait)
@@ -445,6 +497,15 @@ script PlayerStatsComponent extends Component
         -- 곱연산 순서가 맞는다(예: atk% 특성이 STR 기반 공격력 위에 곱해짐).
         _TraitEffectEngine:ApplyToStats(self, effStr, effDex, effInt, effLuk)
 
+        -- M2 Phase B 2단계 - 순교자(lowHpCritMult)의 저체력 크리데미지 가산이 매 CombatTick마다 이
+        -- 베이스라인 위에 얹힌다(ApplyToStats 이후 시점의 크리데미지를 기준으로 삼아야 저격수/행운아
+        -- 등 다른 크리데미지 특성과 정확히 합산됨). 동적 공격력 보너스(버서크/스택/저체력/럭키데이)도
+        -- 여기서 한 번 재적용해 레벨업으로 BaseAttackDamage가 바뀌어도 누적 스택이 유지되도록 한다.
+        if isvalid(attack) then
+            self.BaseCritDamageMultiplier = attack.CritDamageMultiplier
+        end
+        self:RecomputeDynamicAttackDamage()
+
         local attackDamage = isvalid(attack) and attack.AttackDamage or -1
         local critChance = isvalid(attack) and attack.CriticalChance or -1
         local critMult = isvalid(attack) and attack.CritDamageMultiplier or -1
@@ -468,12 +529,14 @@ script PlayerStatsComponent extends Component
         -- 재시작함).
         self:StopBerserkTimer()
         self:StopTownRegenTimer()
+        self:StopCombatTimer()
     end
 
     @ExecSpace("ServerOnly")
     method void OnEndPlay()
         self:StopBerserkTimer()
         self:StopTownRegenTimer()
+        self:StopCombatTimer()
     end
 
     @ExecSpace("ServerOnly")
@@ -494,18 +557,22 @@ script PlayerStatsComponent extends Component
             -- 안전지대에서는 반응형 공격력 보정을 즉시 되돌려 항상 기본 공격력으로 되돌아오게
             -- 한다(전투 지형에서 빠져나온 순간 직전 체력 비율 기준 보너스만 남아있는 것을 방지).
             self.BerserkDamageBonusPercent = 0
-            local attack = self.Entity:GetComponent("script.PlayerAttack")
-            if isvalid(attack) then
-                attack.AttackDamage = self.BaseAttackDamage
-            end
+            self:RecomputeDynamicAttackDamage()
         end
 
         if inSafeZone then
             self:StartTownRegenTimer()
+            self:StopCombatTimer()
+            -- 안전지대 진입 시 방어막·저체력 보너스도 함께 정리(전투 지형 밖에서 남아있으면 다음
+            -- 전장 재입장 때 혼란스러운 잔여 상태가 될 수 있음).
+            self.ShieldAmount = 0
+            self.LowHpBonusAtkPercent = 0
+            self:RecomputeDynamicAttackDamage()
         else
             self:StopTownRegenTimer()
+            self:StartCombatTimer()
         end
-        log("PlayerStats: UpdateZoneState map=" .. mapName .. " safe=" .. tostring(inSafeZone) .. " trait=" .. self.Trait .. " berserkTimerActive=" .. tostring(self.BerserkTimerId ~= 0) .. " regenTimerActive=" .. tostring(self.TownRegenTimerId ~= 0))
+        log("PlayerStats: UpdateZoneState map=" .. mapName .. " safe=" .. tostring(inSafeZone) .. " trait=" .. self.Trait .. " berserkTimerActive=" .. tostring(self.BerserkTimerId ~= 0) .. " regenTimerActive=" .. tostring(self.TownRegenTimerId ~= 0) .. " combatTimerActive=" .. tostring(self.CombatTimerId ~= 0))
     end
 
     method void StartBerserkTimer()
@@ -534,6 +601,91 @@ script PlayerStatsComponent extends Component
         end
     end
 
+    method void StartCombatTimer()
+        -- 버서크 전용 타이머와 별개로, 특성과 무관하게 전투 지형에서 항상 도는 1Hz 틱 - 여러 다른
+        -- 특성(재생력/투지/순교자/시한폭탄/마나실드/수호자/유리몸)이 여기 얹혀서 각자 자기 basicEffect
+        -- 필드가 있을 때만 반응한다(없으면 CombatTick 내부에서 조용히 스킵).
+        if self.CombatTimerId ~= 0 then return end
+        self.CombatTimerId = _TimerService:SetTimerRepeat(self.CombatTick, 1.0)
+    end
+
+    method void StopCombatTimer()
+        if self.CombatTimerId ~= 0 then
+            _TimerService:ClearTimer(self.CombatTimerId)
+            self.CombatTimerId = 0
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RecomputeDynamicAttackDamage()
+        -- 버서크(BerserkDamageBonusPercent) + M2 Phase B 2단계 누적/조건부 보너스(HitStack/KillStack/
+        -- TimeStack/LowHpBonus/LuckyDay)를 전부 BaseAttackDamage 위에 한 번에 곱해 적용한다 - 여러
+        -- 타이머(BerserkTick/CombatTick)가 매번 attack.AttackDamage를 직접 덮어쓰면 서로의 값을
+        -- 지워버리므로, 항상 이 메서드 하나만 실제 쓰기를 담당하게 한다.
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if not isvalid(attack) then return end
+        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent
+        attack.AttackDamage = self.BaseAttackDamage * (1 + totalBonus)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void CombatTick()
+        -- 전투 지형에서 1초마다 실행(StartCombatTimer 참고) - 아래 각 항목은 해당 특성의 basicEffect
+        -- 필드가 없으면 함수 초입에서 nil 체크로 조용히 스킵된다(범용 엔진과 동일한 no-op 원칙).
+        local player = self.Entity.PlayerComponent
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 or player.Hp <= 0 then return end
+        local hpRatio = player.Hp / player.MaxHp
+
+        -- 투지(lowHpAtkMult) - 체력이 threshold 이하일 때만 공격력 보너스 활성.
+        local atkMult = _TraitEffectEngine:GetLowHpAtkMult(self.Trait)
+        if atkMult ~= nil and hpRatio <= (atkMult.threshold or 1.0) then
+            self.LowHpBonusAtkPercent = atkMult.value or 0
+        else
+            self.LowHpBonusAtkPercent = 0
+        end
+        self:RecomputeDynamicAttackDamage()
+
+        -- 순교자(lowHpCritMult) - 체력이 threshold 이하일 때만 크리 데미지 배율 가산.
+        local critMult = _TraitEffectEngine:GetLowHpCritMult(self.Trait)
+        if critMult ~= nil then
+            if hpRatio <= (critMult.threshold or 1.0) then
+                attack.CritDamageMultiplier = self.BaseCritDamageMultiplier + (critMult.value or 0)
+            else
+                attack.CritDamageMultiplier = self.BaseCritDamageMultiplier
+            end
+        end
+
+        -- 시한폭탄(timeStackAtk) - 초당 누적, 상한까지.
+        local timeStack = _TraitEffectEngine:GetTimeStackAtk(self.Trait)
+        if timeStack ~= nil then
+            self.TimeStackAtkPercent = math.min(timeStack.cap or 1.0, self.TimeStackAtkPercent + (timeStack.perSecond or 0))
+            self:RecomputeDynamicAttackDamage()
+        end
+
+        -- 재생력/회복가(regenIfUnhit) - 마지막 피격 후 seconds 이상 지났으면 초당 회복.
+        local regenSpec = _TraitEffectEngine:GetRegenIfUnhit(self.Trait)
+        if regenSpec ~= nil then
+            local hitComp = self.Entity:GetComponent("script.PlayerHit")
+            local sinceHit = isvalid(hitComp) and (_UtilLogic.ElapsedSeconds - hitComp.LastHitElapsed) or 999
+            if sinceHit >= (regenSpec.seconds or 0) and player.Hp < player.MaxHp then
+                player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * (regenSpec.pct or 0))
+            end
+        end
+
+        -- 마나실드/수호자/유리몸(periodicShield/periodicShieldGrant) - interval초마다 방어막 재생성.
+        -- 이 프로젝트엔 몬스터 공격에 "치명타" 개념이 없어 수호자의 "치명타 무효"는 방어막으로 근사.
+        local shieldSpec = _TraitEffectEngine:GetShieldSpec(self.Trait)
+        if shieldSpec ~= nil then
+            self.ShieldTickElapsed = self.ShieldTickElapsed + 1
+            if self.ShieldTickElapsed >= (shieldSpec.interval or 999999) then
+                self.ShieldTickElapsed = 0
+                self.ShieldAmount = math.floor(player.MaxHp * (shieldSpec.pct or 0))
+                log("PlayerStats: periodic shield granted amount=" .. self.ShieldAmount)
+            end
+        end
+    end
+
     @ExecSpace("ServerOnly")
     method void BerserkTick()
         -- 2026-08-25 재설계 (유저 실전 리포트 "버서크가 사실상 못 쓸 정도의 쓰레기" + 직접 시뮬레이션
@@ -556,7 +708,9 @@ script PlayerStatsComponent extends Component
 
         local hpRatio = math.max(0, player.Hp) / player.MaxHp
         self.BerserkDamageBonusPercent = (1 - hpRatio) * self.BerserkBonusCoef
-        attack.AttackDamage = self.BaseAttackDamage * (1 + self.BerserkDamageBonusPercent)
+        -- M2 Phase B 2단계 - 다른 특성의 동적 보너스(스택/저체력/럭키데이)와 공존할 수 있도록 직접
+        -- 쓰기 대신 공용 메서드를 통해 적용(RecomputeDynamicAttackDamage 참고).
+        self:RecomputeDynamicAttackDamage()
     end
 
     @ExecSpace("ServerOnly")

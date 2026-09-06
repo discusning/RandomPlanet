@@ -48,6 +48,106 @@ script TraitEffectEngine extends Logic
         return mod.reviveOnce == true
     end
 
+    -- ===== M2 Phase B 2단계 (2026-09-06 후속 패스) =====
+    -- 아래는 부록 D-3의 🟡/🔴 태그 중 "새 서브시스템까지는 필요 없는" 확률/주기/누적 트리거들을
+    -- 실제로 해석한다. 진짜 새 서브시스템(도트 프레임워크/소환/순간이동 교체/스냅샷 롤백/영구재화)이
+    -- 필요한 필드는 여전히 여기서 다루지 않는다 - GetBasicModifiers가 그대로 반환하되 이 엔진의
+    -- 소비자(PlayerHit/PlayerAttack/Monster/PlayerStatsComponent)가 참조하지 않으면 자연히 미적용.
+
+    method table GetShieldSpec(string trait)
+        -- periodicShield(마나실드/수호자) 또는 periodicShieldGrant(유리몸) 중 있는 것을 반환.
+        -- 이 프로젝트엔 몬스터->플레이어 공격에 "크리티컬" 개념이 없어(MonsterAttack 참고), 수호자의
+        -- "치명타 무효"는 이 방어막과 동일한 메커니즘(주기적 방어막)으로 근사한다 - 정직하게 문서화됨.
+        local mod = self:GetBasicModifiers(trait)
+        return mod.periodicShield or mod.periodicShieldGrant
+    end
+
+    method table GetShieldOnHit(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.shieldOnHit
+    end
+
+    method boolean HasCoinFlipDefense(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.coinFlipDefense == true
+    end
+
+    method number GetMirrorDamagePct(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.mirrorDamage or 0
+    end
+
+    method table GetRegenIfUnhit(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.regenIfUnhit
+    end
+
+    method table GetLowHpCritMult(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.lowHpCritMult
+    end
+
+    method table GetLowHpAtkMult(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.lowHpAtkMult
+    end
+
+    method table GetKillStackAtk(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.killStackAtk
+    end
+
+    method table GetHitStackAtk(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.hitStackAtk
+    end
+
+    method table GetTimeStackAtk(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.timeStackAtk
+    end
+
+    method boolean HasDropGamble(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.dropGamble == true
+    end
+
+    method boolean HasExpGamble(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.expGamble == true
+    end
+
+    method number GetOnCritExecuteChance(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.onCritExecuteChance or 0
+    end
+
+    method number GetOnHitCooldownReset(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.onHitCooldownReset or 0
+    end
+
+    method number GetOnSkillCooldownRoulette(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.onSkillCooldownRoulette or 0
+    end
+
+    method boolean HasFirstHitCritOnWaveStart(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.firstHitCritOnWaveStart == true
+    end
+
+    method table GetStatReshuffle(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        if mod.statReshuffle == nil then return nil end
+        return { range = mod.statReshuffle }
+    end
+
+    method table GetLuckyDayRoll(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.luckyDayRoll
+    end
+
     @ExecSpace("ServerOnly")
     method void ApplyToStats(PlayerStatsComponent stats, number effStr, number effDex, number effInt, number effLuk)
         -- PlayerStatsComponent.RecalculateDerived 말미에서 호출. legacy 특성(버서크/절약가/균형/단단함/

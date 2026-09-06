@@ -71,7 +71,58 @@ script PlayerHit extends Component
         _BattlefieldReturnLogic:CancelChannel("피격")
         local reduction = isvalid(statsComp) and statsComp.DamageReductionPercent or 0
         local dmg = math.floor(event.TotalDamage * (1 - reduction))
+
+        -- M2 Phase B 2단계(2026-09-06) - 운명의 동전(coinFlipDefense): 50% 무효/50% 2배, 이후의
+        -- 방어막·반사 계산 전부가 이 굴림 이후의 dmg를 기준으로 삼는다.
+        if isvalid(statsComp) and _TraitEffectEngine:HasCoinFlipDefense(statsComp.Trait) then
+            if _UtilLogic:RandomDouble() < 0.5 then
+                dmg = 0
+                log("PlayerHit: 운명의 동전 - 피해 무효")
+            else
+                dmg = dmg * 2
+                log("PlayerHit: 운명의 동전 - 피해 2배")
+            end
+        end
+
+        -- 방어막(마나실드/수호자/유리몸/약골) - Hp보다 먼저 소모된다.
+        if isvalid(statsComp) and statsComp.ShieldAmount > 0 and dmg > 0 then
+            if statsComp.ShieldAmount >= dmg then
+                statsComp.ShieldAmount = statsComp.ShieldAmount - dmg
+                log("PlayerHit: shield absorbed " .. dmg .. ", remaining=" .. statsComp.ShieldAmount)
+                dmg = 0
+            else
+                dmg = dmg - statsComp.ShieldAmount
+                log("PlayerHit: shield absorbed " .. statsComp.ShieldAmount .. ", overflow=" .. dmg)
+                statsComp.ShieldAmount = 0
+            end
+        end
+
         player.Hp = math.max(0, player.Hp - dmg)
+
+        if isvalid(statsComp) then
+            -- 거울 갑옷(mirrorDamage) - 실제로 자신이 받은 최종 피해(dmg)의 비율만큼 공격자에게 반사.
+            local mirrorPct = _TraitEffectEngine:GetMirrorDamagePct(statsComp.Trait)
+            if mirrorPct > 0 and dmg > 0 and isvalid(event.AttackerEntity) then
+                local atkMonster = event.AttackerEntity:GetComponent("script.Monster")
+                if isvalid(atkMonster) then
+                    atkMonster:TakeReflectedDamage(math.floor(dmg * mirrorPct))
+                    log("PlayerHit: 거울 갑옷 반사 " .. math.floor(dmg * mirrorPct))
+                end
+            end
+            -- 약골/유리몸(shieldOnHit) - 피격 시 확률로 다음 피해를 막을 방어막 생성.
+            local shieldOnHit = _TraitEffectEngine:GetShieldOnHit(statsComp.Trait)
+            if shieldOnHit ~= nil and _UtilLogic:RandomDouble() < (shieldOnHit.chance or 0) then
+                statsComp.ShieldAmount = math.floor(player.MaxHp * (shieldOnHit.pct or 0))
+                log("PlayerHit: shieldOnHit granted amount=" .. statsComp.ShieldAmount)
+            end
+            -- 적응력/굶주린 살점(hitStackAtk) - 피격마다 공격력 소폭 누적(런 종료까지 유지).
+            local hitStack = _TraitEffectEngine:GetHitStackAtk(statsComp.Trait)
+            if hitStack ~= nil then
+                statsComp.HitStackAtkPercent = math.min(hitStack.cap or 1.0, statsComp.HitStackAtkPercent + (hitStack.perHit or 0))
+                statsComp:RecomputeDynamicAttackDamage()
+            end
+        end
+
         local sc = self.Entity.StateComponent
         if isvalid(sc) then sc:ChangeState("HIT") end
         if player.Hp <= 0 then

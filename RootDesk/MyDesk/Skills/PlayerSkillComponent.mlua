@@ -371,6 +371,20 @@ script PlayerSkillComponent extends Component
         end
         log("PlayerSkill: use " .. def.name .. " slot=" .. slot .. " (kind=" .. def.kind .. " mp=" .. mpCost .. (mpFreeActive and " [mpfree]" or "") .. ")")
 
+        -- M2 Phase B 2단계(2026-09-06) - 회전룰렛(onSkillCooldownRoulette): 스킬 사용마다 10% 확률로
+        -- 그 슬롯 쿨다운 즉시 초기화, 별도 10%로 쿨다운 2배(다음 사용 가능 시점을 뒤로 미룸).
+        local rouletteChance = isvalid(statsComp) and _TraitEffectEngine:GetOnSkillCooldownRoulette(statsComp.Trait) or 0
+        if rouletteChance > 0 then
+            local roll = _UtilLogic:RandomDouble()
+            if roll < rouletteChance then
+                if slot == 2 then self.LastUseTime2 = -999 else self.LastUseTime = -999 end
+                log("PlayerSkill: 회전룰렛 - 쿨다운 즉시 초기화")
+            elseif roll < rouletteChance * 2 then
+                if slot == 2 then self.LastUseTime2 = self.LastUseTime2 + def.cooldown else self.LastUseTime = self.LastUseTime + def.cooldown end
+                log("PlayerSkill: 회전룰렛 - 쿨다운 2배")
+            end
+        end
+
         -- Skill use and the basic attack (PlayerAttack.DoAttack) are driven by two independent,
         -- unlinked cooldown timers - PlayerControllerComponent fires a fresh PlayerActionEvent
         -- for the Attack key on every tick it's held (that's why DoAttack needs its own cooldown
