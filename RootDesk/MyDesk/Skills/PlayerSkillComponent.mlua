@@ -345,7 +345,7 @@ script PlayerSkillComponent extends Component
         -- 절약가(1차 특성) - 스킬 MP 소모 30% 감소(상시, magicguard의 시전형 mpfree와 별개). 순수
         -- 유틸 스탯이라 CP에는 반영하지 않지만(PlayerStatsComponent 참고) 실제로 MP 차감에 반영된다.
         local mpCost = def.mpCost
-        if isvalid(statsComp) and statsComp.Trait == "절약가" then
+        if isvalid(statsComp) and (statsComp.Trait == "절약가" or statsComp.Trait2 == "절약가") then
             mpCost = math.floor(mpCost * 0.7)
         elseif isvalid(statsComp) and statsComp.MpCostMultiplier ~= 0 then
             -- M2 Phase B(2026-09-06) - 신규 특성(수련생/낭비벽/깨진 그릇 등)의 범용 MP소모% 효과.

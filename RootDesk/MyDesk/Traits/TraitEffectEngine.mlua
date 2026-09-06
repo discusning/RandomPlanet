@@ -148,12 +148,19 @@ script TraitEffectEngine extends Logic
         return mod.luckyDayRoll
     end
 
+    method boolean HasForceHiddenRerollAt13(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.forceHiddenRerollAt13 == true
+    end
+
     @ExecSpace("ServerOnly")
-    method void ApplyToStats(PlayerStatsComponent stats, number effStr, number effDex, number effInt, number effLuk)
-        -- PlayerStatsComponent.RecalculateDerived 말미에서 호출. legacy 특성(버서크/절약가/균형/단단함/
-        -- 날렵함/상인은 더 이상 legacy 아님)은 이미 자체 로직으로 처리됐으므로 GetBasicModifiers가
-        -- 빈 테이블을 반환해 이 메서드는 안전하게 no-op된다.
-        local mod = self:GetBasicModifiers(stats.Trait)
+    method void ApplyToStats(PlayerStatsComponent stats, string trait, number effStr, number effDex, number effInt, number effLuk)
+        -- PlayerStatsComponent.RecalculateDerived 말미에서 호출 - Trait1/Trait2 각각에 대해 한 번씩
+        -- 별도로 호출된다(M2 Phase B 3차 전직 특성2, 2026-09-06). legacy 특성(버서크/절약가/균형/
+        -- 단단함/날렵함)은 이미 자체 로직으로 처리됐으므로 GetBasicModifiers가 빈 테이블을 반환해 이
+        -- 메서드는 안전하게 no-op된다. trait 파라미터를 명시로 받는 이유: stats.Trait만 읽으면 두
+        -- 번째 특성(Trait2)의 효과를 적용할 방법이 없기 때문.
+        local mod = self:GetBasicModifiers(trait)
 
         local attack = stats.Entity:GetComponent("script.PlayerAttack")
         local player = stats.Entity.PlayerComponent

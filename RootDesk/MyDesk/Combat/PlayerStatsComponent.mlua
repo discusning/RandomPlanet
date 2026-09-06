@@ -47,6 +47,14 @@ script PlayerStatsComponent extends Component
     -- 유저 요청으로 순수 표시문구에서 실제 효과로 승격, 전투력(CP, CharacterInfoUIController) 산식에도
     -- 반영. 상인(아이템 드랍률)은 이 프로젝트에 루팅 시스템 자체가 없어 여전히 미구현 - 정직하게 비워둠.
     @Sync property string Trait = ""
+    -- 3차 전직(13레벨) 추가 특성 (M2 Phase B, 2026-09-06 - 전체 기획서 §2-5 "3차 전직 시 추가로 1회
+    -- 더 추첨"). 별도 선택 UI 없이 자동 지급(전체 기획서 원문 그대로 "추첨"이지 "선택"이 아님 - 이능
+    -- 3택1 팝업과는 다른 시스템). GrantSkillTierIfMilestone(tier==3)에서 1회만 굴린다. **범위 제한**:
+    -- TraitEffectEngine의 17개 스탯 채널(ApplyToStats)과 5개 legacy 특성 체크(버서크/균형/절약가/
+    -- 단단함/날렵함)에는 반영되지만, 2단계 트리거 메커니즘(방어막/반사/즉사/스택 등)과 링크 패시브,
+    -- 캐릭터 정보 UI 표시·CP 산식에는 아직 반영되지 않음(정직하게 기록, 후속 패스 과제) - 호출부가
+    -- 20곳 이상으로 많아 이번 패스에서 전부 확장하면 리스크가 크다고 판단해 스탯 채널만 우선 연결.
+    @Sync property string Trait2 = ""
     -- 단단함 전용 - 실제 "받는 피해 감소" 자체는 몬스터->플레이어 공격 파이프라인이 없어 아직
     -- 관측 불가하지만, CP 산식에는 배율로 실제 반영된다(생존형 특성도 전투력에 기여하라는 요청).
     @Sync property number DamageReductionPercent = 0
@@ -126,6 +134,10 @@ script PlayerStatsComponent extends Component
         self.Luk = stats.luk
         self.Level = stats.level
         self.Trait = stats.trait or ""
+        -- 3차 전직 추가 특성(Trait2)은 로스터에 영구 저장되지 않는다(레벨 자체가 이미 그런 기존
+        -- 한계 - Phase 2.5 세션 기록 참고, 재입장/스왑 시 소실). 매 진입마다 새로 시작하므로 이전
+        -- 캐릭터의 값이 새지 않도록 명시적으로 초기화.
+        self.Trait2 = ""
         self.CurrentXp = 0
         self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
         -- Fresh run bookkeeping - without this reset, a character that swaps in after a previous
@@ -321,6 +333,17 @@ script PlayerStatsComponent extends Component
         if isvalid(skillComp) then
             skillComp:GrantTierSkills(tier)
         end
+        -- M2 Phase B(2026-09-06) - 3차 전직(13레벨) 추가 특성 1회 재추첨(전체 기획서 §2-5, Trait2
+        -- 선언부 주석 참고). 부패한 계약서(forceHiddenRerollAt13) 보유 시 Hidden 풀에서만 나온다.
+        if tier == 3 and self.Trait2 == "" then
+            if _TraitEffectEngine:HasForceHiddenRerollAt13(self.Trait) then
+                self.Trait2 = _TraitRollLogic:RollHiddenPool()
+            else
+                self.Trait2 = _TraitRollLogic:RollDifferentTrait(self.Trait)
+            end
+            log("PlayerStats: 3차 전직 추가 특성 획득 -> " .. self.Trait2)
+            self:RecalculateDerived()
+        end
     end
 
     @ExecSpace("ServerOnly")
@@ -371,8 +394,8 @@ script PlayerStatsComponent extends Component
         if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
             return
         end
-        if self.Trait == "버서크" or _TraitEffectEngine:IsPotionBlocked(self.Trait) then
-            log("PlayerStats: RequestUsePotion rejected - " .. self.Trait .. " 특성")
+        if self.Trait == "버서크" or self.Trait2 == "버서크" or _TraitEffectEngine:IsPotionBlocked(self.Trait) or (self.Trait2 ~= "" and _TraitEffectEngine:IsPotionBlocked(self.Trait2)) then
+            log("PlayerStats: RequestUsePotion rejected - " .. self.Trait .. "/" .. self.Trait2 .. " 특성")
             return
         end
         local player = self.Entity.PlayerComponent
@@ -433,7 +456,7 @@ script PlayerStatsComponent extends Component
         -- 균형(1차 특성) - 4스탯 전부 +1, self.Str 등 원본은 건드리지 않고(장비 보너스 표기 로직과
         -- 충돌 방지) 아래 파생 공식에만 로컬 변수로 흘려보낸다 - 공격력/크리/명중/공속/이동속도까지
         -- 전부 자연히 함께 오르는 실제 "시너지"(단일 수치가 아니라 캐릭터 전체 파생 스탯에 전파).
-        local traitStatBonus = (self.Trait == "균형") and 1 or 0
+        local traitStatBonus = (self.Trait == "균형" or self.Trait2 == "균형") and 1 or 0
         local effStr = self.Str + traitStatBonus
         local effDex = self.Dex + traitStatBonus
         local effInt = self.Intel + traitStatBonus
@@ -452,7 +475,7 @@ script PlayerStatsComponent extends Component
 
         -- 단단함(1차 특성) - 방어력 소폭 증가. 실제 피격 파이프라인이 없어 아직 데미지 경감 자체는
         -- 관측 불가하지만, CP 산식(CharacterInfoUIController)에는 배율로 실제 반영된다.
-        self.DamageReductionPercent = (self.Trait == "단단함") and 0.12 or 0
+        self.DamageReductionPercent = (self.Trait == "단단함" or self.Trait2 == "단단함") and 0.12 or 0
         -- 버서크 보너스는 여기서 0으로 리셋 - 버서크가 아니면 BerserkTick 타이머가 애초에 돌지
         -- 않으므로(UpdateBerserkZoneState) 특성을 바꾼(캐릭터 교체) 경우에도 이전 보정이 남지 않는다.
         self.BerserkDamageBonusPercent = 0
@@ -487,7 +510,7 @@ script PlayerStatsComponent extends Component
             move.InputSpeed = 1.5 + effDex * 0.08
             -- 날렵함(1차 특성) - 이동 속도 직접 가산. 순수 유틸 스탯이라 CP에는 반영하지 않음(다른
             -- 게임의 "전투력"도 보통 이동속도는 제외 - §"현재 전투력 공식" 참고).
-            if self.Trait == "날렵함" then
+            if self.Trait == "날렵함" or self.Trait2 == "날렵함" then
                 move.InputSpeed = move.InputSpeed + 0.6
             end
         end
@@ -495,7 +518,12 @@ script PlayerStatsComponent extends Component
         -- M2 Phase B - 신규 109종 특성의 플랫/퍼센트 계열 효과 적용(legacy 특성은 위에서 이미
         -- 처리됐으므로 엔진이 조용히 no-op). 반드시 STR/DEX/INT/LUK 파생 계산이 끝난 뒤에 호출해야
         -- 곱연산 순서가 맞는다(예: atk% 특성이 STR 기반 공격력 위에 곱해짐).
-        _TraitEffectEngine:ApplyToStats(self, effStr, effDex, effInt, effLuk)
+        _TraitEffectEngine:ApplyToStats(self, self.Trait, effStr, effDex, effInt, effLuk)
+        -- 3차 전직 추가 특성(Trait2) - 있으면 같은 스탯 채널 위에 한 번 더 곱연산으로 적용된다(두
+        -- 특성의 효과가 함께 누적).
+        if self.Trait2 ~= "" then
+            _TraitEffectEngine:ApplyToStats(self, self.Trait2, effStr, effDex, effInt, effLuk)
+        end
 
         -- M2 Phase B 2단계 - 순교자(lowHpCritMult)의 저체력 크리데미지 가산이 매 CombatTick마다 이
         -- 베이스라인 위에 얹힌다(ApplyToStats 이후 시점의 크리데미지를 기준으로 삼아야 저격수/행운아
@@ -550,7 +578,7 @@ script PlayerStatsComponent extends Component
         local mapName = isvalid(map) and map.Name or ""
         local inSafeZone = (mapName == "Lobby") or (mapName == "choice_map")
 
-        if self.Trait == "버서크" and not inSafeZone then
+        if (self.Trait == "버서크" or self.Trait2 == "버서크") and not inSafeZone then
             self:StartBerserkTimer()
         else
             self:StopBerserkTimer()

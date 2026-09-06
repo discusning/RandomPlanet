@@ -33,6 +33,14 @@ script TraitRollLogic extends Logic
         return names[_UtilLogic:RandomIntegerRange(1, #names)]
     end
 
+    method string RollHiddenPool()
+        -- 부패한 계약서(basicEffect.forceHiddenRerollAt13) 전용 - 3차 전직 추가 특성 추첨이 무조건
+        -- Hidden 풀(good/bad 불문)에서만 나오도록 강제. 두 풀 중 균등 50/50으로 먼저 고른 뒤 그 풀
+        -- 내에서 균등 추첨(전체 풀 확률 가중치와는 별개의 특수 규칙).
+        local pool = (_UtilLogic:RandomDouble() < 0.5) and "hg" or "hb"
+        return self:PickFromPool(pool)
+    end
+
     method string RollDifferentTrait(string current)
         -- 현재 특성과 다른 결과가 나올 때까지 재추첨(이능 "특성 변경" / 3차 전직 추가 추첨 등에서 사용).
         local pick = self:RollTrait()
