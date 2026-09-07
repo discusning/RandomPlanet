@@ -136,6 +136,14 @@ script Monster extends Component
             if bonusExpChance > 0 and _UtilLogic:RandomDouble() < bonusExpChance then
                 xpToGrant = math.floor(xpToGrant * 1.5)
             end
+            -- 2026-09-08 QA 발견 - 도굴꾼(hb)의 "보스 처치 보상 3배"가 실제로는 basicEffect={exp=0.20}
+            -- (상시 +20%, 보스 무관)로 잘못 근사돼 있었고, 짝을 이루는 페널티("보스에게 받는 피해 2배")는
+            -- 어디에도 구현이 없어 사실상 무비용 익스플로잇이었다. 보스 처치 시에만 3배로 재구현
+            -- (basicEffect의 exp 필드는 제거, PlayerHit.HandleHitEvent에 피해 2배 페널티 짝을 추가).
+            if self.IsBoss and (stats.Trait == "도굴꾼" or stats.Trait2 == "도굴꾼") then
+                xpToGrant = xpToGrant * 3
+                log("Monster: 도굴꾼 - 보스 처치 보상 3배 -> " .. xpToGrant)
+            end
             -- 2026-09-08 QA - 거리의 방랑자 링크("탐험 지원": 몬스터 게이트에서 스탯 구슬 획득량
             -- 대폭 증가) 전용. 스탯 구슬을 경험치로 근사하는 기존 관행에 맞춰, 게이트 모드일 때만
             -- exp 보너스로 반영(선행 필요였던 것을 게이트 시스템(Phase E)이 이미 있어 신규 연결).

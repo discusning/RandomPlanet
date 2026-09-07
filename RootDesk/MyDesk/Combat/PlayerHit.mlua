@@ -83,6 +83,17 @@ script PlayerHit extends Component
         local reduction = isvalid(statsComp) and statsComp.DamageReductionPercent or 0
         local dmg = math.floor(event.TotalDamage * (1 - reduction))
 
+        -- 2026-09-08 QA 발견 - 도굴꾼(hb)의 "보스에게 받는 피해 2배" 페널티가 어디에도 구현돼
+        -- 있지 않아, 짝을 이루는 보너스(보스 처치 보상 3배, Monster.GrantXpToAttacker)만 사실상
+        -- 무비용으로 적용되고 있었다 - 공격자가 보스일 때만 여기서 2배로 적용해 짝을 맞춘다.
+        if isvalid(statsComp) and (statsComp.Trait == "도굴꾼" or statsComp.Trait2 == "도굴꾼") and isvalid(event.AttackerEntity) then
+            local atkMonster = event.AttackerEntity:GetComponent("script.Monster")
+            if isvalid(atkMonster) and atkMonster.IsBoss then
+                dmg = dmg * 2
+                log("PlayerHit: 도굴꾼 - 보스 피해 2배")
+            end
+        end
+
         -- M2 Phase B 2단계(2026-09-06) - 운명의 동전(coinFlipDefense): 50% 무효/50% 2배, 이후의
         -- 방어막·반사 계산 전부가 이 굴림 이후의 dmg를 기준으로 삼는다.
         -- M2 Phase B(2026-09-08) - Trait2(3차 전직 추가 특성)도 트리거형 효과를 발동할 수 있게

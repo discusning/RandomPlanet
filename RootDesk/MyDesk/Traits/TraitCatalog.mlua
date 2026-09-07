@@ -261,7 +261,7 @@ script TraitCatalog extends Logic
             linkEffect={atk=0.03}, linkName="단일 지원", linkDesc="단일 적 상대 시 파티 데미지+10%" }
         d["박애주의자"] = { pool="hb", basicName="결속", basicDesc="본인 데미지−30%, 대신 링크 패시브 효율 3배", basicEffect={atk=-0.30},
             linkName="결속", linkDesc="링크 2슬롯 모두 활성 시 전스탯+6%" }
-        d["도굴꾼"] = { pool="hb", basicName="보스전 지원", basicDesc="보스에게 받는 피해 2배, 대신 보스 처치 보상 3배", basicEffect={exp=0.20},
+        d["도굴꾼"] = { pool="hb", basicName="보스전 지원", basicDesc="보스에게 받는 피해 2배, 대신 보스 처치 보상 3배",
             linkEffect={atk=0.04}, linkName="보스전 지원", linkDesc="파티 보스전 데미지+12%" }
         d["약속된 죽음"] = { pool="hb", basicName="유대의 절정", basicDesc="부활·회복 전부 불가, 대신 전 스탯+25%", basicEffect={noPotion=true, atk=0.25, cc=0.04, acc=8, msm=0.12},
             linkEffect={atk=0.03, cc=0.01, acc=2, msm=0.02}, linkName="유대의 절정", linkDesc="링크 2슬롯 20레벨+ 시 전스탯+8%" }
