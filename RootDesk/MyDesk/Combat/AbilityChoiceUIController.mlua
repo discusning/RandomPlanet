@@ -6,10 +6,17 @@ script AbilityChoiceUIController extends Logic
     property Entity btnRedistribute = "1d5661b7-7843-4518-abf8-22a4a7c36027"
     property Entity btnBonus = "b488edec-e616-47d1-832e-072bfc9fbbd0"
     property Entity btnTrait = "32b84484-10ee-4a6c-bb00-ef92dda0fe36"
+    -- M2 Phase B(2026-09-08) - 큐브마스터(rerollChoice) 전용. 3장 중 실제로 "무작위 미리보기"를
+    -- 갖는 카드는 특성 변경(trait) 하나뿐이라(재분배/추가 스탯은 결과를 미리 굴려 보여주지 않는
+    -- 일반 설명 카드), 재추첨은 그 미리보기 하나를 다시 굴리는 것으로 구현한다.
+    property Entity btnReroll = "030b0a42-ea5b-44a9-bd61-c8eca368a30b"
 
     @HideFromInspector property any redistributeHandler = nil
     @HideFromInspector property any bonusHandler = nil
     @HideFromInspector property any traitHandler = nil
+    @HideFromInspector property any rerollHandler = nil
+    @HideFromInspector property string currentTraitCache = ""
+    @HideFromInspector property string currentTrait2Cache = ""
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -27,6 +34,9 @@ script AbilityChoiceUIController extends Logic
         if isvalid(self.btnTrait) then
             self.traitHandler = self.btnTrait:ConnectEvent(ButtonClickEvent, function() self:OnChoiceClicked("trait") end)
         end
+        if isvalid(self.btnReroll) then
+            self.rerollHandler = self.btnReroll:ConnectEvent(ButtonClickEvent, self.OnRerollClicked)
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -39,6 +49,9 @@ script AbilityChoiceUIController extends Logic
         end
         if self.traitHandler and isvalid(self.btnTrait) then
             self.btnTrait:DisconnectEvent(ButtonClickEvent, self.traitHandler)
+        end
+        if self.rerollHandler and isvalid(self.btnReroll) then
+            self.btnReroll:DisconnectEvent(ButtonClickEvent, self.rerollHandler)
         end
     end
 
@@ -57,10 +70,39 @@ script AbilityChoiceUIController extends Logic
         if isvalid(self.btnTrait) then
             self.btnTrait.Enable = not (currentTrait == "운명론자" or currentTrait2 == "운명론자")
         end
+        self.currentTraitCache = currentTrait
+        self.currentTrait2Cache = currentTrait2
+        if isvalid(self.btnReroll) then
+            self.btnReroll.Enable = (currentTrait == "큐브마스터" or currentTrait2 == "큐브마스터")
+        end
         if isvalid(self.abilityGroup) then
             self.abilityGroup.Enable = true
         end
         log("AbilityChoiceUI: ShowChoice current=" .. currentTrait .. " preview=" .. previewTrait)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnRerollClicked()
+        -- 큐브마스터(rerollChoice) - "특성 변경" 카드의 미리보기 대상만 다시 굴린다(재분배/추가
+        -- 스탯 카드는 애초에 미리보기가 없는 일반 설명 카드).
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return end
+        local stats = localPlayer:GetComponent("script.PlayerStatsComponent")
+        if not isvalid(stats) then return end
+        stats:RequestRerollAbilityPreview()
+        log("AbilityChoiceUI: OnRerollClicked")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void UpdateTraitPreview(string previewTrait)
+        -- PlayerStatsComponent.RequestRerollAbilityPreview의 Client 콜백 - 팝업을 닫지 않고 특성
+        -- 변경 카드의 텍스트만 새로 굴린 값으로 갱신한다(ShowChoice 전체 재실행과 달리 다른 두 카드
+        -- 상태나 팝업 Enable을 건드리지 않음).
+        if isvalid(self.traitDesc) then
+            local desc = self:TraitBlurb(previewTrait)
+            self.traitDesc.Text = self.currentTraitCache .. " → " .. previewTrait .. "\n" .. desc
+        end
+        log("AbilityChoiceUI: UpdateTraitPreview preview=" .. previewTrait)
     end
 
     @ExecSpace("ClientOnly")

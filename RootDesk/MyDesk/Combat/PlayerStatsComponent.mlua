@@ -335,6 +335,28 @@ script PlayerStatsComponent extends Component
     end
 
     @ExecSpace("Server")
+    method void RequestRerollAbilityPreview()
+        -- 큐브마스터(basicEffect.rerollChoice) - "이능/스킬 선택지 재추첨 가능"의 이능 팝업 쪽 절반.
+        -- 스킬 팝업(SkillChoiceUIController)은 이미 별도로 연결돼 있었고, 이능 팝업 쪽만 미구현으로
+        -- 남아있던 것을 2026-09-08에 마저 연결 - "특성 변경" 카드의 미리보기 대상만 다시 굴린다
+        -- (재분배/추가 스탯 카드는 굴려서 미리 보여주는 결과가 없는 일반 설명 카드라 재추첨 대상이
+        -- 아님).
+        if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
+            return
+        end
+        if not self.AbilityChoicePending then return end
+        if not (self.Trait == "큐브마스터" or self.Trait2 == "큐브마스터") then return end
+        self.PendingTraitPreview = self:RollDifferentTrait()
+        log("PlayerStats: 큐브마스터 재추첨 -> " .. self.PendingTraitPreview)
+        self:OnAbilityPreviewRerolled(self.PendingTraitPreview)
+    end
+
+    @ExecSpace("Client")
+    method void OnAbilityPreviewRerolled(string previewTrait)
+        _AbilityChoiceUIController:UpdateTraitPreview(previewTrait)
+    end
+
+    @ExecSpace("Server")
     method void RequestResolveAbilityChoice(string choice)
         -- 클라이언트(AbilityChoiceUIController)의 선택 버튼 클릭 → 서버 RPC. senderUserId로 자기
         -- 자신의 엔티티에 대해서만 호출됐는지 검증(다른 플레이어 엔티티를 조작 못 하도록).
