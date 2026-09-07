@@ -162,7 +162,7 @@ script TraitCatalog extends Logic
         d["박복"] = { pool="bad", basicName="행운의 칼날", basicDesc="크리티컬 확률−4%, 대신 크리 시 낮은 확률로 즉시 재행동", basicEffect={cc=-0.04},
             linkEffect={drop=0.05}, linkName="박복한 자의 위로", linkDesc="파티 회복 아이템 드랍 확률+10%" }
         d["빈손"] = { pool="bad", basicName="흡수", basicDesc="드랍률−10%, 대신 가하는 피해의 4% 흡혈", basicEffect={drop=-0.10, lifestealPct=0.04},
-            linkName="통행증", linkDesc="게이트 입장권 획득 확률 증가(선행 필요)" }
+            linkEffect={gtc=0.05}, linkName="통행증", linkDesc="게이트 입장권 획득 확률 증가" }
         d["단명"] = { pool="bad", basicName="응급 지원", basicDesc="자연 회복 불가(회복 아이템은 가능), 대신 체력20%↓ 시 회복량+40%", basicEffect={potionMult=0.40},
             linkEffect={potionMult=0.20}, linkName="응급 지원", linkDesc="파티 체력20%↓ 시 회복량+40%" }
         d["허약"] = { pool="bad", basicName="파쇄", basicDesc="공격력−8%, 대신 방어 관통 소폭", basicEffect={atk=-0.08},

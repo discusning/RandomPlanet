@@ -267,7 +267,14 @@ script FieldWaveSpawner extends Component
         local users = _UserService:GetUsersByMapComponent(map.MapComponent)
         if users == nil then return end
         for _, user in ipairs(users) do
-            if _UtilLogic:RandomDouble() < self.GateTicketDropChance then
+            -- 2026-09-08 QA - 빈손 링크("통행증": 게이트 입장권 획득 확률 증가)가 그동안 linkEffect
+            -- 필드 자체가 없어 "선행 필요"로 미구현이었던 것을 신규 연결 - 판정 확률에 더해서 읽는다.
+            local chance = self.GateTicketDropChance
+            local statsComp = user:GetComponent("script.PlayerStatsComponent")
+            if isvalid(statsComp) then
+                chance = chance + statsComp.GateTicketChanceBonus
+            end
+            if _UtilLogic:RandomDouble() < chance then
                 local profileCode = user.PlayerComponent.ProfileCode
                 local userId = tostring(user.PlayerComponent.UserId)
                 _GateTicketLogic:GrantTicket(profileCode, 1, userId)

@@ -295,6 +295,10 @@ script TraitEffectEngine extends Logic
         if mod.exp then
             stats.ExpMultiplier = stats.ExpMultiplier + s(mod.exp)
         end
+        if mod.gtc then
+            -- 빈손 링크("통행증") 전용 - FieldWaveSpawner.RollGateTicketDrop이 판정 시 더해 읽는다.
+            stats.GateTicketChanceBonus = stats.GateTicketChanceBonus + s(mod.gtc)
+        end
         if mod.kb then
             stats.KnockbackResistance = math.max(0, math.min(1.0, stats.KnockbackResistance + s(mod.kb)))
         end

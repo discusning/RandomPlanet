@@ -105,6 +105,10 @@ script PlayerStatsComponent extends Component
     @Sync property number MpCostMultiplier = 0
     @Sync property number DropRateMultiplier = 0
     @Sync property number ExpMultiplier = 0
+    -- 2026-09-08 QA - 빈손 링크("통행증": 게이트 입장권 획득 확률 증가)가 그동안 linkEffect 필드
+    -- 자체가 없어 "선행 필요"로 미구현이었던 것을 신규 연결 - FieldWaveSpawner.RollGateTicketDrop이
+    -- 판정 시 이 값을 더해서 읽는다.
+    @Sync property number GateTicketChanceBonus = 0
     -- 부활자(Hidden-good, basicEffect.reviveOnce) - 런당 1회 소모. PlayerHit.HandleHitEvent가 치명적
     -- 피해 직전에 확인한다.
     @Sync @HideFromInspector property boolean ReviveUsedThisRun = false
@@ -778,6 +782,7 @@ script PlayerStatsComponent extends Component
         self.MpCostMultiplier = 0
         self.DropRateMultiplier = 0
         self.ExpMultiplier = 0
+        self.GateTicketChanceBonus = 0
 
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if isvalid(attack) then
