@@ -46,7 +46,11 @@ script TraitCatalog extends Logic
         d["분신(도플갱어)"] = { pool="hg", basicName="콤보 마스터", basicDesc="무피격 시간 비례 데미지 증가 (분신 소환은 선행 서브시스템 필요)",
             linkName="표식 공유", linkDesc="파티가 표식 능력 획득" }
         d["메아리"] = { pool="hg", basicName="무영창", basicDesc="공격 시 낮은 확률로 스킬 쿨다운 즉시 초기화", basicEffect={onHitCooldownReset=0.05},
-            linkName="되돌림 지원", linkDesc="회피 성공 시 데미지 증가" }
+            -- 2026-09-08 - "회피 성공 시" 조건은 PlayerHit의 신규 EvasionPercent 파이프라인 도입으로
+            -- 실제 발동 가능해졌으나(과거엔 회피 자체가 inert라 조건이 영원히 성립 불가), 파티원의
+            -- 회피 발동 타이밍에 맞춰 매번 링크 소스를 조회하는 이벤트 배선은 과한 범위라 처형자 등과
+            -- 동일한 상시 flat 근사로 유지.
+            linkEffect={atk=0.02}, linkName="되돌림 지원", linkDesc="회피 성공 시 데미지 증가" }
         -- 2026-09-08 재점검: "드랍 흡수 서브시스템 선행 필요"로 미구현 남아있었으나, 이 프로젝트의
         -- 드랍은 애초에 즉시 인벤토리 지급 방식(Monster.TryDropPotion -> CharacterRosterLogic.
         -- GrantPotionDrop, 걸어가서 줍는 필드 아이템 자체가 없음)이라 "흡수"할 대상이 원래 없다 -

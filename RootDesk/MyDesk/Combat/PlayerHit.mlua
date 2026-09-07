@@ -65,6 +65,17 @@ script PlayerHit extends Component
             return
         end
         self.LastHitElapsed = now
+
+        -- 2026-09-08 QA 발견 - LUK 2차 스탯(EvasionPercent, RecalculateDerived에서 effLuk*0.002로
+        -- 계산됨)이 계산만 되고 실제로는 어디서도 참조되지 않는 "inert" 상태였다(코드 주석에
+        -- "inert until a monster-attacks-player pipeline exists"라고 명시돼 있었음 - 이 메서드가
+        -- 바로 그 파이프라인). 회피 성공 시 완전 무효(피해 0, 채널 취소·방어막 소모 등 아무 처리도
+        -- 없이 즉시 리턴) - LUK 투자가 처음으로 실전에서 의미를 갖게 된다.
+        if isvalid(statsComp) and statsComp.EvasionPercent > 0 and _UtilLogic:RandomDouble() < statsComp.EvasionPercent then
+            log("PlayerHit: 회피 성공 (EvasionPercent=" .. string.format("%.3f", statsComp.EvasionPercent) .. ")")
+            return
+        end
+
         -- Interrupts an in-progress battlefield-return channel (Field/BattlefieldReturnLogic) -
         -- taking a hit cancels the "return scroll" so it can't be used to panic-escape a losing
         -- fight risk-free.
