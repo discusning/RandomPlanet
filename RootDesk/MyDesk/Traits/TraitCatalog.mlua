@@ -265,7 +265,10 @@ script TraitCatalog extends Logic
             linkEffect={kb=0.10}, linkName="무게추의 안정", linkDesc="파티 넉백·경직 저항+15%" }
         d["봉인구"] = { pool="hb", basicName="총화", basicDesc="4차 전직 불가(선행 필요), 대신 스킬 데미지+40%", basicEffect={atk=0.40},
             linkEffect={atk=0.02, cc=0.005, acc=1, msm=0.01}, linkName="총화", linkDesc="파티 전 스탯+3%" }
-        d["운명론자"] = { pool="hb", basicName="확정된 가호", basicDesc="이능 재추첨·특성 변경 불가(선행 필요), 대신 시작 스탯+40%", basicEffect={atk=0.15, cc=0.03, acc=6, msm=0.10},
+        -- 2026-09-08 밸런스 점검: "특성 변경 불가"가 basicEffect(시작 스탯+40%)만 적용되고 실제로는
+        -- 강제되지 않던 무비용 버프였음(이능 재추첨은 큐브마스터 쪽도 아직 미구현이라 해당 없음) ->
+        -- PlayerStatsComponent.RequestResolveAbilityChoice + AbilityChoiceUIController에서 차단.
+        d["운명론자"] = { pool="hb", basicName="확정된 가호", basicDesc="이능 재추첨·특성 변경 불가, 대신 시작 스탯+40%", basicEffect={atk=0.15, cc=0.03, acc=6, msm=0.10},
             linkEffect={atk=0.02, cc=0.005, acc=1, msm=0.01}, linkName="확정된 가호", linkDesc="파티 전 스탯+3%(고정)" }
         d["고행자"] = { pool="hb", basicName="만시지탄", basicDesc="레벨업 시 스탯 자동 증가 없음(선행 필요), 대신 시작 스탯 보너스+경험치 1.5배", basicEffect={exp=0.50},
             linkEffect={exp=0.05}, linkName="고행의 깨달음", linkDesc="파티 경험치 획득량+10%" }

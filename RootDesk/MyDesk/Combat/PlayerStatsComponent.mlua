@@ -349,6 +349,15 @@ script PlayerStatsComponent extends Component
         elseif choice == "bonus" then
             self:ApplyBonusStats()
         elseif choice == "trait" then
+            -- 운명론자(hb) - basicDesc가 명시한 "특성 변경 불가"가 지금까지 실제로는 강제되지
+            -- 않았다(atk=0.15 등 시작 스탯+40% 보너스만 적용되고 페널티는 "선행 필요"로 미구현
+            -- 상태였음 - 2026-09-08 밸런스 점검에서 발견, 클라이언트 버튼도 함께 숨김 처리했으나
+            -- 여기가 최종 방어선). 팝업은 열어둔 채 그냥 무시(선택 소모 안 함) - 다른 두 옵션은
+            -- 여전히 정상 선택 가능해야 하므로.
+            if self.Trait == "운명론자" or self.Trait2 == "운명론자" then
+                log("PlayerStats: 운명론자 - 특성 변경 선택 거부")
+                return
+            end
             self:ApplyTraitChange()
         else
             log_warning("PlayerStats: RequestResolveAbilityChoice unknown choice=" .. tostring(choice))
@@ -641,7 +650,7 @@ script PlayerStatsComponent extends Component
             -- 도착 전일 수 있어 한 틱 늦춰 읽는다.
             _TimerService:SetTimerOnce(function()
                 if not isvalid(self.Entity) then return end
-                _AbilityChoiceUIController:ShowChoice(self.Trait, self.PendingTraitPreview)
+                _AbilityChoiceUIController:ShowChoice(self.Trait, self.PendingTraitPreview, self.Trait2)
             end, 0.1)
         elseif name == "Level" then
             -- M2 Phase C(2026-09-06) - 버그 수정: 로스터의 캐릭터별 level 필드가 생성 시점(1) 이후

@@ -43,7 +43,7 @@ script AbilityChoiceUIController extends Logic
     end
 
     @ExecSpace("ClientOnly")
-    method void ShowChoice(string currentTrait, string previewTrait)
+    method void ShowChoice(string currentTrait, string previewTrait, string currentTrait2)
         -- Called from PlayerStatsComponent.OnSyncProperty (local player only - every other player's
         -- PlayerStatsComponent.AbilityChoicePending is irrelevant to this client's UI). Fills the
         -- "특성 변경" card with the actual before/after trait names + short effect blurb so the
@@ -51,6 +51,11 @@ script AbilityChoiceUIController extends Logic
         if isvalid(self.traitDesc) then
             local desc = self:TraitBlurb(previewTrait)
             self.traitDesc.Text = currentTrait .. " → " .. previewTrait .. "\n" .. desc
+        end
+        -- 운명론자(hb) - basicDesc "이능 재추첨·특성 변경 불가" - 서버(RequestResolveAbilityChoice)가
+        -- 최종 방어선이지만, 애초에 눌러도 아무 일 없는 죽은 버튼을 보여주지 않도록 여기서도 숨긴다.
+        if isvalid(self.btnTrait) then
+            self.btnTrait.Enable = not (currentTrait == "운명론자" or currentTrait2 == "운명론자")
         end
         if isvalid(self.abilityGroup) then
             self.abilityGroup.Enable = true
