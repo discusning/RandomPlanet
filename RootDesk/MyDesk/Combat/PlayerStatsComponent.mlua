@@ -918,8 +918,16 @@ script PlayerStatsComponent extends Component
         if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 or player.Hp <= 0 then return end
         local hpRatio = player.Hp / player.MaxHp
 
+        -- M2 Phase B(2026-09-08) - 3차 전직 추가 특성(Trait2)이 있으면 트리거 계열 효과도 함께
+        -- 살핀다. 지금까지는 ApplyToStats(채널형 수치, 합산 가능)만 Trait2를 봤고 이 CombatTick의
+        -- 트리거형 효과(방어막/누적/저체력 등)는 self.Trait만 확인했다 - Phase B 문서에 정직히 남겨둔
+        -- 갭. 두 특성이 동시에 같은 트리거를 갖는 극단 케이스만 아니면(115종 중 흔치 않음) 합산이
+        -- 애매한 트리거형 특성상 "Trait 우선, 없으면 Trait2"로 하나만 발동시키는 게 안전하다.
+        local hasTrait2 = self.Trait2 ~= ""
+
         -- 투지(lowHpAtkMult) - 체력이 threshold 이하일 때만 공격력 보너스 활성.
         local atkMult = _TraitEffectEngine:GetLowHpAtkMult(self.Trait)
+        if atkMult == nil and hasTrait2 then atkMult = _TraitEffectEngine:GetLowHpAtkMult(self.Trait2) end
         if atkMult ~= nil and hpRatio <= (atkMult.threshold or 1.0) then
             self.LowHpBonusAtkPercent = atkMult.value or 0
         else
@@ -929,6 +937,7 @@ script PlayerStatsComponent extends Component
 
         -- 순교자(lowHpCritMult) - 체력이 threshold 이하일 때만 크리 데미지 배율 가산.
         local critMult = _TraitEffectEngine:GetLowHpCritMult(self.Trait)
+        if critMult == nil and hasTrait2 then critMult = _TraitEffectEngine:GetLowHpCritMult(self.Trait2) end
         if critMult ~= nil then
             if hpRatio <= (critMult.threshold or 1.0) then
                 attack.CritDamageMultiplier = self.BaseCritDamageMultiplier + (critMult.value or 0)
@@ -939,6 +948,7 @@ script PlayerStatsComponent extends Component
 
         -- 시한폭탄(timeStackAtk) - 초당 누적, 상한까지.
         local timeStack = _TraitEffectEngine:GetTimeStackAtk(self.Trait)
+        if timeStack == nil and hasTrait2 then timeStack = _TraitEffectEngine:GetTimeStackAtk(self.Trait2) end
         if timeStack ~= nil then
             self.TimeStackAtkPercent = math.min(timeStack.cap or 1.0, self.TimeStackAtkPercent + (timeStack.perSecond or 0))
             self:RecomputeDynamicAttackDamage()
@@ -946,6 +956,7 @@ script PlayerStatsComponent extends Component
 
         -- 재생력/회복가(regenIfUnhit) - 마지막 피격 후 seconds 이상 지났으면 초당 회복.
         local regenSpec = _TraitEffectEngine:GetRegenIfUnhit(self.Trait)
+        if regenSpec == nil and hasTrait2 then regenSpec = _TraitEffectEngine:GetRegenIfUnhit(self.Trait2) end
         if regenSpec ~= nil then
             local hitComp = self.Entity:GetComponent("script.PlayerHit")
             local sinceHit = isvalid(hitComp) and (_UtilLogic.ElapsedSeconds - hitComp.LastHitElapsed) or 999
@@ -958,6 +969,7 @@ script PlayerStatsComponent extends Component
         -- 럭키/언럭키 데이(LuckyDayAtkPercent, 판 시작에 1회 고정)와 동일한 방식(단순 percent 가산,
         -- RecomputeDynamicAttackDamage에 합산)이지만 반복 리롤이라는 점만 다르다.
         local randomBuffSpec = _TraitEffectEngine:GetPeriodicRandomBuff(self.Trait)
+        if randomBuffSpec == nil and hasTrait2 then randomBuffSpec = _TraitEffectEngine:GetPeriodicRandomBuff(self.Trait2) end
         if randomBuffSpec ~= nil then
             self.RandomBuffTickElapsed = self.RandomBuffTickElapsed + 1
             if self.RandomBuffTickElapsed >= (randomBuffSpec.interval or 999999) then
@@ -973,6 +985,7 @@ script PlayerStatsComponent extends Component
         -- 마나실드/수호자/유리몸(periodicShield/periodicShieldGrant) - interval초마다 방어막 재생성.
         -- 이 프로젝트엔 몬스터 공격에 "치명타" 개념이 없어 수호자의 "치명타 무효"는 방어막으로 근사.
         local shieldSpec = _TraitEffectEngine:GetShieldSpec(self.Trait)
+        if shieldSpec == nil and hasTrait2 then shieldSpec = _TraitEffectEngine:GetShieldSpec(self.Trait2) end
         if shieldSpec ~= nil then
             self.ShieldTickElapsed = self.ShieldTickElapsed + 1
             if self.ShieldTickElapsed >= (shieldSpec.interval or 999999) then

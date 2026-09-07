@@ -74,7 +74,9 @@ script PlayerHit extends Component
 
         -- M2 Phase B 2단계(2026-09-06) - 운명의 동전(coinFlipDefense): 50% 무효/50% 2배, 이후의
         -- 방어막·반사 계산 전부가 이 굴림 이후의 dmg를 기준으로 삼는다.
-        if isvalid(statsComp) and _TraitEffectEngine:HasCoinFlipDefense(statsComp.Trait) then
+        -- M2 Phase B(2026-09-08) - Trait2(3차 전직 추가 특성)도 트리거형 효과를 발동할 수 있게
+        -- 확장(Trait 우선, 없으면 Trait2 - CombatTick과 동일 원칙, 이하 이 메서드의 나머지 게터도 동일).
+        if isvalid(statsComp) and (_TraitEffectEngine:HasCoinFlipDefense(statsComp.Trait) or (statsComp.Trait2 ~= "" and _TraitEffectEngine:HasCoinFlipDefense(statsComp.Trait2))) then
             if _UtilLogic:RandomDouble() < 0.5 then
                 dmg = 0
                 log("PlayerHit: 운명의 동전 - 피해 무효")
@@ -102,6 +104,7 @@ script PlayerHit extends Component
         if isvalid(statsComp) then
             -- 거울 갑옷(mirrorDamage) - 실제로 자신이 받은 최종 피해(dmg)의 비율만큼 공격자에게 반사.
             local mirrorPct = _TraitEffectEngine:GetMirrorDamagePct(statsComp.Trait)
+            if mirrorPct == 0 and statsComp.Trait2 ~= "" then mirrorPct = _TraitEffectEngine:GetMirrorDamagePct(statsComp.Trait2) end
             if mirrorPct > 0 and dmg > 0 and isvalid(event.AttackerEntity) then
                 local atkMonster = event.AttackerEntity:GetComponent("script.Monster")
                 if isvalid(atkMonster) then
@@ -111,12 +114,14 @@ script PlayerHit extends Component
             end
             -- 약골/유리몸(shieldOnHit) - 피격 시 확률로 다음 피해를 막을 방어막 생성.
             local shieldOnHit = _TraitEffectEngine:GetShieldOnHit(statsComp.Trait)
+            if shieldOnHit == nil and statsComp.Trait2 ~= "" then shieldOnHit = _TraitEffectEngine:GetShieldOnHit(statsComp.Trait2) end
             if shieldOnHit ~= nil and _UtilLogic:RandomDouble() < (shieldOnHit.chance or 0) then
                 statsComp.ShieldAmount = math.floor(player.MaxHp * (shieldOnHit.pct or 0))
                 log("PlayerHit: shieldOnHit granted amount=" .. statsComp.ShieldAmount)
             end
             -- 적응력/굶주린 살점(hitStackAtk) - 피격마다 공격력 소폭 누적(런 종료까지 유지).
             local hitStack = _TraitEffectEngine:GetHitStackAtk(statsComp.Trait)
+            if hitStack == nil and statsComp.Trait2 ~= "" then hitStack = _TraitEffectEngine:GetHitStackAtk(statsComp.Trait2) end
             if hitStack ~= nil then
                 statsComp.HitStackAtkPercent = math.min(hitStack.cap or 1.0, statsComp.HitStackAtkPercent + (hitStack.perHit or 0))
                 statsComp:RecomputeDynamicAttackDamage()
@@ -128,7 +133,7 @@ script PlayerHit extends Component
         if player.Hp <= 0 then
             -- M2 Phase B(2026-09-06) - 부활자(basicEffect.reviveOnce, 런당 1회) - 치명적 피해를
             -- Hp 1로 버틴다. 죽음 처리(ProcessDead/TriggerRunEnd) 자체를 건너뛴다.
-            if isvalid(statsComp) and not statsComp.ReviveUsedThisRun and _TraitEffectEngine:HasReviveOnce(statsComp.Trait) then
+            if isvalid(statsComp) and not statsComp.ReviveUsedThisRun and (_TraitEffectEngine:HasReviveOnce(statsComp.Trait) or (statsComp.Trait2 ~= "" and _TraitEffectEngine:HasReviveOnce(statsComp.Trait2))) then
                 statsComp.ReviveUsedThisRun = true
                 player.Hp = 1
                 log("PlayerHit: 부활자 revive triggered, Hp=1")

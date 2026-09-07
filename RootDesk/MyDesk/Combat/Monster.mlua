@@ -129,14 +129,16 @@ script Monster extends Component
         if not isvalid(attacker) then return end
         local stats = attacker:GetComponent("script.PlayerStatsComponent")
         if isvalid(stats) then
+            -- M2 Phase B(2026-09-08) - Trait2도 트리거형 효과를 발동할 수 있게 확장(Trait 우선).
             local bonusExpChance = _TraitEffectEngine:GetOnKillBonusExpChance(stats.Trait)
+            if bonusExpChance == 0 and stats.Trait2 ~= "" then bonusExpChance = _TraitEffectEngine:GetOnKillBonusExpChance(stats.Trait2) end
             local xpToGrant = self.XpReward
             if bonusExpChance > 0 and _UtilLogic:RandomDouble() < bonusExpChance then
                 xpToGrant = math.floor(xpToGrant * 1.5)
             end
             -- M2 Phase B 2단계(2026-09-06) - 복불복 상자(expGamble, 스탯 구슬을 경험치로 근사): 50%
             -- 확률로 2배, 50% 확률로 0.
-            if _TraitEffectEngine:HasExpGamble(stats.Trait) then
+            if _TraitEffectEngine:HasExpGamble(stats.Trait) or (stats.Trait2 ~= "" and _TraitEffectEngine:HasExpGamble(stats.Trait2)) then
                 if _UtilLogic:RandomDouble() < 0.5 then
                     xpToGrant = xpToGrant * 2
                 else
@@ -153,6 +155,7 @@ script Monster extends Component
             end
             -- M2 Phase B(2026-09-06) - 처치 시 확률 회복(healOnKill, 예: 금욕).
             local healSpec = _TraitEffectEngine:GetHealOnKill(stats.Trait)
+            if healSpec == nil and stats.Trait2 ~= "" then healSpec = _TraitEffectEngine:GetHealOnKill(stats.Trait2) end
             local player = attacker.PlayerComponent
             if healSpec and isvalid(player) and player.Hp > 0 and _UtilLogic:RandomDouble() < (healSpec.chance or 0) then
                 player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * (healSpec.pct or 0))
@@ -160,6 +163,7 @@ script Monster extends Component
             -- M2 Phase B 2단계 - 적응력(killStackAtk) - 처치 누적 시 전 스탯 아주 소폭 증가를
             -- 공격력으로 근사 적용(상한까지).
             local killStack = _TraitEffectEngine:GetKillStackAtk(stats.Trait)
+            if killStack == nil and stats.Trait2 ~= "" then killStack = _TraitEffectEngine:GetKillStackAtk(stats.Trait2) end
             if killStack ~= nil then
                 stats.KillStackAtkPercent = math.min(killStack.cap or 1.0, stats.KillStackAtkPercent + (killStack.perKill or 0))
                 stats:RecomputeDynamicAttackDamage()
@@ -186,7 +190,7 @@ script Monster extends Component
         if roll > effectiveChance then return end
         -- M2 Phase B 2단계(2026-09-06) - 도박꾼(dropGamble): 처치 시 50% 확률 드랍 2배/50% 확률 0.
         local dropCount = 1
-        if _TraitEffectEngine:HasDropGamble(isvalid(statsComp) and statsComp.Trait or "") then
+        if (isvalid(statsComp) and _TraitEffectEngine:HasDropGamble(statsComp.Trait)) or (isvalid(statsComp) and statsComp.Trait2 ~= "" and _TraitEffectEngine:HasDropGamble(statsComp.Trait2)) then
             dropCount = (_UtilLogic:RandomDouble() < 0.5) and 2 or 0
         end
         if dropCount <= 0 then

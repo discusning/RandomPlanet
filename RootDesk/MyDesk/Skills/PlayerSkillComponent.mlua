@@ -374,6 +374,9 @@ script PlayerSkillComponent extends Component
         -- M2 Phase B 2단계(2026-09-06) - 회전룰렛(onSkillCooldownRoulette): 스킬 사용마다 10% 확률로
         -- 그 슬롯 쿨다운 즉시 초기화, 별도 10%로 쿨다운 2배(다음 사용 가능 시점을 뒤로 미룸).
         local rouletteChance = isvalid(statsComp) and _TraitEffectEngine:GetOnSkillCooldownRoulette(statsComp.Trait) or 0
+        if rouletteChance == 0 and isvalid(statsComp) and statsComp.Trait2 ~= "" then
+            rouletteChance = _TraitEffectEngine:GetOnSkillCooldownRoulette(statsComp.Trait2)
+        end
         if rouletteChance > 0 then
             local roll = _UtilLogic:RandomDouble()
             if roll < rouletteChance then

@@ -76,7 +76,8 @@ script PlayerAttack extends AttackComponent
         -- M2 Phase B 2단계(2026-09-06) - 집중(firstHitCritOnWaveStart): 웨이브가 바뀐 뒤 첫 타격은
         -- 항상 크리티컬. statsComp.LastCritWaveNumber로 "이번 웨이브에 이미 소비했는지" 추적.
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
-        if isvalid(statsComp) and _TraitEffectEngine:HasFirstHitCritOnWaveStart(statsComp.Trait) then
+        -- M2 Phase B(2026-09-08) - Trait2도 트리거형 효과를 발동할 수 있게 확장(Trait 우선).
+        if isvalid(statsComp) and (_TraitEffectEngine:HasFirstHitCritOnWaveStart(statsComp.Trait) or (statsComp.Trait2 ~= "" and _TraitEffectEngine:HasFirstHitCritOnWaveStart(statsComp.Trait2))) then
             local map = self.Entity.CurrentMap
             if isvalid(map) then
                 local spawner = map:GetComponent("script.FieldWaveSpawner")
@@ -110,6 +111,7 @@ script PlayerAttack extends AttackComponent
         -- 장착된 두 스킬 슬롯의 쿨다운을 즉시 초기화. 트레잇과 무관하게 항상 실행(값이 없으면 0으로
         -- no-op).
         local cdResetChance = _TraitEffectEngine:GetOnHitCooldownReset(statsComp.Trait)
+        if cdResetChance == 0 and statsComp.Trait2 ~= "" then cdResetChance = _TraitEffectEngine:GetOnHitCooldownReset(statsComp.Trait2) end
         if cdResetChance > 0 and _UtilLogic:RandomDouble() < cdResetChance then
             local skillComp = self.Entity:GetComponent("script.PlayerSkillComponent")
             if isvalid(skillComp) then
@@ -123,6 +125,7 @@ script PlayerAttack extends AttackComponent
         -- (Monster.ExecuteKill 내부에서 IsBoss로 재확인).
         if self._T.lastWasCrit then
             local executeChance = _TraitEffectEngine:GetOnCritExecuteChance(statsComp.Trait)
+            if executeChance == 0 and statsComp.Trait2 ~= "" then executeChance = _TraitEffectEngine:GetOnCritExecuteChance(statsComp.Trait2) end
             if executeChance > 0 and _UtilLogic:RandomDouble() < executeChance then
                 local monster = defender:GetComponent("script.Monster")
                 if isvalid(monster) then
