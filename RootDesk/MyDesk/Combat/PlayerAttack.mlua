@@ -69,6 +69,24 @@ script PlayerAttack extends AttackComponent
     end
 
     method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
+        -- 신중함(firstHitBonus) - 웨이브가 바뀐 뒤 첫 타격에만 데미지% 보너스. 집중(firstHitCritOnWaveStart)
+        -- 의 LastCritWaveNumber와 동일한 웨이브-추적 패턴, 대상만 크리 확정 대신 데미지 배율.
+        -- 2026-09-08 QA 스윕에서 게터/소비처 없이 데이터만 있던 갭으로 발견해 연결.
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        if isvalid(statsComp) then
+            local bonus = _TraitEffectEngine:GetFirstHitBonus(statsComp.Trait)
+            if bonus == 0 and statsComp.Trait2 ~= "" then bonus = _TraitEffectEngine:GetFirstHitBonus(statsComp.Trait2) end
+            if bonus > 0 then
+                local map = self.Entity.CurrentMap
+                if isvalid(map) then
+                    local spawner = map:GetComponent("script.FieldWaveSpawner")
+                    if isvalid(spawner) and spawner.WaveNumber ~= statsComp.LastFirstHitWaveNumber then
+                        statsComp.LastFirstHitWaveNumber = spawner.WaveNumber
+                        return math.floor(self.AttackDamage * (1 + bonus))
+                    end
+                end
+            end
+        end
         return self.AttackDamage
     end
 

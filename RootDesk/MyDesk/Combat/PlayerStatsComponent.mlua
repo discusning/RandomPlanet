@@ -150,6 +150,9 @@ script PlayerStatsComponent extends Component
     -- 마지막으로 "웨이브당 첫 타격 확정 크리"(집중)를 소비한 웨이브 번호 - PlayerAttack.CalcCritical
     -- 참고. 여기 두는 이유: 캐릭터 교체(ApplyStats) 시 함께 리셋되어야 하는 런-스코프 상태이기 때문.
     @HideFromInspector property integer LastCritWaveNumber = -1
+    -- 신중함(firstHitBonus) 전용 - 웨이브당 첫 타격에만 데미지 보너스(집중의 LastCritWaveNumber와
+    -- 동일 패턴, 대상은 크리 확정이 아니라 데미지%).
+    @HideFromInspector property integer LastFirstHitWaveNumber = -1
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
@@ -201,6 +204,7 @@ script PlayerStatsComponent extends Component
         self.BurstKillWindowStart = 0
         self.BurstKillCountInWindow = 0
         self.LastCritWaveNumber = -1
+        self.LastFirstHitWaveNumber = -1
         -- M2 Phase C - 캐릭터 교체마다 이전 캐릭터의 링크 정보가 새지 않도록 초기화. 실제 값은 이
         -- 직후 클라이언트의 PushSquadLinksToServer() 후속 호출(UpdateSquadLinks)이 다시 채운다.
         self.LinkTrait1 = ""
@@ -284,6 +288,13 @@ script PlayerStatsComponent extends Component
             self:RecalculateDerived()
             -- 이능 팝업 - 레벨업당 1회, 큐에 쌓아뒀다가 한 번에 하나씩만 띄운다(MaybeOpenNextAbilityChoice).
             self.PendingAbilityChoices = self.PendingAbilityChoices + levelsGained
+            -- 천부적 재능(basicEffect.extraAbilityChoice) - "이능 선택 시 선택지 1개 추가"를 카드
+            -- UI에 4번째 칸을 새로 만드는 대신(3택1 레이아웃이 고정폭이라 확장 리스크 있음), 이번
+            -- 레벨업당 이능 팝업을 한 번 더(3택1 메뉴를 한 번 더 통과) 주는 것으로 동등하게 구현 -
+            -- 큐 인프라가 이미 여러 번의 선택을 순차 처리하므로 신규 UI 불필요.
+            if self.Trait == "천부적 재능" or self.Trait2 == "천부적 재능" then
+                self.PendingAbilityChoices = self.PendingAbilityChoices + levelsGained
+            end
             self:MaybeOpenNextAbilityChoice()
         end
     end
