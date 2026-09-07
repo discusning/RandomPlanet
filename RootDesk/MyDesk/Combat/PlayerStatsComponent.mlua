@@ -900,6 +900,13 @@ script PlayerStatsComponent extends Component
             _TraitEffectEngine:ApplyModifiersToStats(self, { atk = 0.06, cc = 0.02, acc = 3, msm = 0.06 }, 1.0)
             log("PlayerStats: 박애주의자 교차-슬롯 보너스(전스탯+6%) 적용")
         end
+        -- 2026-09-08 QA - 버서크 링크("고립의 힘": 링크 1슬롯만 활성 시 전스탯+12%) 신규 연결.
+        -- 박애주의자(2슬롯 모두 활성)와 반대 조건 - 링크 슬롯이 정확히 1개만 채워져 있고 그게
+        -- 버서크일 때만 적용(비율은 고독의 "전스탯+30%" 배분과 동일 비율로 근사).
+        if baseLinkEfficiency > 0 and ((self.LinkTrait1 == "버서크" and self.LinkTrait2 == "") or (self.LinkTrait2 == "버서크" and self.LinkTrait1 == "")) then
+            _TraitEffectEngine:ApplyModifiersToStats(self, { atk = 0.12, cc = 0.02, acc = 4, msm = 0.06 }, 1.0)
+            log("PlayerStats: 버서크 링크(1슬롯 단독) 보너스(전스탯+12%) 적용")
+        end
 
         -- M2 Phase B 2단계 - 순교자(lowHpCritMult)의 저체력 크리데미지 가산이 매 CombatTick마다 이
         -- 베이스라인 위에 얹힌다(ApplyToStats 이후 시점의 크리데미지를 기준으로 삼아야 저격수/행운아
