@@ -134,6 +134,12 @@ script PlayerStatsComponent extends Component
     @HideFromInspector property number SpeedsterAtkBonus = 0
     @HideFromInspector property number BurstAtkPercent = 0
     @HideFromInspector property number BurstExpireElapsed = 0
+    -- 2026-09-08 QA 발견 - 링크 마스터(hg)의 basicDesc("이능 획득 시 3초간 전 스탯 대폭 상승")가
+    -- 이 프로젝트 어디에도 구현돼 있지 않았다(TraitEffectEngine의 "링크 마스터" 하드코딩 1.2배는
+    -- "받는 링크 효과 전체 보정" 용도로, 이 basicDesc와는 이름만 같을 뿐 무관한 별개 효과 - 그대로
+    -- 유지). "전 스탯"은 다른 임시버프와 동일하게 공격력 채널로 근사(자체 근사치, 미검증).
+    @HideFromInspector property number LinkMasterBuffAtkPercent = 0
+    @HideFromInspector property number LinkMasterBuffExpireElapsed = 0
     @HideFromInspector property number BurstKillWindowStart = 0
     @HideFromInspector property integer BurstKillCountInWindow = 0
 
@@ -215,6 +221,8 @@ script PlayerStatsComponent extends Component
         self.SpeedsterAtkBonus = 0
         self.BurstAtkPercent = 0
         self.BurstExpireElapsed = 0
+        self.LinkMasterBuffAtkPercent = 0
+        self.LinkMasterBuffExpireElapsed = 0
         self.BurstKillWindowStart = 0
         self.BurstKillCountInWindow = 0
         self.LastCritWaveNumber = -1
@@ -412,6 +420,14 @@ script PlayerStatsComponent extends Component
         end
         self.PendingAbilityChoices = math.max(0, self.PendingAbilityChoices - 1)
         self.AbilityChoicePending = false
+        -- 2026-09-08 QA 발견 - 링크 마스터(hg)의 basicDesc("이능 획득 시 3초간 전 스탯 대폭 상승")가
+        -- 어디에도 구현돼 있지 않았다. "이능 획득"은 바로 이 메서드(이능 선택지 해소) 시점 - "전 스탯"은
+        -- 다른 임시버프와 동일하게 공격력 채널로 근사(+50%, 자체 근사치 "대폭"에 대응, 미검증).
+        if self:HasTrait("링크 마스터") then
+            self.LinkMasterBuffAtkPercent = 0.50
+            self.LinkMasterBuffExpireElapsed = _UtilLogic.ElapsedSeconds + 3
+            log("PlayerStats: 링크 마스터 각성 발동 (3초간 공격력+50%)")
+        end
         self:RecalculateDerived()
         log("PlayerStats: RequestResolveAbilityChoice choice=" .. choice .. " -> str=" .. self.Str .. " dex=" .. self.Dex .. " intel=" .. self.Intel .. " luk=" .. self.Luk .. " trait=" .. self.Trait .. " remainingPending=" .. self.PendingAbilityChoices)
         self:MaybeOpenNextAbilityChoice()
@@ -1032,7 +1048,7 @@ script PlayerStatsComponent extends Component
         -- 지워버리므로, 항상 이 메서드 하나만 실제 쓰기를 담당하게 한다.
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(attack) then return end
-        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus
+        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus + self.LinkMasterBuffAtkPercent
         attack.AttackDamage = self.BaseAttackDamage * (1 + totalBonus)
     end
 
@@ -1048,6 +1064,11 @@ script PlayerStatsComponent extends Component
         -- 자석술사(burstKill) - 발동 중인 버프가 만료 시각을 지났으면 해제.
         if self.BurstAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= self.BurstExpireElapsed then
             self.BurstAtkPercent = 0
+            self:RecomputeDynamicAttackDamage()
+        end
+        -- 링크 마스터(hg) - "이능 획득 시 3초간 전 스탯 대폭 상승" 버프 만료 처리.
+        if self.LinkMasterBuffAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= self.LinkMasterBuffExpireElapsed then
+            self.LinkMasterBuffAtkPercent = 0
             self:RecomputeDynamicAttackDamage()
         end
 
