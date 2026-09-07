@@ -342,6 +342,14 @@ script PlayerSkillComponent extends Component
             return
         end
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        -- 침묵의 맹세(hb) - basicDesc가 명시한 "MP 소모 스킬 사용 불가"가 지금까지 실제로는
+        -- 강제되지 않았다(atk=1.0 보너스만 적용되고 페널티는 "선행 필요"로 미구현 상태였음 -
+        -- 2026-09-08 밸런스 점검에서 발견한 무비용 특성). 이 특성은 스킬 자체를 아예 못 쓰게 막는다
+        -- (평타 3배로 이미 보상받으므로).
+        if isvalid(statsComp) and (statsComp.Trait == "침묵의 맹세" or statsComp.Trait2 == "침묵의 맹세") then
+            log("PlayerSkill: 침묵의 맹세 - 스킬 사용 불가")
+            return
+        end
         -- 절약가(1차 특성) - 스킬 MP 소모 30% 감소(상시, magicguard의 시전형 mpfree와 별개). 순수
         -- 유틸 스탯이라 CP에는 반영하지 않지만(PlayerStatsComponent 참고) 실제로 MP 차감에 반영된다.
         local mpCost = def.mpCost

@@ -252,13 +252,19 @@ script PlayerStatsComponent extends Component
         self.CurrentXp = self.CurrentXp + amount
         local leveledUp = false
         local levelsGained = 0
+        -- 고행자(hb) - basicDesc가 명시한 "레벨업 시 스탯 자동 증가 없음"이 지금까지 실제로는
+        -- 강제되지 않았다(exp=0.50 보너스만 적용되고 페널티는 "선행 필요"로 미구현 상태였음 -
+        -- 2026-09-08 밸런스 점검에서 발견한 무비용 특성).
+        local statGainBlocked = self.Trait == "고행자" or self.Trait2 == "고행자"
         while self.CurrentXp >= self.XpToNextLevel and self.Level < self.UnlockedMaxLevel do
             self.CurrentXp = self.CurrentXp - self.XpToNextLevel
             self.Level = self.Level + 1
-            self.Str = self.Str + 1
-            self.Dex = self.Dex + 1
-            self.Intel = self.Intel + 1
-            self.Luk = self.Luk + 1
+            if not statGainBlocked then
+                self.Str = self.Str + 1
+                self.Dex = self.Dex + 1
+                self.Intel = self.Intel + 1
+                self.Luk = self.Luk + 1
+            end
             self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
             log("PlayerStats: level up -> " .. self.Level)
             self:GrantSkillTierIfMilestone(self.Level)
@@ -917,6 +923,22 @@ script PlayerStatsComponent extends Component
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 or player.Hp <= 0 then return end
         local hpRatio = player.Hp / player.MaxHp
+
+        -- 시한부(hb) - basicDesc가 명시한 "입장 후 제한시간 초과 시 즉사"가 지금까지 실제로는
+        -- 강제되지 않았다(exp=0.40/drop=0.40 보너스만 적용되고 페널티는 "선행 필요"로 미구현
+        -- 상태였음 - 2026-09-08 밸런스 점검에서 발견한 무비용 특성, 사실상 리스크 없는 순수 버프였다).
+        -- 정확한 제한시간이 원안에 명시돼 있지 않아 180초(3분)로 자체 설정했다 - 미검증 근사치,
+        -- 플레이 템포를 보고 조정 권장(다른 자체 설정 수치와 동일한 성격).
+        if self.Trait == "시한부" or self.Trait2 == "시한부" then
+            local elapsed = _UtilLogic.ElapsedSeconds - self.RunStartElapsed
+            if elapsed >= 180 then
+                log("PlayerStats: 시한부 - 제한시간 초과, 즉사 트리거")
+                player.Hp = 0
+                player:ProcessDead()
+                self:TriggerRunEnd()
+                return
+            end
+        end
 
         -- M2 Phase B(2026-09-08) - 3차 전직 추가 특성(Trait2)이 있으면 트리거 계열 효과도 함께
         -- 살핀다. 지금까지는 ApplyToStats(채널형 수치, 합산 가능)만 Trait2를 봤고 이 CombatTick의
