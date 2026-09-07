@@ -754,16 +754,28 @@ script PlayerStatsComponent extends Component
         -- 적용되지 링크 캐릭터별로 다르지 않음).
         self.LinkPotionMultBonus = 0
         self.LinkLifestealBonus = 0
-        local linkEfficiency = _TraitEffectEngine:GetLinkEfficiencyMultiplier(self.Trait, self.Trait2)
+        -- M2 Phase C(2026-09-08) - 고독을 링크 슬롯에 편성하면(본인 특성이 아니라 "다른 슬롯"으로)
+        -- 반대편 슬롯의 링크 효율을 +15%(부록 D-6 "다른 슬롯 링크효율+15%") 올린다 - 그래서 두 슬롯의
+        -- 효율이 서로 다를 수 있어 슬롯별로 따로 계산한다(예전엔 linkEfficiency 하나를 공유).
+        local baseLinkEfficiency = _TraitEffectEngine:GetLinkEfficiencyMultiplier(self.Trait, self.Trait2)
+        local linkEfficiency1 = _TraitEffectEngine:GetLinkEfficiencyMultiplierForSlot(self.Trait, self.Trait2, self.LinkTrait2)
+        local linkEfficiency2 = _TraitEffectEngine:GetLinkEfficiencyMultiplierForSlot(self.Trait, self.Trait2, self.LinkTrait1)
         if self.LinkTrait1 ~= "" then
-            _TraitEffectEngine:ApplyLinkToStats(self, self.LinkTrait1, linkEfficiency)
-            self.LinkPotionMultBonus = self.LinkPotionMultBonus + _TraitEffectEngine:GetLinkPotionMult(self.LinkTrait1) * linkEfficiency
-            self.LinkLifestealBonus = self.LinkLifestealBonus + _TraitEffectEngine:GetLinkLifestealBonus(self.LinkTrait1) * linkEfficiency
+            _TraitEffectEngine:ApplyLinkToStats(self, self.LinkTrait1, linkEfficiency1)
+            self.LinkPotionMultBonus = self.LinkPotionMultBonus + _TraitEffectEngine:GetLinkPotionMult(self.LinkTrait1) * linkEfficiency1
+            self.LinkLifestealBonus = self.LinkLifestealBonus + _TraitEffectEngine:GetLinkLifestealBonus(self.LinkTrait1) * linkEfficiency1
         end
         if self.LinkTrait2 ~= "" then
-            _TraitEffectEngine:ApplyLinkToStats(self, self.LinkTrait2, linkEfficiency)
-            self.LinkPotionMultBonus = self.LinkPotionMultBonus + _TraitEffectEngine:GetLinkPotionMult(self.LinkTrait2) * linkEfficiency
-            self.LinkLifestealBonus = self.LinkLifestealBonus + _TraitEffectEngine:GetLinkLifestealBonus(self.LinkTrait2) * linkEfficiency
+            _TraitEffectEngine:ApplyLinkToStats(self, self.LinkTrait2, linkEfficiency2)
+            self.LinkPotionMultBonus = self.LinkPotionMultBonus + _TraitEffectEngine:GetLinkPotionMult(self.LinkTrait2) * linkEfficiency2
+            self.LinkLifestealBonus = self.LinkLifestealBonus + _TraitEffectEngine:GetLinkLifestealBonus(self.LinkTrait2) * linkEfficiency2
+        end
+        -- 박애주의자를 링크 슬롯에 편성 + 두 슬롯 모두 활성이면(부록 D-6 "링크 2슬롯 모두 활성 시
+        -- 전스탯+6%") 별도 플랫 보너스 - 고독처럼 자신이 링크를 아예 못 받는 상태(baseLinkEfficiency
+        -- 0)면 이 보너스도 함께 막는다(같은 "링크를 받지 못함" 규칙 적용).
+        if baseLinkEfficiency > 0 and self.LinkTrait1 ~= "" and self.LinkTrait2 ~= "" and (self.LinkTrait1 == "박애주의자" or self.LinkTrait2 == "박애주의자") then
+            _TraitEffectEngine:ApplyModifiersToStats(self, { atk = 0.06, cc = 0.02, acc = 3, msm = 0.06 }, 1.0)
+            log("PlayerStats: 박애주의자 교차-슬롯 보너스(전스탯+6%) 적용")
         end
 
         -- M2 Phase B 2단계 - 순교자(lowHpCritMult)의 저체력 크리데미지 가산이 매 CombatTick마다 이

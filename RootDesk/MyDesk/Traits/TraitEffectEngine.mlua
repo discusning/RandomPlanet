@@ -212,6 +212,17 @@ script TraitEffectEngine extends Logic
         return 1.0
     end
 
+    -- M2 Phase C(2026-09-08) - 고독의 링크 텍스트("다른 슬롯 링크효율+15%")는 본인 특성이 아니라
+    -- "링크 캐릭터로 편성됐을 때" 발동하는 교차-슬롯 효과라 GetLinkEfficiencyMultiplier(본인 특성
+    -- 기준)와는 다른 입력을 받는다 - 반대편 링크 슬롯의 특성을 확인해서 있으면 곱연산으로 얹는다.
+    method number GetLinkEfficiencyMultiplierForSlot(string trait, string trait2, string otherSlotTrait)
+        local base = self:GetLinkEfficiencyMultiplier(trait, trait2)
+        if otherSlotTrait == "고독" then
+            base = base * 1.15
+        end
+        return base
+    end
+
     @ExecSpace("ServerOnly")
     method void ApplyLinkToStats(PlayerStatsComponent stats, string trait, number scale)
         -- 링크 캐릭터 1명분의 linkEffect를 액티브 캐릭터에게 적용. scale은
