@@ -160,6 +160,12 @@ script Monster extends Component
             if healSpec and isvalid(player) and player.Hp > 0 and _UtilLogic:RandomDouble() < (healSpec.chance or 0) then
                 player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * (healSpec.pct or 0))
             end
+            -- 2026-09-08 QA - 도박꾼 링크("재화 폭죽": 처치 시 낮은 확률 재화 즉시 획득) 전용.
+            -- linkEffect 필드 자체가 없어 "선행 필요"로 미구현이었던 것을 신규 연결.
+            if isvalid(player) and stats.LinkOnKillCurrencyChance > 0 and _UtilLogic:RandomDouble() < stats.LinkOnKillCurrencyChance then
+                _AccountCurrencyLogic:GrantCurrency(player.ProfileCode, 3, tostring(player.UserId))
+                log("Monster: 도박꾼 링크 재화 폭죽 - 재화+3")
+            end
             -- M2 Phase B 2단계 - 적응력(killStackAtk) - 처치 누적 시 전 스탯 아주 소폭 증가를
             -- 공격력으로 근사 적용(상한까지).
             local killStack = _TraitEffectEngine:GetKillStackAtk(stats.Trait)

@@ -192,7 +192,7 @@ script TraitCatalog extends Logic
         d["한 방"] = { pool="gmb", basicName="최후의 저항", basicDesc="최대 체력 1/3 시작, 데미지 약 2배", basicEffect={hp=-0.67, atk=1.0},
             linkEffect={atk=0.03, dr=-0.02}, linkName="한 방의 각오", linkDesc="파티 첫 공격 데미지+10%, 대신 받는 피해+5%" }
         d["도박꾼"] = { pool="gmb", basicName="감전", basicDesc="적 처치 시 50% 확률 드랍 2배/50% 확률 0", basicEffect={dropGamble=true},
-            linkName="재화 폭죽", linkDesc="처치 시 낮은 확률 재화 즉시 획득(선행 필요)" }
+            linkEffect={onKillCurrencyChance=0.08}, linkName="재화 폭죽", linkDesc="처치 시 낮은 확률 재화 즉시 획득" }
         d["룰렛"] = { pool="gmb", basicName="그림자 스텝", basicDesc="입장 시 전 스탯 랜덤 재분배(총량 ±30%)", basicEffect={statReshuffle=0.30},
             linkName="조율", linkDesc="판마다 링크스킬 1개 무작위 2배" }
         d["복불복 상자"] = { pool="gmb", basicName="중독", basicDesc="스탯 구슬이 큰 값 또는 0으로 드랍(경험치로 근사)", basicEffect={expGamble=true},

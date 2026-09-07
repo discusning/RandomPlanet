@@ -215,6 +215,14 @@ script TraitEffectEngine extends Logic
         return mod.lifestealPct or 0
     end
 
+    -- M2 Phase C(2026-09-08) - 도박꾼 링크("재화 폭죽": 처치 시 낮은 확률 재화 즉시 획득) 전용.
+    -- linkEffect 필드 자체가 없어 "선행 필요"로 미구현이었으나, 계정 영구 재화(Phase G)가 이미
+    -- 존재함을 근거로 신규 연결.
+    method number GetLinkOnKillCurrencyChance(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.onKillCurrencyChance or 0
+    end
+
     -- 링크 효율 보정계수(전체 기획서 §2-6) - 액티브(플레이어블) 캐릭터 본인이 보유한 특성이 자신이
     -- "받는" 링크 효과 전체에 곱연산으로 적용된다. 링크 캐릭터 쪽 특성이 아니라 본인 특성 기준.
     method number GetLinkEfficiencyMultiplier(string trait, string trait2)
