@@ -18,6 +18,14 @@ script BattlefieldSelectController extends Component
     property Entity btnGate = "092f540c-81f9-4547-8c05-829a088f4cab"
     property TextGUIRendererComponent gateTicketText = "811baff0-839a-4ee6-9fcd-ef7ce0017d08"
     property any tickTimerId = nil
+    -- M2 Phase F(2026-09-08) - 난이도 4단계 선택 UI(전체 기획서 §5-1). FieldWaveSpawner.DifficultyTier
+    -- 로직/배율표는 이미 완성돼 있었으나(9-07) 유저가 직접 고를 UI가 없어 tier=1 고정이었다 - 이 4개
+    -- 토글 버튼으로 선택한 tier를 RequestEnterBattlefield에 전달한다(게이트는 자체 배율을 쓰므로 무관).
+    property Entity tierBtn1 = "ac9ac62e-6394-4c0f-9262-8a126b55a1d2"
+    property Entity tierBtn2 = "f584aefb-637b-4169-993b-fef3d49e983c"
+    property Entity tierBtn3 = "ad0308cf-c89b-4477-8058-9121e42fd1c5"
+    property Entity tierBtn4 = "450e5efd-900f-4120-9faf-6371d46f1db0"
+    property integer selectedTier = 1
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -42,6 +50,14 @@ script BattlefieldSelectController extends Component
         table.insert(self._T.handlers, { entity = self.btnField3, eventHandler = hField3 })
         local hGate = self.btnGate:ConnectEvent(ButtonClickEvent, self.OnGateClicked)
         table.insert(self._T.handlers, { entity = self.btnGate, eventHandler = hGate })
+        local hTier1 = self.tierBtn1:ConnectEvent(ButtonClickEvent, self.OnTier1Clicked)
+        table.insert(self._T.handlers, { entity = self.tierBtn1, eventHandler = hTier1 })
+        local hTier2 = self.tierBtn2:ConnectEvent(ButtonClickEvent, self.OnTier2Clicked)
+        table.insert(self._T.handlers, { entity = self.tierBtn2, eventHandler = hTier2 })
+        local hTier3 = self.tierBtn3:ConnectEvent(ButtonClickEvent, self.OnTier3Clicked)
+        table.insert(self._T.handlers, { entity = self.tierBtn3, eventHandler = hTier3 })
+        local hTier4 = self.tierBtn4:ConnectEvent(ButtonClickEvent, self.OnTier4Clicked)
+        table.insert(self._T.handlers, { entity = self.tierBtn4, eventHandler = hTier4 })
         self.Entity.Enable = false
     end
 
@@ -75,6 +91,48 @@ script BattlefieldSelectController extends Component
         self:RefreshGauge()
         self:RefreshRecommendations()
         self:RefreshGateTicketDisplay()
+        self:RefreshTierButtons()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshTierButtons()
+        -- M2 Phase F - 선택된 tier 버튼만 밝게, 나머지는 기본 어두운 배경 그대로 유지해 어떤 난이도가
+        -- 선택돼 있는지 시각적으로 표시한다(별도 아이콘/텍스트 변경 없이 배경색만으로 구분).
+        local buttons = { self.tierBtn1, self.tierBtn2, self.tierBtn3, self.tierBtn4 }
+        for i, btnEntity in ipairs(buttons) do
+            local bg = btnEntity:GetComponent("MOD.Core.SpriteGUIRendererComponent")
+            if isvalid(bg) then
+                if i == self.selectedTier then
+                    bg.Color = Color(0.2, 0.55, 0.85, 1)
+                else
+                    bg.Color = Color(0.1, 0.1, 0.1, 0.24)
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnTier1Clicked()
+        self.selectedTier = 1
+        self:RefreshTierButtons()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnTier2Clicked()
+        self.selectedTier = 2
+        self:RefreshTierButtons()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnTier3Clicked()
+        self.selectedTier = 3
+        self:RefreshTierButtons()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnTier4Clicked()
+        self.selectedTier = 4
+        self:RefreshTierButtons()
     end
 
     @ExecSpace("ClientOnly")
@@ -169,22 +227,22 @@ script BattlefieldSelectController extends Component
         -- same class of cross-map server call. Rest-gauge consumption happens server-side inside
         -- RequestEnterBattlefield itself, not here. No CP/level gate - purely informational
         -- (see RefreshRecommendations).
-        log("BattlefieldSelect: 토벌전장 1 선택")
-        _CharacterRosterLogic:RequestEnterBattlefield(1)
+        log("BattlefieldSelect: 토벌전장 1 선택 tier=" .. self.selectedTier)
+        _CharacterRosterLogic:RequestEnterBattlefield(1, self.selectedTier)
         self:Hide()
     end
 
     @ExecSpace("ClientOnly")
     method void OnField2Clicked()
-        log("BattlefieldSelect: 토벌전장 2 선택")
-        _CharacterRosterLogic:RequestEnterBattlefield(2)
+        log("BattlefieldSelect: 토벌전장 2 선택 tier=" .. self.selectedTier)
+        _CharacterRosterLogic:RequestEnterBattlefield(2, self.selectedTier)
         self:Hide()
     end
 
     @ExecSpace("ClientOnly")
     method void OnField3Clicked()
-        log("BattlefieldSelect: 토벌전장 3 선택")
-        _CharacterRosterLogic:RequestEnterBattlefield(3)
+        log("BattlefieldSelect: 토벌전장 3 선택 tier=" .. self.selectedTier)
+        _CharacterRosterLogic:RequestEnterBattlefield(3, self.selectedTier)
         self:Hide()
     end
 end

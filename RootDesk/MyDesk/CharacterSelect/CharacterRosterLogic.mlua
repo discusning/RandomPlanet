@@ -449,7 +449,7 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("Server")
-    method void RequestEnterBattlefield(integer fieldIndex)
+    method void RequestEnterBattlefield(integer fieldIndex, integer difficultyTier)
         -- Called from BattlefieldSelectController when the player picks a battlefield from the
         -- Lobby's field-select popup (1st-floor portal, up-arrow). fieldIndex 1~3 maps to a real
         -- map's {name, spawn pos} - only slot 1 (토벌전장1) exists today (Phase 1 Task 1 only got
@@ -474,7 +474,18 @@ script CharacterRosterLogic extends Logic
         -- 실제 보상 2배 지급은 토벌전장 보상 시스템(Phase 4 미착수)이 생기면 이 값을 읽으면 됨.
         local profileCode = player.PlayerComponent.ProfileCode
         local rewardBonus = _RestGaugeLogic:TryConsumeForEntry(profileCode)
-        log("CharacterRoster: RequestEnterBattlefield fieldIndex=" .. fieldIndex .. " rewardBonus=" .. tostring(rewardBonus))
+        -- M2 Phase F(2026-09-08) - 난이도 4단계(전체 기획서 §5-1). 목적지 맵의 FieldWaveSpawner가
+        -- 아직 로드/생성되지 않았을 수도 있는 인스턴스 맵 구조가 아니라 항상 존재하는 정적 맵이므로,
+        -- 텔레포트 직전에 tier를 미리 세팅해두면 도착 시점 스폰부터 바로 그 tier로 나간다.
+        local tier = math.max(1, math.min(4, difficultyTier or 1))
+        local targetMap = _EntityService:GetEntityByPath("/maps/" .. field.name)
+        if isvalid(targetMap) then
+            local spawner = targetMap:GetComponent("script.FieldWaveSpawner")
+            if isvalid(spawner) then
+                spawner.DifficultyTier = tier
+            end
+        end
+        log("CharacterRoster: RequestEnterBattlefield fieldIndex=" .. fieldIndex .. " tier=" .. tier .. " rewardBonus=" .. tostring(rewardBonus))
         _TeleportService:TeleportToMapPosition(player, field.pos, field.name)
     end
 
