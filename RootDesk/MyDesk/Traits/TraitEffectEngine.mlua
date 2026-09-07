@@ -137,6 +137,13 @@ script TraitEffectEngine extends Logic
         return mod.firstHitCritOnWaveStart == true
     end
 
+    -- M2 Phase C(2026-09-08) - 럭키 세븐 전용. { interval=7 } 형태로 CombatTick의 주기 리롤 트리거에
+    -- 쓰인다. 그동안 basicEffect 필드는 있었지만 이 게터/소비처가 없어 정직하게 미구현 상태였다.
+    method table GetPeriodicRandomBuff(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.periodicRandomBuff
+    end
+
     method table GetStatReshuffle(string trait)
         local mod = self:GetBasicModifiers(trait)
         if mod.statReshuffle == nil then return nil end

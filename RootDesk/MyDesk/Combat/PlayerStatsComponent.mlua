@@ -122,6 +122,9 @@ script PlayerStatsComponent extends Component
     @HideFromInspector property number TimeStackAtkPercent = 0
     @HideFromInspector property number LowHpBonusAtkPercent = 0
     @HideFromInspector property number LuckyDayAtkPercent = 0
+    -- 럭키 세븐(periodicRandomBuff) 전용 - CombatTick이 interval초마다 리롤한다.
+    @HideFromInspector property number RandomBuffAtkPercent = 0
+    @HideFromInspector property number RandomBuffTickElapsed = 0
 
     -- M2 Phase C(2026-09-06) - 링크 캐릭터 실효과 연결. 공격대 편성(CharacterRosterLogic.squadLinks)에서
     -- 확정된 최대 2명의 링크 캐릭터 정보를 클라이언트가 UpdateSquadLinks로 밀어넣는다 - 로스터 자체가
@@ -186,6 +189,8 @@ script PlayerStatsComponent extends Component
         self.KillStackAtkPercent = 0
         self.TimeStackAtkPercent = 0
         self.LowHpBonusAtkPercent = 0
+        self.RandomBuffAtkPercent = 0
+        self.RandomBuffTickElapsed = 0
         self.LastCritWaveNumber = -1
         -- M2 Phase C - 캐릭터 교체마다 이전 캐릭터의 링크 정보가 새지 않도록 초기화. 실제 값은 이
         -- 직후 클라이언트의 PushSquadLinksToServer() 후속 호출(UpdateSquadLinks)이 다시 채운다.
@@ -888,7 +893,7 @@ script PlayerStatsComponent extends Component
         -- 지워버리므로, 항상 이 메서드 하나만 실제 쓰기를 담당하게 한다.
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(attack) then return end
-        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent
+        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent
         attack.AttackDamage = self.BaseAttackDamage * (1 + totalBonus)
     end
 
@@ -934,6 +939,22 @@ script PlayerStatsComponent extends Component
             local sinceHit = isvalid(hitComp) and (_UtilLogic.ElapsedSeconds - hitComp.LastHitElapsed) or 999
             if sinceHit >= (regenSpec.seconds or 0) and player.Hp < player.MaxHp then
                 player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * (regenSpec.pct or 0))
+            end
+        end
+
+        -- 럭키 세븐(periodicRandomBuff) - interval초마다 공격력 랜덤 버프/디버프를 다시 굴린다.
+        -- 럭키/언럭키 데이(LuckyDayAtkPercent, 판 시작에 1회 고정)와 동일한 방식(단순 percent 가산,
+        -- RecomputeDynamicAttackDamage에 합산)이지만 반복 리롤이라는 점만 다르다.
+        local randomBuffSpec = _TraitEffectEngine:GetPeriodicRandomBuff(self.Trait)
+        if randomBuffSpec ~= nil then
+            self.RandomBuffTickElapsed = self.RandomBuffTickElapsed + 1
+            if self.RandomBuffTickElapsed >= (randomBuffSpec.interval or 999999) then
+                self.RandomBuffTickElapsed = 0
+                -- -10% ~ +15% 균등 분포(버프 쪽으로 살짝 치우침 - "럭키" 네이밍과 Gamble 풀의
+                -- "기댓값은 양수, 분산은 큼" 원칙에 맞춤, 도박꾼/올인 등 기존 gmb 풀 특성과 동일 기조).
+                self.RandomBuffAtkPercent = -0.10 + _UtilLogic:RandomDouble() * 0.25
+                self:RecomputeDynamicAttackDamage()
+                log("PlayerStats: 럭키 세븐 리롤 atk%=" .. string.format("%.3f", self.RandomBuffAtkPercent))
             end
         end
 
