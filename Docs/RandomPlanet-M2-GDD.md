@@ -6,7 +6,7 @@
 
 ## 0. 전제 — M1 완료 처리됨 (2026-09-06)
 
-M1 로드맵(Phase 0~4 + Phase 2.5) 전 항목 ✅ 달성. GDD는 `Archive/RandomPlanet-M1-GDD.md`로 이관 완료, `Archive/As-built.md` Quick Status 갱신 완료(26차). Phase A(아래) 전부 완료. 이제부터 Phase B(특성 114종 확장)를 본격 진행한다.
+M1 로드맵(Phase 0~4 + Phase 2.5) 전 항목 ✅ 달성. GDD는 `Archive/RandomPlanet-M1-GDD.md`로 이관 완료, `Archive/As-built.md` Quick Status 갱신 완료(26차). Phase A~I 전부 완료(F/H/I는 2026-09-08 세션에서 완성). Phase C는 링크 패시브 63/115종까지 확장. **2026-09-08 세션 진행 상황**: Phase A(잔여 커밋)/F(난이도 선택 UI)/H(명예의 전당)/I(레벨21+경험치 재산정) 전부 신규 완료, Phase C 링크 패시브 6종 추가. 남은 것: Phase C 잔여 52종(대부분 새 서브시스템 필요 — 랜덤버프 디스패치/DOT/스냅샷 롤백/누적판수 성장 등), Phase B의 2단계 특성 메커니즘(도플갱어/환영교체 등), Phase J(최종 통합 QA — 실 캐릭터 안전 지침상 이번 세션엔 보류), `CharacterSelectStageController.CreateCharacter`가 `execute_script`로 직접 호출 시 응답 없음(정상 UI 클릭 플로우에서는 미재현 — 콘솔 호출 특유의 현상으로 추정, 우선순위 낮음).
 
 ## 1. One-line concept
 > 전체 기획서(§0~09 + 부록 A~H)의 프로덕션 스펙을 인게임에 전면 편입 — 114종 특성(기본+링크 패시브 내장) · 4차 전직 하이브리드 스킬 · 링크 캐릭터 · 몬스터 게이트 · 난이도 4단계 · 계정 메타강화 · 리더보드까지 갖춘 "완전판" 로그라이트로 확장한다.
@@ -21,7 +21,7 @@ M1 로드맵(Phase 0~4 + Phase 2.5) 전 항목 ✅ 달성. GDD는 `Archive/Rando
 ## 3. M2 로드맵 (Phase A~J)
 
 ### Phase A — M1 잔여 정리 + 마일스톤 클로즈 (선행 필수)
-- ⬜ 커밋 안 된 5개 파일 diff 검토 후 커밋 (Maker 자동 정규화인지 실질 변경인지 확인)
+- ✅ 커밋 안 된 파일 diff 검토 후 커밋 — 2026-09-08, Maker 자동 정규화(StudioVersion/JSON 포맷팅)로 확인, 실질 변경 없음.
 - ✅ 스킬 티어 3택1 선택 팝업 (버프 3택1 → 공격 3택1 순차 진행, 큐브마스터 재추첨 훅 포함 — 전체 기획서 §07 "스킬 선택 팝업") — `GrantTierSkills`를 자동지급에서 실제 선택 흐름으로 교체. 신규 `Skills/SkillChoiceUIController.mlua` + `ui/SkillChoiceGroup.ui`(AbilityChoiceUIController와 동일 아키텍처). 2026-09-06 실측 검증: 레벨 1→13 강제 점프로 티어2·3 동시 발생 시나리오까지 포함해 버프→공격 순차 팝업, 서버 권한 검증(senderUserId), 큐 처리(TierQueued2~4) 전부 로그로 확인. **검증 중 실버그 발견·수정**: 여러 티어가 같은 프레임에 동시 발생하면(대량 XP) 앞 티어의 선택이 뒤 티어에 덮어써지는 레이스 컨디션(`ProcessSkillTierQueue`가 `SkillChoicePending`의 의도적 0.1초 지연 플립을 즉시성 플래그로 오용) 발견 → `PendingSkillTier~=0` 기준으로 교체해 해결. 빌드 로그 에러 0.
 - ✅ 2번 스킬 슬롯 `.ui` 바인딩 + HUD 표시 + 키 설정 팝업 아이콘 — 실제로는 As-built 25차 "W키 백엔드 로직 완료" 기술이 부정확했음을 발견(장착 라우팅만 있고 실제 키 입력→발동 배선이 전혀 없었음). `KeyBindingLogic`에 "Skill2"(기본 W) 액션 등록, `PlayerSkillComponent.UseSkill()`을 `UseSkillSlot(slot)`로 슬롯 파라미터화해 Q/W 공유, `HandlePlayerActionEvent`에 "Skill2" 분기 추가. HUD(`ui/PlayerHUD.ui`)에 `SkillSlot2` 신규 배치, 키 설정 팝업(`ui/KeySettingGroup.ui`)에 `IconSkill2` 신규 배치. 2026-09-06 실측: `UseSkillSlot(2)` 직접 호출로 아이언 바디 발동+VFX+MP차감 전부 로그 확인(실제 W 키 입력 경로는 Q와 동일한 `PlayerControllerComponent` 파이프라인 재사용이라 기존 검증된 Q 경로와 대칭 검증). 빌드 로그 에러 0.
 - ✅ VFX 타이밍 딜레이 적용 — As-built 25차의 "설계만 완료, 코드 미적용" 항목(`DoDash` 주석에 있던 "`DispatchSkill`의 `impactDelay`" 개념)을 실제 구현. `melee_single` 스킬(powerstrike/slashblast/arrowblow)에 `SkillCatalog`의 `impactDelay`(0.12~0.2초) 필드 추가, `UseSkillSlot`이 그 시간만큼 `DoMeleeSingle` 실행을 늦춰 스윙 모션의 타격 프레임과 데미지 적용 시점을 맞춘다. dash(즉시 판정이 의도적으로 맞음)·multi_hit(이미 투사체 비행시간으로 자연 지연)는 제외. 2026-09-06 실측: `UseSkillSlot`이 dispatch 로그를 즉시 남기고 `DoMeleeSingle`의 hit VFX 로그가 지연 후 별도로 찍히는 것을 `_TimerService:SetTimerOnce` 기반(이미 프로젝트 전역에서 검증된 패턴)으로 확인. 빌드 로그 에러 0.
