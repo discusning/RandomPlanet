@@ -53,6 +53,11 @@ script PlayerSkillComponent extends Component
     @Sync @HideFromInspector property number BuffExpireTime = 0
     @Sync @HideFromInspector property string BuffType = ""
     @HideFromInspector property number BuffOriginalValue = 0
+    -- 2026-09-08 QA 발견 - 포커스/님블바디의 inertNote("회피 상승 부분은 비활성(몬스터 공격
+    -- 파이프라인 없음)")가 이번 세션 초반에 그 파이프라인(PlayerHit.HandleHitEvent의 EvasionPercent
+    -- 소비)을 구현하면서 이미 stale해졌다 - testableEffect 슬롯(BuffType/BuffOriginalValue)은
+    -- PlayerAttack/MovementComponent 값 하나만 담당하므로, EvasionPercent는 별도 채널로 병행 적용.
+    @HideFromInspector property number BuffEvasionBonus = 0
     @HideFromInspector property integer BuffParticleSerial = 0
     @HideFromInspector property boolean BuffUsingSkillVfx = false
     @HideFromInspector property integer ProjectileCount = 0
@@ -734,6 +739,13 @@ script PlayerSkillComponent extends Component
         local player = self.Entity.PlayerComponent
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
 
+        -- 2026-09-08 QA - 포커스/님블바디의 evasionBonus(회피율 증가) 전용. testableEffect 슬롯과
+        -- 별개로 항상 병행 적용 - EvasionPercent는 PlayerHit.HandleHitEvent가 이미 소비하고 있다.
+        if def.evasionBonus ~= nil and isvalid(statsComp) then
+            statsComp.EvasionPercent = math.min(0.9, statsComp.EvasionPercent + def.evasionBonus)
+            self.BuffEvasionBonus = def.evasionBonus
+        end
+
         if def.testableEffect == "accuracy" and isvalid(attack) then
             self.BuffOriginalValue = attack.Accuracy
             attack.Accuracy = attack.Accuracy + def.accuracyBonus
@@ -863,6 +875,13 @@ script PlayerSkillComponent extends Component
         end
         -- "mpfree" (magicguard) has no stat to restore - UseSkill's mpFreeActive check already
         -- stops reading it the instant BuffActive/BuffType are cleared below.
+
+        -- 2026-09-08 QA - evasionBonus(포커스/님블바디) 복원. BuffType 슬롯과 독립적으로 병행
+        -- 적용됐으므로 여기서도 독립적으로 되돌린다.
+        if self.BuffEvasionBonus > 0 and isvalid(statsComp) then
+            statsComp.EvasionPercent = math.max(0, statsComp.EvasionPercent - self.BuffEvasionBonus)
+            self.BuffEvasionBonus = 0
+        end
 
         if self.BuffParticleSerial ~= 0 then
             if self.BuffUsingSkillVfx then

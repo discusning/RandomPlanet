@@ -12,7 +12,11 @@ script SkillCatalog extends Logic
     --                                                   해적 1차 공격풀에 실제 데미지 스킬이 하나도 없었음,
     --                                                   아래 밸런스 조정 로그 참고)
     --   debuff        { evasionReduction, duration }  - 전방 근처 몬스터 1체의 Evasion을 일시 감소(Monster.ApplyDisorder) - 데미지 없음
-    --   buff          { duration, testableEffect, inertNote } - 지속시간 버프. testableEffect만 실제 적용, 나머지는 로그만 남김(비활성)
+    --   buff          { duration, testableEffect, inertNote, evasionBonus } - 지속시간 버프. testableEffect만
+    --                   실제 적용, inertNote가 있으면 나머지는 로그만 남김(비활성). evasionBonus는 2026-09-08
+    --                   PlayerHit.HandleHitEvent에 EvasionPercent 소비 파이프라인이 생기면서 testableEffect와
+    --                   무관하게 항상 병행 적용되는 독립 채널로 승격(포커스/님블바디, PlayerSkillComponent.
+    --                   BuffEvasionBonus 참고) - 더 이상 inert가 아니므로 이 둘의 inertNote는 제거함.
 
     method table GetAllSkillIds()
         return {
@@ -177,7 +181,7 @@ script SkillCatalog extends Logic
             -- hitVfxRuid는 실제 "애로우 블로우" 팩(skill/300.img/skill/3001004, findPacksContaining로
             -- 재확인)의 hit/0 요소 - 기존 "ball"(투사체용 화살 그래픽)은 더 이상 맞지 않아 교체.
             arrowblow = { id = "arrowblow", tier = 1, name = "애로우 블로우", job = "궁수", kind = "melee_single", coef = 1.2, cooldown = 2.0, mpCost = 8, impactDelay = 0.12, hitVfxRuid = "84a473e004a34fdea67aa74a87dc75c6", desc = "활로 전방의 적을 강하게 가격해 평타의 120% 피해를 입힙니다." },
-            focus = { id = "focus", tier = 1, name = "포커스", job = "궁수", kind = "buff", duration = 6.0, testableEffect = "accuracy", accuracyBonus = 30, inertNote = "회피 상승 부분은 비활성(몬스터 공격 파이프라인 없음)", cooldown = 12.0, mpCost = 12, auraType = "SpinField", auraColor = Color(1.0, 0.85, 0.3, 0.9), buffVfxRuid = "0d68db29ec2046f4bb2a64e6f03b745b", desc = "일정 시간 명중률이 30 증가합니다." },
+            focus = { id = "focus", tier = 1, name = "포커스", job = "궁수", kind = "buff", duration = 6.0, testableEffect = "accuracy", accuracyBonus = 30, evasionBonus = 0.10, cooldown = 12.0, mpCost = 12, auraType = "SpinField", auraColor = Color(1.0, 0.85, 0.3, 0.9), buffVfxRuid = "0d68db29ec2046f4bb2a64e6f03b745b", desc = "일정 시간 명중률이 30 증가하고 회피율이 10% 증가합니다." },
             -- 럭키 세븐 (2026-08-17 메이플랜드/클래식 메이플스토리 자료 조사 후 확인 - 의도적 타협):
             -- 실제로는 도적 1차가 아니라 어쌔신(2차) 스킬 - 실제 도적 1차 스킬은 님블 바디/디스오더
             -- (아래 disable)/다크사이트 3종뿐이고 데미지 액티브 자체가 없다(WebSearch로 다수 문서
@@ -204,7 +208,7 @@ script SkillCatalog extends Logic
             luckyseven = { id = "luckyseven", tier = 1, name = "럭키 세븐", job = "도적", kind = "multi_hit", coef = 0.6, hits = 3, cooldown = 3.5, mpCost = 12, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", desc = "단검을 3연속으로 투척해 각 타격마다 평타의 60% 피해를 입힙니다." },
             disable = { id = "disable", tier = 1, name = "디스에이블", job = "도적", kind = "debuff", evasionReduction = 40, duration = 8.0, cooldown = 10.0, mpCost = 10, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", desc = "전방의 적 하나를 약화시켜 일정 시간 회피가 크게 감소합니다." },
             darksight = { id = "darksight", tier = 1, name = "다크 사이트", job = "도적", kind = "buff", duration = 5.0, testableEffect = "critchance", critChanceBonus = 0.25, cooldown = 12.0, mpCost = 10, buffVfxRuid = "abdf05be0b3e4146a6271c4ee1f3b1b1", desc = "일정 시간 그림자에 숨어 치명타 확률이 25% 증가합니다." },
-            nimblebody = { id = "nimblebody", tier = 1, name = "님블 바디", job = "도적", kind = "buff", duration = 6.0, testableEffect = "movespeed", moveSpeedBonus = 1.5, inertNote = "회피 상승 부분은 비활성(몬스터 공격 파이프라인 없음)", cooldown = 12.0, mpCost = 10, auraType = "Buff", auraColor = Color(0.3, 1.0, 0.85, 0.9), buffVfxRuid = "372fdc6781974004bfb08edd5b5f9914", desc = "일정 시간 이동 속도가 증가합니다." },
+            nimblebody = { id = "nimblebody", tier = 1, name = "님블 바디", job = "도적", kind = "buff", duration = 6.0, testableEffect = "movespeed", moveSpeedBonus = 1.5, evasionBonus = 0.10, cooldown = 12.0, mpCost = 10, auraType = "Buff", auraColor = Color(0.3, 1.0, 0.85, 0.9), buffVfxRuid = "372fdc6781974004bfb08edd5b5f9914", desc = "일정 시간 이동 속도와 회피율이 증가합니다." },
             dash = { id = "dash", tier = 1, name = "대시", job = "해적", kind = "dash", force = 6.0, coef = 1.4, cooldown = 4.0, mpCost = 6, dashVfxRuid = "b84c3c28e8284104b68d16b5cf0524b2", hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", desc = "바라보는 방향으로 짧게 돌진해 경로상의 적에게 평타의 140% 피해를 입힙니다." },
             -- 너클 부스터 (2026-08-17, 럭키 세븐과 동일 사유 - see 위 주석): 실제로는 해적 1차가
             -- 아니라 인파이터(2차) 스킬. 실제 해적 1차는 대시가 사실상 전부라 대체할 진짜 1차 버프가
