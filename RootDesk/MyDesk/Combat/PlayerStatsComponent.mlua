@@ -125,6 +125,11 @@ script PlayerStatsComponent extends Component
     -- 럭키 세븐(periodicRandomBuff) 전용 - CombatTick이 interval초마다 리롤한다.
     @HideFromInspector property number RandomBuffAtkPercent = 0
     @HideFromInspector property number RandomBuffTickElapsed = 0
+    -- 자석술사(burstKill) 전용 - 단시간 다중 처치 추적 + 발동 중인 버프의 만료 시각.
+    @HideFromInspector property number BurstAtkPercent = 0
+    @HideFromInspector property number BurstExpireElapsed = 0
+    @HideFromInspector property number BurstKillWindowStart = 0
+    @HideFromInspector property integer BurstKillCountInWindow = 0
 
     -- M2 Phase C(2026-09-06) - 링크 캐릭터 실효과 연결. 공격대 편성(CharacterRosterLogic.squadLinks)에서
     -- 확정된 최대 2명의 링크 캐릭터 정보를 클라이언트가 UpdateSquadLinks로 밀어넣는다 - 로스터 자체가
@@ -191,6 +196,10 @@ script PlayerStatsComponent extends Component
         self.LowHpBonusAtkPercent = 0
         self.RandomBuffAtkPercent = 0
         self.RandomBuffTickElapsed = 0
+        self.BurstAtkPercent = 0
+        self.BurstExpireElapsed = 0
+        self.BurstKillWindowStart = 0
+        self.BurstKillCountInWindow = 0
         self.LastCritWaveNumber = -1
         -- M2 Phase C - 캐릭터 교체마다 이전 캐릭터의 링크 정보가 새지 않도록 초기화. 실제 값은 이
         -- 직후 클라이언트의 PushSquadLinksToServer() 후속 호출(UpdateSquadLinks)이 다시 채운다.
@@ -904,6 +913,26 @@ script PlayerStatsComponent extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void RegisterBurstKill(table spec)
+        -- 자석술사(burstKill) - Monster.GrantXpToAttacker가 처치마다 호출. window초 안에 count회를
+        -- 채우면 duration초짜리 atk% 버프 발동(재발동 시 지속시간 갱신), window를 넘기면 카운트 리셋.
+        local now = _UtilLogic.ElapsedSeconds
+        if now - self.BurstKillWindowStart > (spec.window or 3) then
+            self.BurstKillWindowStart = now
+            self.BurstKillCountInWindow = 1
+        else
+            self.BurstKillCountInWindow = self.BurstKillCountInWindow + 1
+        end
+        if self.BurstKillCountInWindow >= (spec.count or 3) then
+            self.BurstAtkPercent = spec.atk or 0
+            self.BurstExpireElapsed = now + (spec.duration or 5)
+            self.BurstKillCountInWindow = 0
+            self:RecomputeDynamicAttackDamage()
+            log("PlayerStats: 자석술사 처치 연쇄 발동 atk%=" .. self.BurstAtkPercent .. " 만료=" .. self.BurstExpireElapsed)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
     method void RecomputeDynamicAttackDamage()
         -- 버서크(BerserkDamageBonusPercent) + M2 Phase B 2단계 누적/조건부 보너스(HitStack/KillStack/
         -- TimeStack/LowHpBonus/LuckyDay)를 전부 BaseAttackDamage 위에 한 번에 곱해 적용한다 - 여러
@@ -911,7 +940,7 @@ script PlayerStatsComponent extends Component
         -- 지워버리므로, 항상 이 메서드 하나만 실제 쓰기를 담당하게 한다.
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(attack) then return end
-        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent
+        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent
         attack.AttackDamage = self.BaseAttackDamage * (1 + totalBonus)
     end
 
@@ -923,6 +952,12 @@ script PlayerStatsComponent extends Component
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 or player.Hp <= 0 then return end
         local hpRatio = player.Hp / player.MaxHp
+
+        -- 자석술사(burstKill) - 발동 중인 버프가 만료 시각을 지났으면 해제.
+        if self.BurstAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= self.BurstExpireElapsed then
+            self.BurstAtkPercent = 0
+            self:RecomputeDynamicAttackDamage()
+        end
 
         -- 시한부(hb) - basicDesc가 명시한 "입장 후 제한시간 초과 시 즉사"가 지금까지 실제로는
         -- 강제되지 않았다(exp=0.40/drop=0.40 보너스만 적용되고 페널티는 "선행 필요"로 미구현

@@ -168,6 +168,12 @@ script Monster extends Component
                 stats.KillStackAtkPercent = math.min(killStack.cap or 1.0, stats.KillStackAtkPercent + (killStack.perKill or 0))
                 stats:RecomputeDynamicAttackDamage()
             end
+            -- 자석술사(burstKill) - 단시간 다중 처치 추적.
+            local burstSpec = _TraitEffectEngine:GetBurstKillSpec(stats.Trait)
+            if burstSpec == nil and stats.Trait2 ~= "" then burstSpec = _TraitEffectEngine:GetBurstKillSpec(stats.Trait2) end
+            if burstSpec ~= nil then
+                stats:RegisterBurstKill(burstSpec)
+            end
         end
         self:TryDropPotion(attacker)
     end

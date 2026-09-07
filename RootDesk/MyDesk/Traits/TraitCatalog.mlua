@@ -47,7 +47,13 @@ script TraitCatalog extends Logic
             linkName="표식 공유", linkDesc="파티가 표식 능력 획득" }
         d["메아리"] = { pool="hg", basicName="무영창", basicDesc="공격 시 낮은 확률로 스킬 쿨다운 즉시 초기화", basicEffect={onHitCooldownReset=0.05},
             linkName="되돌림 지원", linkDesc="회피 성공 시 데미지 증가" }
-        d["자석술사"] = { pool="hg", basicName="처치 연쇄", basicDesc="단시간 다중 처치 시 폭발적 버프 (드랍 흡수 서브시스템 선행 필요)",
+        -- 2026-09-08 재점검: "드랍 흡수 서브시스템 선행 필요"로 미구현 남아있었으나, 이 프로젝트의
+        -- 드랍은 애초에 즉시 인벤토리 지급 방식(Monster.TryDropPotion -> CharacterRosterLogic.
+        -- GrantPotionDrop, 걸어가서 줍는 필드 아이템 자체가 없음)이라 "흡수"할 대상이 원래 없다 -
+        -- 기본 효과("단시간 다중 처치 시 폭발적 버프")는 드랍 흡수와 무관한 별개 메커니즘이라 실제로는
+        -- 막혀있지 않았음. 이번 세션에 구현.
+        d["자석술사"] = { pool="hg", basicName="처치 연쇄", basicDesc="3초 내 3킬 달성 시 5초간 공격력+30%",
+            basicEffect={burstKill={window=3, count=3, atk=0.30, duration=5}},
             linkName="자기 폭풍", linkDesc="처치 시 낮은 확률로 주변 드랍을 강제 즉시 흡수" }
         d["마노"] = { pool="hg", basicName="파괴 본능", basicDesc="공격력+8%", basicEffect={atk=0.08},
             linkEffect={atk=0.03}, linkName="예지", linkDesc="다음 웨이브·보스 정보 표시" }

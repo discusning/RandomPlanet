@@ -144,6 +144,14 @@ script TraitEffectEngine extends Logic
         return mod.periodicRandomBuff
     end
 
+    -- M2 Phase B(2026-09-08) - 자석술사 전용. { window, count, atk, duration } - window초 내에
+    -- count회 처치하면 duration초간 atk% 버프. "드랍 흡수 서브시스템 선행 필요"로 막혀있었으나
+    -- 실제로는 무관한 별개 메커니즘이라 재점검 후 구현(TraitCatalog 주석 참고).
+    method table GetBurstKillSpec(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.burstKill
+    end
+
     method table GetStatReshuffle(string trait)
         local mod = self:GetBasicModifiers(trait)
         if mod.statReshuffle == nil then return nil end
