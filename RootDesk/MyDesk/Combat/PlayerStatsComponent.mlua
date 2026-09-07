@@ -126,6 +126,8 @@ script PlayerStatsComponent extends Component
     @HideFromInspector property number RandomBuffAtkPercent = 0
     @HideFromInspector property number RandomBuffTickElapsed = 0
     -- 자석술사(burstKill) 전용 - 단시간 다중 처치 추적 + 발동 중인 버프의 만료 시각.
+    -- 스피드스터(speedster) 전용 - 이동속도 초과분 기반 공격력·스킬데미지 보너스(RecalculateDerived가 갱신).
+    @HideFromInspector property number SpeedsterAtkBonus = 0
     @HideFromInspector property number BurstAtkPercent = 0
     @HideFromInspector property number BurstExpireElapsed = 0
     @HideFromInspector property number BurstKillWindowStart = 0
@@ -199,6 +201,7 @@ script PlayerStatsComponent extends Component
         self.LowHpBonusAtkPercent = 0
         self.RandomBuffAtkPercent = 0
         self.RandomBuffTickElapsed = 0
+        self.SpeedsterAtkBonus = 0
         self.BurstAtkPercent = 0
         self.BurstExpireElapsed = 0
         self.BurstKillWindowStart = 0
@@ -742,6 +745,17 @@ script PlayerStatsComponent extends Component
         local effInt = self.Intel + traitStatBonus
         local effLuk = self.Luk + traitStatBonus
 
+        -- 스피드스터(speedster) - 2026-09-08 QA 스윕에서 게터/소비처 없이 데이터만 있던 갭으로 발견.
+        -- "힘/지능 계수 -70%, 대신 이동속도 계수 2.5배 + 이동속도 초과분 10%p당 공격력·스킬데미지+6%
+        -- (상한+90%)" - 원안 수치 그대로, 다만 "이동속도 초과분"의 기준선(무엇 대비 초과인가)이 원안에
+        -- 명시돼 있지 않아 "이 트레잇이 없었다면의 DEX 공식값" 대비 초과율로 근사했다(아래 이동속도
+        -- 블록 참고) - 자체 해석, 미검증 근사치.
+        local isSpeedster = (self.Trait == "스피드스터" or self.Trait2 == "스피드스터")
+        if isSpeedster then
+            effStr = effStr * 0.3
+            effInt = effInt * 0.3
+        end
+
         -- INT primary: 최대 MP +3/pt (real resource). Skill damage bonus is inert until Phase 3.
         self.MaxMp = 20 + effInt * 3
         self.CurrentMp = self.MaxMp
@@ -787,7 +801,19 @@ script PlayerStatsComponent extends Component
         -- fast in actual play - skill VFX visibly couldn't keep up with the character at that speed).
         local move = self.Entity.MovementComponent
         if isvalid(move) then
-            move.InputSpeed = 1.5 + effDex * 0.08
+            local dexMoveCoef = isSpeedster and (0.08 * 2.5) or 0.08
+            move.InputSpeed = 1.5 + effDex * dexMoveCoef
+            -- 스피드스터 - "이동속도 초과분 10%p당 공격력·스킬데미지+6%(상한+90%)". 기준선(1x 계수였을
+            -- 때의 속도) 대비 실제 속도의 초과율(%)을 10 단위로 내림해 6%씩 부여. effDex가 클수록(더
+            -- 많이 투자할수록) 초과율도 커지는 구조라 "이동속도로 완전히 갈아탄 빌드"를 보상한다.
+            if isSpeedster then
+                local baselineSpeed = math.max(0.01, 1.5 + effDex * 0.08)
+                local excessPercent = ((move.InputSpeed / baselineSpeed) - 1) * 100
+                self.SpeedsterAtkBonus = math.min(0.90, math.floor(excessPercent / 10) * 0.06)
+                self.SkillDamageBonus = self.SkillDamageBonus + self.SpeedsterAtkBonus
+            else
+                self.SpeedsterAtkBonus = 0
+            end
             -- 날렵함(1차 특성) - 이동 속도 직접 가산. 순수 유틸 스탯이라 CP에는 반영하지 않음(다른
             -- 게임의 "전투력"도 보통 이동속도는 제외 - §"현재 전투력 공식" 참고).
             if self.Trait == "날렵함" or self.Trait2 == "날렵함" then
@@ -982,7 +1008,7 @@ script PlayerStatsComponent extends Component
         -- 지워버리므로, 항상 이 메서드 하나만 실제 쓰기를 담당하게 한다.
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(attack) then return end
-        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent
+        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus
         attack.AttackDamage = self.BaseAttackDamage * (1 + totalBonus)
     end
 
