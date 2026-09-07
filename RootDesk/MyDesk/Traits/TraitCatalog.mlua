@@ -208,7 +208,7 @@ script TraitCatalog extends Logic
         d["광란의 질주"] = { pool="gmb", basicName="대시", basicDesc="공격·이동 속도 대폭 증가, 가끔 조작 미세 흔들림", basicEffect={as=0.20, msm=0.25},
             linkEffect={msm=0.06}, linkName="질주의 여파", linkDesc="파티 이동속도+10%, 가끔 조작 미세 흔들림" }
         d["한탕주의"] = { pool="gmb", basicName="보스 특화", basicDesc="영구 재화 평소 획득 0, 클리어 시 일확천금(기본의 5배)",
-            linkName="한탕의 나눔", linkDesc="파티 클리어 시 영구재화+10%" }
+            linkEffect={clearCurrencyBonus=0.10}, linkName="한탕의 나눔", linkDesc="파티 클리어 시 영구재화+10%" }
         d["시한폭탄"] = { pool="gmb", basicName="카운터", basicDesc="시간이 갈수록 공격력 누적 증가, 일정 시간마다 자해 피해", basicEffect={timeStackAtk={perSecond=0.002, cap=0.30}},
             linkEffect={cc=0.04}, linkName="저체력 각성", linkDesc="체력15%↓ 파티 크리+20%" }
         d["광부의 곡괭이"] = { pool="gmb", basicName="막판 스퍼트", basicDesc="스탯 구슬 획득 시 낮은 확률로 잭팟(경험치로 근사)", basicEffect={onKillBonusExp=0.10},
