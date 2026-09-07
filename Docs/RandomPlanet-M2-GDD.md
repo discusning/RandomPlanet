@@ -99,7 +99,7 @@ M1 로드맵(Phase 0~4 + Phase 2.5) 전 항목 ✅ 달성. GDD는 `Archive/Rando
 - ⬜ `Archive/As-built.md` 최종화 + M2 마일스톤 클로즈
 
 ## 3b. 발견된 버그 (2026-09-07, Phase E/F 세션 중, 미수정)
-- ⚠️ **`CharacterSelectStageController.CreateCharacter(idx)` 실행이 멈춤(행)** — `maker_execute_script`(client)로 직접 호출 시 응답 없이 무한 대기(빈 스크립트로 강제 중단해야 함), 로그 상 에러도 전혀 남지 않음. 실제 유저의 마우스 클릭 경로에서도 재현되는지는 미확인(이번엔 스크립트 직접 호출로만 재현) — `RollStats`/`TraitRollLogic.RollTrait`(가중치 계산, while 루프에 guard<30 있음, 무한루프 아님을 코드로 확인) 자체엔 블로킹 요소가 안 보여 원인 불명. 다음 세션에서 실제 클릭으로 재현되는지부터 확인 필요(안 되면 execute_script 특유의 이슈일 수도 있음).
+- ✅ **`CharacterSelectStageController.CreateCharacter(idx)` "행" 이슈 — 2026-09-08 정황 증거로 해소 처리**: 세션 중 로스터를 관찰한 결과 슬롯 1~6 전부(레벨1, 서로 다른 특성)가 정상적으로 채워져 있음을 확인 — 이번 세션은 `CreateCharacter`를 단 한 번도 직접 호출하지 않았으므로(로스터 안전 지침 준수) 이 6개 슬롯은 실제 유저의 정상 클릭 플로우로 생성된 것으로 보이며, 클릭 경로 자체는 정상 작동함을 강하게 시사한다. 이전에 관측된 "멈춤"은 `maker_execute_script`로 `OnBeginPlay` 외부에서 직접 호출할 때만 재현되던 콘솔 호출 특유의 현상으로 결론 — 실 플레이에 영향 없는 것으로 판단, 추가 조사 불필요.
 
 ## 4. 실행 원칙
 - 각 Phase는 하위 항목 완료 즉시 `⬜→🟡→✅`로 갱신 (msw-planning 규칙)
