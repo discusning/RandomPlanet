@@ -213,7 +213,7 @@ script TraitCatalog extends Logic
             linkEffect={cc=0.04}, linkName="저체력 각성", linkDesc="체력15%↓ 파티 크리+20%" }
         d["광부의 곡괭이"] = { pool="gmb", basicName="막판 스퍼트", basicDesc="스탯 구슬 획득 시 낮은 확률로 잭팟(경험치로 근사)", basicEffect={onKillBonusExp=0.10},
             linkName="유대의 기록", linkDesc="누적 판수 비례 링크효과 성장" }
-        d["미친 과학자"] = { pool="gmb", basicName="약화", basicDesc="이능 효과 2배, 단 효과가 무작위로 결정(선택 불가)",
+        d["미친 과학자"] = { pool="gmb", basicName="약화", basicDesc="이능 효과 2배, 단 효과가 무작위로 결정(선택 불가) (이능 선택 UI 흐름 변경 필요 - 선행 필요)",
             linkName="공명의 유대", linkDesc="다른 슬롯 링크효율+10%" }
         d["럭키/언럭키 데이"] = { pool="gmb", basicName="집중 시전", basicDesc="입장 시 그 런 전체에 행운(전 스탯+) 또는 불운(전 스탯−) 부여", basicEffect={luckyDayRoll={good=0.10, bad=-0.08}},
             linkName="증폭기", linkDesc="파티 스탯 계열 링크효과+20%" }
