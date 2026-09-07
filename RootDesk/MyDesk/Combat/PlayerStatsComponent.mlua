@@ -16,6 +16,9 @@ script PlayerStatsComponent extends Component
     @Sync property integer Level = 1
     @Sync property integer CurrentXp = 0
     @Sync property integer XpToNextLevel = 100
+    -- M2 Phase I(2026-09-08) - 계정 영구 강화 레벨에 따라 이번 런에서 도달 가능한 최대 레벨(15~21).
+    -- ApplyStats에서 계정 강화 레벨로부터 계산해 채워진다(ComputeUnlockedMaxLevel).
+    @Sync property integer UnlockedMaxLevel = 15
     @Sync property integer MaxMp = 0
     @Sync property integer CurrentMp = 0
     -- Inert until Phase 3+ wires them into a real consumer (see comment above).
@@ -159,6 +162,7 @@ script PlayerStatsComponent extends Component
         self.Intel = stats.intel
         self.Luk = stats.luk
         self.Level = stats.level
+        self.UnlockedMaxLevel = self:ComputeUnlockedMaxLevel(stats.upgradeLevel or 0)
         self.Trait = stats.trait or ""
         -- 3차 전직 추가 특성(Trait2)은 로스터에 영구 저장되지 않는다(레벨 자체가 이미 그런 기존
         -- 한계 - Phase 2.5 세션 기록 참고, 재입장/스왑 시 소실). 매 진입마다 새로 시작하므로 이전
@@ -234,11 +238,16 @@ script PlayerStatsComponent extends Component
         -- 원래 의도(아이템 드랍률)로 복원됐다(DropRateMultiplier 경유) - 여기의 처치경험치+20% 임시
         -- 대체 효과는 제거. 대신 범용 특성 엔진의 ExpMultiplier(TraitEffectEngine, 견습/근면/불운/
         -- 시간여행자 등 exp 계열 특성)를 전 특성 공통으로 적용한다.
+        -- M2 Phase I(2026-09-08) - 만렙(계정 강화 레벨에 따라 15~21, UnlockedMaxLevel)에 도달했으면
+        -- XP 자체를 더 쌓지 않는다(누적돼도 의미 없는 값이 계속 불어나는 것을 방지).
+        if self.Level >= self.UnlockedMaxLevel then
+            return
+        end
         amount = math.floor(amount * (1 + self.ExpMultiplier))
         self.CurrentXp = self.CurrentXp + amount
         local leveledUp = false
         local levelsGained = 0
-        while self.CurrentXp >= self.XpToNextLevel do
+        while self.CurrentXp >= self.XpToNextLevel and self.Level < self.UnlockedMaxLevel do
             self.CurrentXp = self.CurrentXp - self.XpToNextLevel
             self.Level = self.Level + 1
             self.Str = self.Str + 1
@@ -624,8 +633,30 @@ script PlayerStatsComponent extends Component
     end
 
     method integer ComputeXpToNextLevel(integer level)
-        -- Simple linear ramp (MVP) - 100 at level 1, +50 per level thereafter.
-        return 100 + (level - 1) * 50
+        -- M2 Phase I(2026-09-08) - MVP 선형 램프를 전체 기획서 §8-3의 1~21레벨 경험치 테이블로 교체.
+        -- §8-3 원안은 "구 타깃 플레이타임(10~20분) 기준"이라고 명시돼 있고, 부록 '플레이타임 재조정'
+        -- 항목이 신규 타깃(1시간)에 맞춘 전면 재산정을 요구한다. 실제 라이브 플레이테스트로 정확한
+        -- 배율을 확정할 방법이 이번 세션엔 없어서(1시간짜리 실측 런은 비현실적), 원안 표의 1~14
+        -- "완만한 증가"/15~21 "레벨당 1.6~1.9배 급증" 곡선 형태는 그대로 유지한 채 총량만 ×4(구
+        -- 타깃 10~20분의 중간값 15분 -> 신규 타깃 60분과 동일 비율)로 스케일링했다 - 이 배율 자체는
+        -- **미검증**이며, 실제 플레이 템포를 보고 사용자가 재조정할 것을 권장(원안 §8 서두 "베이스라인
+        -- - 플레이테스트 후 조정"과 동일한 성격의 근사치).
+        local xpTable = {
+            [1] = 4000, [2] = 720, [3] = 1200, [4] = 1840, [5] = 2720,
+            [6] = 3800, [7] = 5120, [8] = 6720, [9] = 8600, [10] = 10800,
+            [11] = 13400, [12] = 16400, [13] = 20000, [14] = 24400, [15] = 41600,
+            [16] = 72000, [17] = 124000, [18] = 220000, [19] = 396000, [20] = 752000,
+        }
+        return xpTable[level] or xpTable[20]
+    end
+
+    method integer ComputeUnlockedMaxLevel(integer upgradeLevel)
+        -- M2 Phase I - §8-3 "16~21레벨: 해금 조건 필요"는 원안 부록 '미결 항목'에 "각 레벨별 조건
+        -- 별도 설계 예정"으로 남아있던 항목이라, 이번 세션에서 자체 설계로 확정한다: 새 시스템을
+        -- 만드는 대신 이미 있는 계정 영구 강화 트랙(AccountCurrencyLogic, 0~10레벨)에 자연스럽게
+        -- 연결 - 강화 5~10레벨이 순서대로 16~21레벨 해금을 담당(강화 10 = 만렙 21 해금). 강화
+        -- 0~4레벨 구간은 기본 캡 15(§8-3의 "완만한 증가" 구간이 끝나는 지점)로 고정.
+        return math.min(21, 15 + math.max(0, upgradeLevel - 4))
     end
 
     @ExecSpace("ServerOnly")

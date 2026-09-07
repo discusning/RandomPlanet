@@ -208,6 +208,10 @@ script CharacterCardController extends Component
                 luk = _EquipmentLogic:GetEffectiveStat(self._T.characterData, "luk"),
                 level = self._T.characterData.level,
                 trait = self._T.characterData.trait,
+                -- M2 Phase I(2026-09-08) - 16~21레벨 해금 조건. 매 입장마다 최신 계정 강화 레벨을
+                -- 읽어서 넘긴다(캐릭터 생성 시점이 아니라 입장 시점 값 - 이후 계정을 더 강화하면
+                -- 기존 캐릭터도 곧바로 더 높은 만렙 혜택을 받는다).
+                upgradeLevel = _AccountCurrencyLogic:GetUpgradeLevel(),
             }
             controller:RequestEnterGame(self._T.look, self._T.equipment, stats, self._T.characterData.atkSkillId, self._T.characterData.buffSkillId)
             -- M2 Phase C(2026-09-06) - 진입 직후 현재 공격대 편성의 링크 패시브를 서버에 반영.
