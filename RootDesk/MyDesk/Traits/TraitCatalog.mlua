@@ -236,7 +236,7 @@ script TraitCatalog extends Logic
         d["봉인된 자"] = { pool="hb", basicName="스승의 인도", basicDesc="전직 1차까지만 가능, 대신 경험치+25%", basicEffect={exp=0.25},
             linkEffect={exp=0.06}, linkName="스승의 인도", linkDesc="파티 경험치+12%" }
         d["불운"] = { pool="hb", basicName="후원", basicDesc="드랍률 0, 대신 처치 경험치 2배", basicEffect={drop=-1.0, exp=1.0},
-            linkName="후원", linkDesc="파티 클리어 시 영구재화+20%(선행 필요)" }
+            linkEffect={clearCurrencyBonus=0.20}, linkName="후원", linkDesc="파티 클리어 시 영구재화+20%" }
         d["유리대포"] = { pool="hb", basicName="수호 기도", basicDesc="최대 체력−50%, 대신 모든 데미지+50%", basicEffect={hp=-0.50, atk=0.50},
             linkName="수호 기도", linkDesc="25초마다 파티 치명타 무효" }
         d["외길"] = { pool="hb", basicName="일격필살 지원", basicDesc="스킬 슬롯 2개로 제한, 대신 보유 스킬 데미지+60%", basicEffect={atk=0.60},
