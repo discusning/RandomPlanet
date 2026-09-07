@@ -143,7 +143,7 @@ script TraitCatalog extends Logic
         -- ===== bad (20%, 20종) =====
         d["저주받은"] = { pool="bad", basicName="흡정", basicDesc="스킬 명중 시 MP 소량 회복", basicEffect={mpc=-0.08},
             linkName="저주 반사", linkDesc="파티가 받는 디버프를 낮은 확률로 반사" }
-        d["둔재"] = { pool="bad", basicName="재활용", basicDesc="경험치 획득−8%(대신 게이트 입장권 낮은 확률 미소모, 선행 필요)", basicEffect={exp=-0.08},
+        d["둔재"] = { pool="bad", basicName="재활용", basicDesc="경험치 획득−8%(대신 게이트 입장 시 낮은 확률로 입장권 미소모)", basicEffect={exp=-0.08, gateTicketSaveChance=0.15},
             linkEffect={exp=0.10}, linkName="조언자", linkDesc="파티 15레벨 이하 경험치+20%" }
         d["약골"] = { pool="bad", basicName="방벽 숙련", basicDesc="최대 체력−10%, 대신 피격 시 낮은 확률로 방어막", basicEffect={hp=-0.10, shieldOnHit={chance=0.10,pct=0.06}},
             linkEffect={dr=0.04}, linkName="완충", linkDesc="파티 받는 피해−6%" }
@@ -233,13 +233,13 @@ script TraitCatalog extends Logic
             linkName="희생 지원", linkDesc="링크 캐릭터 HP 일부 소모해 액티브 최대체력 판 동안 소폭 증가" }
 
         -- ===== Hidden-bad (7%, 23종) =====
-        d["봉인된 자"] = { pool="hb", basicName="스승의 인도", basicDesc="전직 1차까지만 가능(선행 필요), 대신 경험치+25%", basicEffect={exp=0.25},
+        d["봉인된 자"] = { pool="hb", basicName="스승의 인도", basicDesc="전직 1차까지만 가능, 대신 경험치+25%", basicEffect={exp=0.25},
             linkEffect={exp=0.06}, linkName="스승의 인도", linkDesc="파티 경험치+12%" }
         d["불운"] = { pool="hb", basicName="후원", basicDesc="드랍률 0, 대신 처치 경험치 2배", basicEffect={drop=-1.0, exp=1.0},
             linkName="후원", linkDesc="파티 클리어 시 영구재화+20%(선행 필요)" }
         d["유리대포"] = { pool="hb", basicName="수호 기도", basicDesc="최대 체력−50%, 대신 모든 데미지+50%", basicEffect={hp=-0.50, atk=0.50},
             linkName="수호 기도", linkDesc="25초마다 파티 치명타 무효" }
-        d["외길"] = { pool="hb", basicName="일격필살 지원", basicDesc="스킬 슬롯 2개로 제한(선행 필요), 대신 보유 스킬 데미지+60%", basicEffect={atk=0.60},
+        d["외길"] = { pool="hb", basicName="일격필살 지원", basicDesc="스킬 슬롯 2개로 제한, 대신 보유 스킬 데미지+60%", basicEffect={atk=0.60},
             linkEffect={atk=0.03}, linkName="일격필살 지원", linkDesc="파티 크리 시 낮은 확률로 확정 추가타" }
         d["금욕"] = { pool="hb", basicName="재생 지원", basicDesc="회복 아이템 사용 불가, 대신 처치 시 체력 소폭 회복", basicEffect={noPotion=true, healOnKill={chance=1.0, pct=0.04}},
             linkName="재생 지원", linkDesc="비전투 시 파티 회복 속도 증가" }
@@ -267,7 +267,7 @@ script TraitCatalog extends Logic
             linkEffect={atk=0.03, cc=0.01, acc=2, msm=0.02}, linkName="유대의 절정", linkDesc="링크 2슬롯 20레벨+ 시 전스탯+8%" }
         d["무게추"] = { pool="hb", basicName="무게추의 안정", basicDesc="이동 속도 대폭 감소, 대신 받는 피해−40%+넉백 면역", basicEffect={msm=-0.40, dr=0.40, kb=1.0},
             linkEffect={kb=0.10}, linkName="무게추의 안정", linkDesc="파티 넉백·경직 저항+15%" }
-        d["봉인구"] = { pool="hb", basicName="총화", basicDesc="4차 전직 불가(선행 필요), 대신 스킬 데미지+40%", basicEffect={atk=0.40},
+        d["봉인구"] = { pool="hb", basicName="총화", basicDesc="4차 전직 불가, 대신 스킬 데미지+40%", basicEffect={atk=0.40},
             linkEffect={atk=0.02, cc=0.005, acc=1, msm=0.01}, linkName="총화", linkDesc="파티 전 스탯+3%" }
         -- 2026-09-08 밸런스 점검: "특성 변경 불가"가 basicEffect(시작 스탯+40%)만 적용되고 실제로는
         -- 강제되지 않던 무비용 버프였음(이능 재추첨은 큐브마스터 쪽도 아직 미구현이라 해당 없음) ->

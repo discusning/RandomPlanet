@@ -109,31 +109,42 @@ script GateTicketLogic extends Logic
         local count = self:LoadCount(profileCode)
         if count <= 0 then
             log("GateTicket: RequestEnterGate denied, no tickets for profileCode=" .. profileCode)
-            self:OnEnterGateResult(false)
+            self:OnEnterGateResult(false, count)
             return
         end
-        self:SaveCount(profileCode, count - 1)
+        -- 2026-09-08 QA - 둔재(basicEffect.gateTicketSaveChance) 전용. basicDesc가 오랫동안
+        -- "게이트 입장권 낮은 확률 미소모(선행 필요)"로 미구현 표시돼 있었으나, 이 게이트 입장 지점이
+        -- 바로 그 선행 지점 - 소모 직전에 굴려 성공하면 입장권을 그대로 둔다.
+        local newCount = count - 1
+        local statsComp = player:GetComponent("script.PlayerStatsComponent")
+        if isvalid(statsComp) and statsComp:HasTrait("둔재") and _UtilLogic:RandomDouble() < 0.15 then
+            newCount = count
+            log("GateTicket: 둔재 - 입장권 미소모")
+        end
+        self:SaveCount(profileCode, newCount)
         local gateMap = _EntityService:GetEntityByPath("/maps/" .. self.GateMapName)
         if not isvalid(gateMap) then
             log_error("GateTicket: gate map entity not found at /maps/" .. self.GateMapName)
             -- 맵을 못 찾았으면 입장권을 소모한 채로 되돌려주지 않는 것보다야, 되돌려주는 편이 안전.
             self:SaveCount(profileCode, count)
-            self:OnEnterGateResult(false)
+            self:OnEnterGateResult(false, count)
             return
         end
         local spawner = gateMap:GetComponent("script.FieldWaveSpawner")
         if isvalid(spawner) then
             spawner:SetGateMode(true)
         end
-        log("GateTicket: RequestEnterGate granted, remaining=" .. (count - 1))
-        self:OnEnterGateResult(true)
+        log("GateTicket: RequestEnterGate granted, remaining=" .. newCount)
+        self:OnEnterGateResult(true, newCount)
         _TeleportService:TeleportToMapPosition(player, Vector3(self.GateEntryX, self.GateEntryY, 0), self.GateMapName)
     end
 
     @ExecSpace("Client")
-    method void OnEnterGateResult(boolean success)
+    method void OnEnterGateResult(boolean success, integer newCount)
+        -- 2026-09-08 QA - 둔재(gateTicketSaveChance) 도입 이후 성공해도 실제로는 소모되지 않을 수
+        -- 있어, 클라이언트에서 무조건 -1 하는 낙관적 갱신 대신 서버가 계산한 실제 값을 그대로 반영한다.
         if success then
-            self._T.count = math.max(0, self._T.count - 1)
+            self._T.count = newCount
         end
         self:NotifyUIIfOpen()
         log("GateTicket: OnEnterGateResult success=" .. tostring(success))
