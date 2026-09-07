@@ -136,6 +136,16 @@ script Monster extends Component
             if bonusExpChance > 0 and _UtilLogic:RandomDouble() < bonusExpChance then
                 xpToGrant = math.floor(xpToGrant * 1.5)
             end
+            -- 2026-09-08 QA - 거리의 방랑자 링크("탐험 지원": 몬스터 게이트에서 스탯 구슬 획득량
+            -- 대폭 증가) 전용. 스탯 구슬을 경험치로 근사하는 기존 관행에 맞춰, 게이트 모드일 때만
+            -- exp 보너스로 반영(선행 필요였던 것을 게이트 시스템(Phase E)이 이미 있어 신규 연결).
+            if stats.LinkGateDropBonus > 0 then
+                local map = self.Entity.CurrentMap
+                local spawner = isvalid(map) and map:GetComponent("script.FieldWaveSpawner") or nil
+                if isvalid(spawner) and spawner.IsGateMode then
+                    xpToGrant = math.floor(xpToGrant * (1 + stats.LinkGateDropBonus))
+                end
+            end
             -- M2 Phase B 2단계(2026-09-06) - 복불복 상자(expGamble, 스탯 구슬을 경험치로 근사): 50%
             -- 확률로 2배, 50% 확률로 0.
             if _TraitEffectEngine:HasExpGamble(stats.Trait) or (stats.Trait2 ~= "" and _TraitEffectEngine:HasExpGamble(stats.Trait2)) then

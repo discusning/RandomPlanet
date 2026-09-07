@@ -230,6 +230,15 @@ script TraitEffectEngine extends Logic
         return mod.clearCurrencyBonus or 0
     end
 
+    -- M2 Phase C(2026-09-08) - 거리의 방랑자 링크("탐험 지원": 몬스터 게이트에서 스탯 구슬 획득량
+    -- 대폭 증가) 전용. 이 프로젝트는 스탯 구슬을 경험치로 근사(§8-2 관행)하므로, 게이트 모드에서만
+    -- 적용되는 경험치 보너스로 구현 - 상시 exp 채널과 달리 소비처(Monster.GrantXpToAttacker)가
+    -- IsGateMode를 직접 확인해야 해서 범용 채널로 못 넣고 전용 게터로 분리.
+    method number GetLinkGateDropBonus(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.gateDropBonus or 0
+    end
+
     -- 링크 효율 보정계수(전체 기획서 §2-6) - 액티브(플레이어블) 캐릭터 본인이 보유한 특성이 자신이
     -- "받는" 링크 효과 전체에 곱연산으로 적용된다. 링크 캐릭터 쪽 특성이 아니라 본인 특성 기준.
     method number GetLinkEfficiencyMultiplier(string trait, string trait2)

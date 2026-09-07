@@ -244,7 +244,7 @@ script TraitCatalog extends Logic
         d["금욕"] = { pool="hb", basicName="재생 지원", basicDesc="회복 아이템 사용 불가, 대신 처치 시 체력 소폭 회복", basicEffect={noPotion=true, healOnKill={chance=1.0, pct=0.04}},
             linkName="재생 지원", linkDesc="비전투 시 파티 회복 속도 증가" }
         d["고독"] = { pool="hb", basicName="연결의 대가", basicDesc="링크 패시브를 받지 못함, 대신 전 스탯+30%", basicEffect={atk=0.30, cc=0.05, acc=10, msm=0.15},
-            linkName="연결의 대가", linkDesc="다른 슬롯 링크효율+15%(현재 미구현 - 조건부 교차-슬롯 효과, Docs/RandomPlanet-M2-GDD.md Phase C 참고)" }
+            linkName="연결의 대가", linkDesc="다른 슬롯 링크효율+15%" }
         d["빈곤의 서약"] = { pool="hb", basicName="청빈의 나눔", basicDesc="영구 재화 획득 없음, 대신 경험치+15%", basicEffect={exp=0.15},
             linkEffect={drop=0.08}, linkName="청빈의 나눔", linkDesc="파티 스탯 구슬 획득량+15%" }
         d["무모함"] = { pool="hb", basicName="무모한 돌격", basicDesc="방어력 0, 대신 크리티컬 확률+30%", basicEffect={dr=-0.30, cc=0.30},
@@ -260,7 +260,7 @@ script TraitCatalog extends Logic
             -- 상시 적용 근사치로 낮춰서 반영(조건부 텍스트 -> 상시 flat 근사, 처형자 등과 동일 원칙).
             linkEffect={atk=0.03}, linkName="단일 지원", linkDesc="단일 적 상대 시 파티 데미지+10%" }
         d["박애주의자"] = { pool="hb", basicName="결속", basicDesc="본인 데미지−30%, 대신 링크 패시브 효율 3배", basicEffect={atk=-0.30},
-            linkName="결속", linkDesc="링크 2슬롯 모두 활성 시 전스탯+6%(현재 미구현 - 조건부 교차-슬롯 효과)" }
+            linkName="결속", linkDesc="링크 2슬롯 모두 활성 시 전스탯+6%" }
         d["도굴꾼"] = { pool="hb", basicName="보스전 지원", basicDesc="보스에게 받는 피해 2배, 대신 보스 처치 보상 3배", basicEffect={exp=0.20},
             linkEffect={atk=0.04}, linkName="보스전 지원", linkDesc="파티 보스전 데미지+12%" }
         d["약속된 죽음"] = { pool="hb", basicName="유대의 절정", basicDesc="부활·회복 전부 불가, 대신 전 스탯+25%", basicEffect={noPotion=true, atk=0.25, cc=0.04, acc=8, msm=0.12},
@@ -281,7 +281,7 @@ script TraitCatalog extends Logic
         d["거울 갑옷"] = { pool="hb", basicName="반사의 축복", basicDesc="받는 피해의 100%를 그대로 반사, 대신 자신도 그대로 받음", basicEffect={mirrorDamage=1.0},
             linkName="반사의 축복", linkDesc="파티가 받는 근접 피해 일부 반사" }
         d["거리의 방랑자"] = { pool="hb", basicName="탐험 지원", basicDesc="웨이브 몬스터 수+25%, 대신 스탯 구슬 드랍량도+25%", basicEffect={exp=0.25},
-            linkName="탐험 지원", linkDesc="몬스터 게이트에서 스탯 구슬 획득량 대폭 증가(선행 필요)" }
+            linkEffect={gateDropBonus=0.30}, linkName="탐험 지원", linkDesc="몬스터 게이트에서 스탯 구슬 획득량 대폭 증가" }
         d["굶주린 살점"] = { pool="hb", basicName="고통 공유", basicDesc="피격당할 때마다 공격력 소폭 누적(런 종료까지 유지), 대신 시작 체력 낮음", basicEffect={hp=-0.20, hitStackAtk={perHit=0.02, cap=0.40}},
             linkName="고통 공유", linkDesc="파티가 피격당할 때마다 낮은 확률로 짧은 공격력 버프" }
 

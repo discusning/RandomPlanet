@@ -154,6 +154,9 @@ script PlayerStatsComponent extends Component
     @Sync property number LinkOnKillCurrencyChance = 0
     -- 2026-09-08 QA - 불운 링크("후원": 파티 클리어 시 영구재화+20%) 전용.
     @Sync property number LinkClearCurrencyBonus = 0
+    -- 2026-09-08 QA - 거리의 방랑자 링크("탐험 지원": 몬스터 게이트에서 스탯 구슬 획득량 대폭 증가)
+    -- 전용. Monster.GrantXpToAttacker가 IsGateMode일 때만 이 값을 exp 보너스로 반영한다.
+    @Sync property number LinkGateDropBonus = 0
     -- 순교자(lowHpCritMult)가 크리 데미지 배율에 얹는 보너스의 베이스라인 - RecalculateDerived가 매번
     -- (ApplyToStats 이후) 갱신해서 CombatTick의 매 틱 조건부 가산이 드리프트하지 않게 한다.
     @HideFromInspector property number BaseCritDamageMultiplier = 0
@@ -850,6 +853,7 @@ script PlayerStatsComponent extends Component
         self.LinkLifestealBonus = 0
         self.LinkOnKillCurrencyChance = 0
         self.LinkClearCurrencyBonus = 0
+        self.LinkGateDropBonus = 0
         -- M2 Phase C(2026-09-08) - 고독을 링크 슬롯에 편성하면(본인 특성이 아니라 "다른 슬롯"으로)
         -- 반대편 슬롯의 링크 효율을 +15%(부록 D-6 "다른 슬롯 링크효율+15%") 올린다 - 그래서 두 슬롯의
         -- 효율이 서로 다를 수 있어 슬롯별로 따로 계산한다(예전엔 linkEfficiency 하나를 공유).
@@ -862,6 +866,7 @@ script PlayerStatsComponent extends Component
             self.LinkLifestealBonus = self.LinkLifestealBonus + _TraitEffectEngine:GetLinkLifestealBonus(self.LinkTrait1) * linkEfficiency1
             self.LinkOnKillCurrencyChance = self.LinkOnKillCurrencyChance + _TraitEffectEngine:GetLinkOnKillCurrencyChance(self.LinkTrait1) * linkEfficiency1
             self.LinkClearCurrencyBonus = self.LinkClearCurrencyBonus + _TraitEffectEngine:GetLinkClearCurrencyBonus(self.LinkTrait1) * linkEfficiency1
+            self.LinkGateDropBonus = self.LinkGateDropBonus + _TraitEffectEngine:GetLinkGateDropBonus(self.LinkTrait1) * linkEfficiency1
         end
         if self.LinkTrait2 ~= "" then
             _TraitEffectEngine:ApplyLinkToStats(self, self.LinkTrait2, linkEfficiency2)
@@ -869,6 +874,7 @@ script PlayerStatsComponent extends Component
             self.LinkLifestealBonus = self.LinkLifestealBonus + _TraitEffectEngine:GetLinkLifestealBonus(self.LinkTrait2) * linkEfficiency2
             self.LinkOnKillCurrencyChance = self.LinkOnKillCurrencyChance + _TraitEffectEngine:GetLinkOnKillCurrencyChance(self.LinkTrait2) * linkEfficiency2
             self.LinkClearCurrencyBonus = self.LinkClearCurrencyBonus + _TraitEffectEngine:GetLinkClearCurrencyBonus(self.LinkTrait2) * linkEfficiency2
+            self.LinkGateDropBonus = self.LinkGateDropBonus + _TraitEffectEngine:GetLinkGateDropBonus(self.LinkTrait2) * linkEfficiency2
         end
         self.LinkOnKillCurrencyChance = math.max(0, math.min(1.0, self.LinkOnKillCurrencyChance))
         -- 박애주의자를 링크 슬롯에 편성 + 두 슬롯 모두 활성이면(부록 D-6 "링크 2슬롯 모두 활성 시
