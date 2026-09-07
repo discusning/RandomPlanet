@@ -72,9 +72,9 @@ M1 로드맵(Phase 0~4 + Phase 2.5) 전 항목 ✅ 달성. GDD는 `Archive/Rando
 - ✅ 빈곤의 서약·한탕주의 특성의 특수 재화 규칙 — 2026-09-06 구현+실측 검증 완료. `GrantRunEndCurrency`가 두 특성을 트레잇 이름으로 직접 분기(기존 봉인된 자/외길/봉인구 패턴과 동일 원칙): 빈곤의 서약=항상 0(실측 확인), 한탕주의=평소 0(실측 확인)·클리어 시에만 기본의 5배(실측: base68→340 정확히 일치). 시간여행자(`clearCurrencyBonus=0.15`)도 함께 구현+실측(68→78, floor(68×1.15) 일치).
 
 ### Phase H — 리더보드 · 명예의 전당
-- ⬜ `msw-packages` 랭킹 패키지 확인 후 채택 여부 결정
-- ⬜ 전직 퀘스트 보스 클리어 타임 전역 리더보드
-- ⬜ ENDING 화면 → 명예의 전당 등록 연결 (기존 개인 최고 기록을 전역으로 확장)
+- ✅ `msw-packages`의 `ranking-basic-package` 확인 완료 — World-shared `SortableDataStorage` 기반이라 컨셉은 맞았으나, 이 프로젝트는 솔로 전용 게임이고 패키지는 admin 권한 체크·`WorldConfig.PlayerEntityAuthorityCheck` 활성화·다중 Logic 파일(RankingDataStorageLogic/RankingDataCacheLogic/AdminLogic 등) 등 MMO 랭킹 UI 전제의 부가 설정이 많아, 이번 프로젝트 규모 대비 오버스펙으로 판단 — 패키지 미채택, `_DataStorageService:GetSortableDataStorage`를 직접 쓰는 자체 구현으로 대체(아래).
+- ✅ 전직 퀘스트 보스 클리어 타임(4차/최종만, 헤드라인 지표) 전역 리더보드 — 2026-09-08 구현+실측 검증 완료. 신규 `Meta/LeaderboardLogic.mlua`(`@Logic`) — `_DataStorageService:GetSortableDataStorage("LB_PromotionClear4")`에 `DataStorageKeyInfo(profileCode, "", nickname)`로 닉네임을 Tag에 실어 저장(값=클리어초×10, 정수 전용 제약 우회), 기존 기록보다 느리면 Set 자체를 스킵(Get 1회 비교). `PlayerStatsComponent.RecordBossKillForPromotion`이 tier==4 처치 시 `_LeaderboardLogic:SubmitPromotionClearSeconds` 호출하도록 연결.
+- ✅ ENDING 화면 → 명예의 전당 등록 연결(기존 개인 최고 기록을 전역으로 확장) — `BestRecordLogic.RequestSubmitRun`이 `isNewLevel`(개인 최고 레벨 갱신) 판정 시 `_LeaderboardLogic:SubmitBestLevel`을 함께 호출해 `LB_BestLevel` 전역 보드에 반영. `EndingGroup.ui`에 "명예의 전당" 버튼 추가 → 신규 `ui/LeaderboardGroup.ui`(레벨/클리어타임 top10 2열) + `Field/LeaderboardUIController.mlua`(`@Logic`)로 조회 결과 표시. **실측(Maker Play, server_main+client 양쪽)**: 테스트 3계정(TEST_A/B/C) 레벨 12/21/7 + 클리어타임 145.7/88.2/200.0초 제출 → `RequestTopBestLevel`(내림차순)/`RequestTopPromotionClear`(오름차순) 조회 결과가 UI 텍스트에 `1. 테스터B Lv.21 / 2. 테스터A Lv.12 / 3. 테스터C Lv.7`, `1. 테스터B 88.2초 / 2. 테스터A 145.7초 / 3. 테스터C 200.0초`로 정확히 정렬 반영됨을 확인, 테스트 데이터는 검증 직후 `DeleteAndWait`로 정리. 실 유저 계정으로 개인 최고 레벨 갱신 → 자동 전역 반영까지의 E2E는 로스터 안전 지침상 보류(로직 단위는 검증 완료).
 
 ### Phase I — 레벨 21 + 경험치 테이블 재조정
 - ⬜ 최대 레벨 5~10(MVP) → 21로 확장

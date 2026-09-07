@@ -42,6 +42,12 @@ script BestRecordLogic extends Logic
                 end
             end)
         end
+        -- M2 Phase H(2026-09-08) - 개인 최고 레벨 갱신을 전역 명예의 전당(LeaderboardLogic)에도 반영.
+        -- "기존 개인 최고 기록을 전역으로 확장"(GDD §9) - 레벨만 전역 랭킹 대상(처치수/생존시간은
+        -- 이번 패스 범위 밖, 개인 기록 화면에서만 계속 표시).
+        if isNewLevel then
+            _LeaderboardLogic:SubmitBestLevel(profileCode, player.PlayerComponent.Nickname, newBestLevel)
+        end
         log("BestRecord: RequestSubmitRun level=" .. level .. " killCount=" .. killCount .. " survivalSeconds=" .. string.format("%.1f", survivalSeconds) .. " -> newLevel=" .. tostring(isNewLevel) .. " newKillCount=" .. tostring(isNewKillCount) .. " newSurvival=" .. tostring(isNewSurvival))
         self:OnBestResult(isNewLevel, isNewKillCount, isNewSurvival, newBestLevel, newBestKillCount, newBestSurvivalSeconds)
     end

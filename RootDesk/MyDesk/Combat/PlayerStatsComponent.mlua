@@ -428,7 +428,15 @@ script PlayerStatsComponent extends Component
         end
 
         self.LastPromotionClearSeconds = _UtilLogic.ElapsedSeconds - self.PromotionMilestoneElapsed
-        log("PlayerStats: 전직 퀘스트 보스 처치 확인 tier=" .. tier .. " 클리어타임=" .. self.LastPromotionClearSeconds .. "초 (계정 귀속 영구 저장·전역 리더보드는 M2 Phase H)")
+        log("PlayerStats: 전직 퀘스트 보스 처치 확인 tier=" .. tier .. " 클리어타임=" .. self.LastPromotionClearSeconds .. "초")
+
+        -- M2 Phase H(2026-09-08) - 4차(최종) 전직만 전역 리더보드 대상(전체 기획서 §9 "전직 퀘스트
+        -- 보스 클리어 타임" - 헤드라인 지표로 최종 전직 하나만 다룬다, 2/3차는 개인 로그로만 남김).
+        if tier == 4 and isvalid(self.Entity.PlayerComponent) then
+            local profileCode = self.Entity.PlayerComponent.ProfileCode
+            local nickname = self.Entity.PlayerComponent.Nickname
+            _LeaderboardLogic:SubmitPromotionClearSeconds(profileCode, nickname, self.LastPromotionClearSeconds)
+        end
 
         -- 외길(Hidden-bad) - "스킬 슬롯 2개로 제한(1차분만 유지)/이후 전직에서 스킬 획득이 중단" -
         -- 보스는 정상적으로 처치하되(레벨/특성 진행은 막지 않음) 스킬 지급만 스킵.

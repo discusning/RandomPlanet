@@ -1,0 +1,96 @@
+@Logic
+script LeaderboardLogic extends Logic
+    -- M2 Phase H(2026-09-08) - 전역 리더보드/명예의 전당(전체 기획서 §9). 기존 AccountCurrencyLogic류가
+    -- 쓰는 계정별 UserDataStorage와 달리, 전 유저를 한 번에 비교해야 하므로 World-shared
+    -- SortableDataStorage(정수 값 + 정렬 조회 전용)를 쓴다 - 다른 계정 데이터를 직접 들여다보지
+    -- 않고도 GetSortedAndWait 한 번으로 순위표를 받는다. 닉네임은 SortableDataStorage의 Tag 필드에
+    -- 함께 저장한다(DataStorageKeyInfo(key, version, tag)).
+    property string BestLevelBoardName = "LB_BestLevel"
+    property string PromotionClearBoardName = "LB_PromotionClear4"
+    property integer TopN = 10
+    -- GetSortedAndWait의 min/max는 "값 범위" 필터다(반환 개수 제한 아님) - 레벨은 1~21, 클리어시간은
+    -- 초*10 정수라 넉넉히 잡아둔다.
+    property integer LevelValueMax = 100
+    property integer ClearSecondsTenthsMax = 36000
+
+    @ExecSpace("Server")
+    method void SubmitBestLevel(string profileCode, string nickname, integer level)
+        -- BestRecordLogic.RequestSubmitRun이 "이번 런이 계정 개인 최고 레벨을 갱신했다"고 이미
+        -- 판정한 뒤에만 호출한다 - 여기서 다시 비교하지 않고 그대로 기록(전역 보드 전용 재조회 없이
+        -- Credit 1회 Set으로 끝냄, §8 "불필요한 재조회 금지" 원칙).
+        local ds = _DataStorageService:GetSortableDataStorage(self.BestLevelBoardName)
+        local keyInfo = DataStorageKeyInfo(profileCode, "", nickname)
+        local errorCode = ds:SetByInfoAndWait(keyInfo, level)
+        if errorCode ~= 0 then
+            log_error("Leaderboard: SubmitBestLevel failed errorCode=" .. tostring(errorCode) .. " level=" .. level)
+        else
+            log("Leaderboard: SubmitBestLevel nickname=" .. nickname .. " level=" .. level)
+        end
+    end
+
+    @ExecSpace("Server")
+    method void SubmitPromotionClearSeconds(string profileCode, string nickname, number seconds)
+        -- RecordBossKillForPromotion(4차 전직 처치)에서만 호출된다. 낮을수록 좋은 기록이라, 여기서는
+        -- BestRecordLogic과 달리 "이미 이번 런이 신기록인지" 판정된 값이 넘어오지 않으므로 기존
+        -- 전역 기록과 직접 비교(Get 1회 + 필요할 때만 Set 1회 - 매번 Set하면 계정당 여러 런에 걸쳐
+        -- 더 느린 기록이 더 빠른 기존 기록을 덮어쓰는 버그가 생긴다).
+        local rounded = math.max(0, math.floor(seconds * 10 + 0.5))
+        local ds = _DataStorageService:GetSortableDataStorage(self.PromotionClearBoardName)
+        local errorCode, current = ds:GetAndWait(profileCode)
+        if errorCode == 0 and current ~= nil and current <= rounded then
+            log("Leaderboard: SubmitPromotionClearSeconds skip (기존 기록이 더 빠름), current=" .. tostring(current) .. " new=" .. rounded)
+            return
+        end
+        local keyInfo = DataStorageKeyInfo(profileCode, "", nickname)
+        local setErrorCode = ds:SetByInfoAndWait(keyInfo, rounded)
+        if setErrorCode ~= 0 then
+            log_error("Leaderboard: SubmitPromotionClearSeconds failed errorCode=" .. tostring(setErrorCode))
+        else
+            log("Leaderboard: SubmitPromotionClearSeconds nickname=" .. nickname .. " tenths=" .. rounded)
+        end
+    end
+
+    @ExecSpace("Server")
+    method void RequestTopBestLevel()
+        -- 클라이언트(LeaderboardUIController.Show)가 호출. 서버에서 정렬 조회 후 결과만 클라로
+        -- 돌려준다(SortableDataStorage 접근은 ServerOnly라 클라가 직접 조회할 수 없음).
+        local ds = _DataStorageService:GetSortableDataStorage(self.BestLevelBoardName)
+        local errorCode, pages = ds:GetSortedAndWait(SortDirection.Descending, 0, self.LevelValueMax)
+        local result = {}
+        if errorCode == 0 then
+            local items = pages:GetCurrentPageDatas()
+            for i = 1, math.min(self.TopN, #items) do
+                table.insert(result, { nickname = items[i].KeyInfo.Tag, value = items[i].Value })
+            end
+        else
+            log_error("Leaderboard: RequestTopBestLevel GetSortedAndWait failed errorCode=" .. tostring(errorCode))
+        end
+        self:OnTopBestLevelResult(result)
+    end
+
+    @ExecSpace("Client")
+    method void OnTopBestLevelResult(table entries)
+        _LeaderboardUIController:ShowBestLevel(entries)
+    end
+
+    @ExecSpace("Server")
+    method void RequestTopPromotionClear()
+        local ds = _DataStorageService:GetSortableDataStorage(self.PromotionClearBoardName)
+        local errorCode, pages = ds:GetSortedAndWait(SortDirection.Ascending, 0, self.ClearSecondsTenthsMax)
+        local result = {}
+        if errorCode == 0 then
+            local items = pages:GetCurrentPageDatas()
+            for i = 1, math.min(self.TopN, #items) do
+                table.insert(result, { nickname = items[i].KeyInfo.Tag, value = items[i].Value })
+            end
+        else
+            log_error("Leaderboard: RequestTopPromotionClear GetSortedAndWait failed errorCode=" .. tostring(errorCode))
+        end
+        self:OnTopPromotionClearResult(result)
+    end
+
+    @ExecSpace("Client")
+    method void OnTopPromotionClearResult(table entries)
+        _LeaderboardUIController:ShowPromotionClear(entries)
+    end
+end

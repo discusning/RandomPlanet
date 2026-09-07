@@ -6,6 +6,9 @@ script EndingUIController extends Logic
     property TextGUIRendererComponent killText = "575c07cd-f82c-4e5b-ab4d-5726688bec25"
     property TextGUIRendererComponent survivalText = "6fcb7650-1dd2-4a83-9621-cc9e37957686"
     property Entity restartButton = "8f06f937-452d-4e1b-b3c9-c81a6594a5e8"
+    -- M2 Phase H(2026-09-08) - 명예의 전당 진입점(전체 기획서 §9). ENDING 화면에서만 열 수 있다.
+    property Entity hallOfFameButton = "a6745fcd-7773-4e26-8547-1008744e640d"
+    @HideFromInspector property any hallOfFameHandler = nil
     -- 시장 비교 검토(2026-08-25, Dead Cells/RoR2 런 종료 리포트 + Rogue Legacy/Vampire Survivors
     -- 개인 최고 기록 참고) - 도달 웨이브·클리어 여부 + 계정 내 최고 기록 표시. 바인딩은
     -- msw_ui_builder write(bind=...)로 주입.
@@ -23,6 +26,9 @@ script EndingUIController extends Logic
         if isvalid(self.restartButton) then
             self.restartHandler = self.restartButton:ConnectEvent(ButtonClickEvent, self.OnRestartClicked)
         end
+        if isvalid(self.hallOfFameButton) then
+            self.hallOfFameHandler = self.hallOfFameButton:ConnectEvent(ButtonClickEvent, self.OnHallOfFameClicked)
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -30,6 +36,14 @@ script EndingUIController extends Logic
         if self.restartHandler and isvalid(self.restartButton) then
             self.restartButton:DisconnectEvent(ButtonClickEvent, self.restartHandler)
         end
+        if self.hallOfFameHandler and isvalid(self.hallOfFameButton) then
+            self.hallOfFameButton:DisconnectEvent(ButtonClickEvent, self.hallOfFameHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnHallOfFameClicked()
+        _LeaderboardUIController:Show()
     end
 
     @ExecSpace("ClientOnly")

@@ -1,0 +1,127 @@
+@Logic
+script LeaderboardUIController extends Logic
+    -- M2 Phase H(2026-09-08) - 명예의 전당(전체 기획서 §9). 두 종목(최고 레벨 / 전직 4차 최속 클리어)
+    -- 각각 top10을 좌우 컬럼에 표시. LeaderboardLogic이 World-shared SortableDataStorage에서 조회한
+    -- 결과를 서버->클라 왕복으로 넘겨주면(OnTopBestLevelResult/OnTopPromotionClearResult) 이 두 메서드가
+    -- 받아 표시한다. EndingGroup의 "명예의 전당" 버튼에서 열림.
+    property Entity leaderboardGroup = "dc96dbe1-c265-4eb2-b8d1-35b02cbdc714"
+    property Entity btnClose = "8e1aec1e-152a-4eee-a480-b56e53aa34f3"
+    property Entity emptyNote = "675074d0-0bf7-48d7-be45-d0a248959a45"
+    property TextGUIRendererComponent levelRow1 = "56df8f27-cf17-45fd-bda8-68a12fff9f96"
+    property TextGUIRendererComponent levelRow2 = "5ea79edb-ce77-450d-8381-48e69c44c318"
+    property TextGUIRendererComponent levelRow3 = "ea902751-b797-4790-b8f6-9b2416ab6f50"
+    property TextGUIRendererComponent levelRow4 = "39076273-cc3a-4f30-9b10-bcd3558f3037"
+    property TextGUIRendererComponent levelRow5 = "abcbf8c6-2890-4ae9-8d68-cb94c5872eb1"
+    property TextGUIRendererComponent levelRow6 = "347bfbb7-27b6-4fa9-aede-b0f7e4300ac2"
+    property TextGUIRendererComponent levelRow7 = "85b9ef69-8122-4349-a02b-5a4323473353"
+    property TextGUIRendererComponent levelRow8 = "6a0b254f-9ef9-4274-8537-0e5e7899b1f4"
+    property TextGUIRendererComponent levelRow9 = "1024c062-f71f-485c-ac38-a86f8ac8cd3c"
+    property TextGUIRendererComponent levelRow10 = "17c489be-2ddb-4210-92aa-023012165c81"
+    property TextGUIRendererComponent clearRow1 = "9a65cdad-2ede-469c-a67a-dacd51682a7b"
+    property TextGUIRendererComponent clearRow2 = "7c24538c-0ef4-4680-b6c6-b2c6a14ac4d9"
+    property TextGUIRendererComponent clearRow3 = "a13258e7-c75b-4687-9971-7a4d25b93720"
+    property TextGUIRendererComponent clearRow4 = "fd39b3a1-be14-431a-bd66-af016be8a1d1"
+    property TextGUIRendererComponent clearRow5 = "ae1d6de4-11ac-45ba-8def-a79fc63de849"
+    property TextGUIRendererComponent clearRow6 = "b333d76c-8517-4353-b9a2-0c8431bc9d4f"
+    property TextGUIRendererComponent clearRow7 = "ef2de643-8104-4e1b-94ec-038b86e93fb1"
+    property TextGUIRendererComponent clearRow8 = "1d8ab7fb-8f78-45f4-b8af-15a4e4ddbb61"
+    property TextGUIRendererComponent clearRow9 = "df86b7d3-f734-4d15-898e-12aef0339c2a"
+    property TextGUIRendererComponent clearRow10 = "2839192e-3de6-4f82-b4ff-599e1cf010a9"
+    @HideFromInspector property any closeHandler = nil
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        if isvalid(self.leaderboardGroup) then
+            self.leaderboardGroup.Enable = false
+        end
+        if isvalid(self.btnClose) then
+            self.closeHandler = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.closeHandler and isvalid(self.btnClose) then
+            self.btnClose:DisconnectEvent(ButtonClickEvent, self.closeHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        if isvalid(self.leaderboardGroup) then
+            self.leaderboardGroup.Enable = true
+        end
+        self:ResetRows()
+        _LeaderboardLogic:RequestTopBestLevel()
+        _LeaderboardLogic:RequestTopPromotionClear()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        if isvalid(self.leaderboardGroup) then
+            self.leaderboardGroup.Enable = false
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ResetRows()
+        -- Called each time the popup opens so a slow/failed query doesn't leave the previous
+        -- session's stale rows on screen while the new result is still in flight.
+        local levelRows = { self.levelRow1, self.levelRow2, self.levelRow3, self.levelRow4, self.levelRow5,
+            self.levelRow6, self.levelRow7, self.levelRow8, self.levelRow9, self.levelRow10 }
+        local clearRows = { self.clearRow1, self.clearRow2, self.clearRow3, self.clearRow4, self.clearRow5,
+            self.clearRow6, self.clearRow7, self.clearRow8, self.clearRow9, self.clearRow10 }
+        for i = 1, 10 do
+            if isvalid(levelRows[i]) then levelRows[i].Text = i .. ". -" end
+            if isvalid(clearRows[i]) then clearRows[i].Text = i .. ". -" end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ShowBestLevel(table entries)
+        -- entries: { {nickname=string, value=integer level}, ... } up to 10, already sorted desc by
+        -- LeaderboardLogic.RequestTopBestLevel.
+        local rows = { self.levelRow1, self.levelRow2, self.levelRow3, self.levelRow4, self.levelRow5,
+            self.levelRow6, self.levelRow7, self.levelRow8, self.levelRow9, self.levelRow10 }
+        for i = 1, 10 do
+            if isvalid(rows[i]) then
+                local entry = entries[i]
+                if entry ~= nil then
+                    local nick = (entry.nickname ~= nil and entry.nickname ~= "") and entry.nickname or "익명"
+                    rows[i].Text = i .. ". " .. nick .. "  Lv." .. tostring(entry.value)
+                else
+                    rows[i].Text = i .. ". -"
+                end
+            end
+        end
+        self:RefreshEmptyNote(entries)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ShowPromotionClear(table entries)
+        -- entries: { {nickname=string, value=integer tenthsOfSecond}, ... } up to 10, ascending
+        -- (lower clear time = better rank). value is stored as seconds*10 for a bit of precision
+        -- (SortableDataStorage only stores integers) - LeaderboardLogic already rounds on submit.
+        local rows = { self.clearRow1, self.clearRow2, self.clearRow3, self.clearRow4, self.clearRow5,
+            self.clearRow6, self.clearRow7, self.clearRow8, self.clearRow9, self.clearRow10 }
+        for i = 1, 10 do
+            if isvalid(rows[i]) then
+                local entry = entries[i]
+                if entry ~= nil then
+                    local nick = (entry.nickname ~= nil and entry.nickname ~= "") and entry.nickname or "익명"
+                    local seconds = entry.value / 10
+                    rows[i].Text = i .. ". " .. nick .. "  " .. string.format("%.1f", seconds) .. "초"
+                else
+                    rows[i].Text = i .. ". -"
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshEmptyNote(table entries)
+        if isvalid(self.emptyNote) then
+            self.emptyNote.Enable = (#entries == 0)
+        end
+    end
+end
