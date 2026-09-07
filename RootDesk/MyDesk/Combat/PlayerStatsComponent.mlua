@@ -70,8 +70,8 @@ script PlayerStatsComponent extends Component
     -- 캐릭터 정보 UI 표시·CP 산식에는 아직 반영되지 않음(정직하게 기록, 후속 패스 과제) - 호출부가
     -- 20곳 이상으로 많아 이번 패스에서 전부 확장하면 리스크가 크다고 판단해 스탯 채널만 우선 연결.
     @Sync property string Trait2 = ""
-    -- 단단함 전용 - 실제 "받는 피해 감소" 자체는 몬스터->플레이어 공격 파이프라인이 없어 아직
-    -- 관측 불가하지만, CP 산식에는 배율로 실제 반영된다(생존형 특성도 전투력에 기여하라는 요청).
+    -- 단단함 전용 - "받는 피해 감소"는 `PlayerHit.HandleHitEvent`(몬스터->플레이어 공격 파이프라인,
+    -- Phase 3.5에 신설)가 실제로 소비한다. CP 산식에도 배율로 함께 반영된다.
     @Sync property number DamageReductionPercent = 0
     -- 버서크 전용 - 체력 비율에 반비례해 실시간으로 갱신되는 공격력 보너스(BerserkTick). CP에 그대로
     -- 반영되므로 체력이 낮을수록 전투력 수치도 함께 오른다("살수록 약해지고 다치수록 강해진다").
@@ -109,6 +109,14 @@ script PlayerStatsComponent extends Component
     -- 자체가 없어 "선행 필요"로 미구현이었던 것을 신규 연결 - FieldWaveSpawner.RollGateTicketDrop이
     -- 판정 시 이 값을 더해서 읽는다.
     @Sync property number GateTicketChanceBonus = 0
+    -- 2026-09-08 QA 발견 - RestGaugeLogic.TryConsumeForEntry("휴식 게이지 40 이상 소모 시 보상 2배")가
+    -- 이미 오래전부터 게이지 차감+신호(rewardBonus)까지 반환하고 있었으나, 주석에 "토벌전장 보상
+    -- 시스템(Phase 4) 자체가 없어서" 실제 지급은 미뤄져 있었다 - 그 보상 시스템(XP/드랍/런종료 재화)이
+    -- 이미 오래전에 다 구축된 상태라 신규 연결. `CharacterRosterLogic.RequestEnterBattlefield`가 이
+    -- 값을 진입 시점에 세팅, `Monster.GrantXpToAttacker`/`TryDropPotion`/`GrantRunEndCurrency`가 함께
+    -- 소비한다. 게이트 모드는 별도의 3배/2배 배율 체계라 이 보너스와 중첩되지 않게
+    -- `GateTicketLogic.RequestEnterGate`에서 명시적으로 꺼둔다.
+    @Sync property boolean RestBonusActive = false
     -- 부활자(Hidden-good, basicEffect.reviveOnce) - 런당 1회 소모. PlayerHit.HandleHitEvent가 치명적
     -- 피해 직전에 확인한다.
     @Sync @HideFromInspector property boolean ReviveUsedThisRun = false
@@ -208,6 +216,7 @@ script PlayerStatsComponent extends Component
         self.EndedWaveReached = 0
         self.EndedFieldCleared = false
         self.ReviveUsedThisRun = false
+        self.RestBonusActive = false
         -- M2 Phase B 2단계 - 캐릭터 교체마다 런-스코프 누적 상태를 전부 초기화(이전 캐릭터의 스택이
         -- 새 캐릭터로 새는 것을 방지 - 위 BerserkDamageBonusPercent 리셋과 동일한 이유).
         self.ShieldAmount = 0
@@ -626,6 +635,11 @@ script PlayerStatsComponent extends Component
             bonus = bonus + self.LinkClearCurrencyBonus
             granted = math.floor(baseCurrency * (1 + bonus))
         end
+        -- 2026-09-08 QA - RestGaugeLogic(휴식 게이지 소모 "보상 2배")가 오랫동안 신호만 남기고
+        -- 실제 지급이 없던 것을 신규 연결 - 런종료 재화 지급에 우선 적용.
+        if self.RestBonusActive then
+            granted = granted * 2
+        end
         if granted > 0 then
             _AccountCurrencyLogic:GrantCurrency(player.ProfileCode, granted, player.UserId)
         end
@@ -796,8 +810,8 @@ script PlayerStatsComponent extends Component
         -- LUK secondary: 회피 +0.2%/pt - inert until a monster-attacks-player pipeline exists.
         self.EvasionPercent = effLuk * 0.002
 
-        -- 단단함(1차 특성) - 방어력 소폭 증가. 실제 피격 파이프라인이 없어 아직 데미지 경감 자체는
-        -- 관측 불가하지만, CP 산식(CharacterInfoUIController)에는 배율로 실제 반영된다.
+        -- 단단함(1차 특성) - 방어력 소폭 증가. 데미지 경감은 `PlayerHit.HandleHitEvent`가 실제로
+        -- 소비하고, CP 산식(CharacterInfoUIController)에도 배율로 함께 반영된다.
         self.DamageReductionPercent = (self.Trait == "단단함" or self.Trait2 == "단단함") and 0.12 or 0
         -- 버서크 보너스는 여기서 0으로 리셋 - 버서크가 아니면 BerserkTick 타이머가 애초에 돌지
         -- 않으므로(UpdateBerserkZoneState) 특성을 바꾼(캐릭터 교체) 경우에도 이전 보정이 남지 않는다.

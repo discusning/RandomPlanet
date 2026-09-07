@@ -103,9 +103,8 @@ script RestGaugeLogic extends Logic
     method boolean TryConsumeForEntry(string profileCode)
         -- CharacterRosterLogic.RequestEnterBattlefield에서 텔레포트 직전에 호출된다.
         -- 카오스 던전과 동일하게 자동 소모(선택 토글 없음) - 40 이상 보유 시 그만큼 깎고
-        -- true를 반환한다. 실제 "보상 2배" 지급은 아직 토벌전장 보상 시스템 자체가 없어서
-        -- (Phase 4 미착수) 여기서는 게이지 차감 + 신호만 남기고, 실제 지급은 그 시스템이
-        -- 생기면 이 반환값을 읽어 처리하면 된다.
+        -- true를 반환한다. 2026-09-08부터 이 반환값이 PlayerStatsComponent.RestBonusActive로
+        -- 세팅돼 런종료 재화(GrantRunEndCurrency)에 실제로 2배 적용된다.
         local value = self:LoadAndAccrue(profileCode)
         if value < self.ConsumePerEntry then
             return false

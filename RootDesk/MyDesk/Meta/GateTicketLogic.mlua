@@ -122,6 +122,12 @@ script GateTicketLogic extends Logic
             log("GateTicket: 둔재 - 입장권 미소모")
         end
         self:SaveCount(profileCode, newCount)
+        -- 2026-09-08 QA - 게이트는 별도의 3배/2배 배율 체계라 휴식 보너스(RestBonusActive)와
+        -- 중첩되지 않게 명시적으로 꺼둔다(일반 전장 재입장 전까지 남아있을 수 있는 값 방지).
+        local restStatsComp = player:GetComponent("script.PlayerStatsComponent")
+        if isvalid(restStatsComp) then
+            restStatsComp.RestBonusActive = false
+        end
         local gateMap = _EntityService:GetEntityByPath("/maps/" .. self.GateMapName)
         if not isvalid(gateMap) then
             log_error("GateTicket: gate map entity not found at /maps/" .. self.GateMapName)

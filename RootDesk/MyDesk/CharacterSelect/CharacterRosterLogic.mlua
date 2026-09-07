@@ -471,9 +471,13 @@ script CharacterRosterLogic extends Logic
             return
         end
         -- 카오스 던전 휴식 보너스와 동일하게 입장 시점에 자동 소모(선택 토글 없음).
-        -- 실제 보상 2배 지급은 토벌전장 보상 시스템(Phase 4 미착수)이 생기면 이 값을 읽으면 됨.
         local profileCode = player.PlayerComponent.ProfileCode
         local rewardBonus = _RestGaugeLogic:TryConsumeForEntry(profileCode)
+        -- 2026-09-08 QA - 토벌전장 보상 시스템(런종료 재화 등)이 이미 구축된 상태라 신규 연결.
+        local rewardStatsComp = player:GetComponent("script.PlayerStatsComponent")
+        if isvalid(rewardStatsComp) then
+            rewardStatsComp.RestBonusActive = rewardBonus
+        end
         -- M2 Phase F(2026-09-08) - 난이도 4단계(전체 기획서 §5-1). 목적지 맵의 FieldWaveSpawner가
         -- 아직 로드/생성되지 않았을 수도 있는 인스턴스 맵 구조가 아니라 항상 존재하는 정적 맵이므로,
         -- 텔레포트 직전에 tier를 미리 세팅해두면 도착 시점 스폰부터 바로 그 tier로 나간다.
