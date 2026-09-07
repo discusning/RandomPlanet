@@ -29,6 +29,10 @@ script CharacterInfoUIController extends Component
     property TextGUIRendererComponent mpText = "5df8c235-d675-4398-932e-573f787023da"
     property TextGUIRendererComponent trait1Title = "5d9e3406-0b51-4239-83d6-0f2d4641ab37"
     property TextGUIRendererComponent trait1Desc = "eb2bf627-4375-40c9-9a55-b1c96296d786"
+    -- M2 Phase B(2026-09-08) - .ui에는 이미 있었지만(Trait2Title/Trait2Desc, 정적 "미해금" 플레이스홀더)
+    -- 이 컨트롤러가 한 번도 바인딩/갱신한 적이 없어 3차 전직 이후에도 항상 잠김 문구만 보이던 갭.
+    property TextGUIRendererComponent trait2Title = "5096ffc0-b5e3-4b98-90c6-6fb4a17c65e6"
+    property TextGUIRendererComponent trait2Desc = "ac9b5fe9-d733-4c4b-835b-1a304a748367"
     property TextGUIRendererComponent skillSummaryValue = "30091189-ec44-40a2-b717-264e4a7b9cbb"
     property Entity btnOpenSkill = "3c0999b2-b3e2-48ad-9754-5fa914ea91af"
 
@@ -175,6 +179,15 @@ script CharacterInfoUIController extends Component
 
         self.trait1Title.Text = "1차 특성 · " .. (data.trait or "-")
         self.trait1Desc.Text = self:TraitDesc(data.trait)
+
+        local trait2 = isvalid(statsComp) and statsComp.Trait2 or ""
+        if trait2 ~= "" then
+            self.trait2Title.Text = "2차 특성 · " .. trait2
+            self.trait2Desc.Text = self:TraitDesc(trait2)
+        else
+            self.trait2Title.Text = "2차 특성 · 미해금"
+            self.trait2Desc.Text = "3차 전직(13레벨)에 추가 특성 1개를 더 획득합니다."
+        end
 
         self.skillSummaryValue.Text = "-"
         if isvalid(skillComp) then
