@@ -253,6 +253,15 @@ script TraitEffectEngine extends Logic
         return mod.executeCritThreshold or 0
     end
 
+    -- M2 Phase C(2026-09-08) - 럭키 세븐/복불복 상자 링크("행운의 순환"/"행운 룰렛": 주기적 소형
+    -- 랜덤 버프) 전용. 본인 특성(periodicRandomBuff, 매 interval마다 확정 리롤+넓은 -10%~+15% 폭)과
+    -- 달리 링크는 "소형"이라 좁은 폭 + 확률 게이트가 있는 별도 채널 - PlayerStatsComponent.CombatTick
+    -- 이 소비한다. {interval, chance} 형태로 반환(chance 없으면 1.0=매번 확정 취급).
+    method table GetLinkPeriodicBuff(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.periodicBuffLink
+    end
+
     -- M2 Phase C(2026-09-08) - 순교자 링크("최후의 인연": 런당 1회 사망 시 HP10% 재기) 전용.
     -- 부활자의 본인 효과(reviveOnce, Hp=1 고정)와는 부활 시 회복량이 달라 별도 채널로 구현 -
     -- PlayerHit.HandleHitEvent가 동일한 ReviveUsedThisRun 플래그를 공유해서 소비한다(런당 부활은

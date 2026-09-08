@@ -185,6 +185,11 @@ script PlayerStatsComponent extends Component
     -- 2026-09-08 QA - 순교자 링크("최후의 인연": 런당 1회 사망 시 HP10% 재기) 전용. 부활자
     -- (본인, Hp=1 고정)와 회복량이 달라 별도 채널이지만 ReviveUsedThisRun 플래그는 공유한다.
     @Sync property number LinkReviveHpPercent = 0
+    -- 2026-09-08 QA - 럭키 세븐/복불복 상자 링크(주기적 소형 랜덤 버프) 전용. 본인 특성의
+    -- RandomBuffAtkPercent와 독립된 채널(둘 다 활성이어도 합산되도록).
+    @HideFromInspector property number LinkPeriodicBuffAtkPercent = 0
+    @HideFromInspector property number LinkPeriodicBuffExpireElapsed = 0
+    @HideFromInspector property number LinkPeriodicBuffTickElapsed = 0
     -- 순교자(lowHpCritMult)가 크리 데미지 배율에 얹는 보너스의 베이스라인 - RecalculateDerived가 매번
     -- (ApplyToStats 이후) 갱신해서 CombatTick의 매 틱 조건부 가산이 드리프트하지 않게 한다.
     @HideFromInspector property number BaseCritDamageMultiplier = 0
@@ -246,6 +251,9 @@ script PlayerStatsComponent extends Component
         self.BurstExpireElapsed = 0
         self.LinkMasterBuffAtkPercent = 0
         self.LinkMasterBuffExpireElapsed = 0
+        self.LinkPeriodicBuffAtkPercent = 0
+        self.LinkPeriodicBuffExpireElapsed = 0
+        self.LinkPeriodicBuffTickElapsed = 0
         self.BurstKillWindowStart = 0
         self.BurstKillCountInWindow = 0
         self.LastCritWaveNumber = -1
@@ -1141,7 +1149,7 @@ script PlayerStatsComponent extends Component
         -- 지워버리므로, 항상 이 메서드 하나만 실제 쓰기를 담당하게 한다.
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(attack) then return end
-        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus + self.LinkMasterBuffAtkPercent
+        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus + self.LinkMasterBuffAtkPercent + self.LinkPeriodicBuffAtkPercent
         attack.AttackDamage = self.BaseAttackDamage * (1 + totalBonus)
     end
 
@@ -1162,6 +1170,11 @@ script PlayerStatsComponent extends Component
         -- 링크 마스터(hg) - "이능 획득 시 3초간 전 스탯 대폭 상승" 버프 만료 처리.
         if self.LinkMasterBuffAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= self.LinkMasterBuffExpireElapsed then
             self.LinkMasterBuffAtkPercent = 0
+            self:RecomputeDynamicAttackDamage()
+        end
+        -- 럭키 세븐/복불복 상자 링크(periodicBuffLink) - 발동 중인 소형 버프가 만료 시각을 지났으면 해제.
+        if self.LinkPeriodicBuffAtkPercent ~= 0 and _UtilLogic.ElapsedSeconds >= self.LinkPeriodicBuffExpireElapsed then
+            self.LinkPeriodicBuffAtkPercent = 0
             self:RecomputeDynamicAttackDamage()
         end
 
@@ -1242,6 +1255,26 @@ script PlayerStatsComponent extends Component
                 self.RandomBuffAtkPercent = -0.10 + _UtilLogic:RandomDouble() * 0.25
                 self:RecomputeDynamicAttackDamage()
                 log("PlayerStats: 럭키 세븐 리롤 atk%=" .. string.format("%.3f", self.RandomBuffAtkPercent))
+            end
+        end
+
+        -- 럭키 세븐/복불복 상자 링크(periodicBuffLink) - 링크 캐릭터 쪽 "주기적 소형 랜덤 버프".
+        -- 본인 특성판(RandomBuffAtkPercent, 확정 리롤/넓은 폭)과 독립된 채널이라 두 효과가 동시에
+        -- 활성이어도 totalBonus에서 그대로 합산된다. linkDesc가 "낮은 확률로"를 명시한 럭키 세븐은
+        -- chance 게이트를 거치고, 그런 문구가 없는 복불복 상자는 chance 기본값 1.0(매번 확정)으로 처리.
+        local linkBuffSpec = _TraitEffectEngine:GetLinkPeriodicBuff(self.LinkTrait1)
+        if linkBuffSpec == nil and self.LinkTrait2 ~= "" then linkBuffSpec = _TraitEffectEngine:GetLinkPeriodicBuff(self.LinkTrait2) end
+        if linkBuffSpec ~= nil then
+            self.LinkPeriodicBuffTickElapsed = self.LinkPeriodicBuffTickElapsed + 1
+            if self.LinkPeriodicBuffTickElapsed >= (linkBuffSpec.interval or 999999) then
+                self.LinkPeriodicBuffTickElapsed = 0
+                if _UtilLogic:RandomDouble() < (linkBuffSpec.chance or 1.0) then
+                    -- "소형" 버프이므로 본인판(-10%~+15%)보다 좁은 -3%~+8% 폭으로 자체 설정(미검증 근사치).
+                    self.LinkPeriodicBuffAtkPercent = -0.03 + _UtilLogic:RandomDouble() * 0.11
+                    self.LinkPeriodicBuffExpireElapsed = _UtilLogic.ElapsedSeconds + (linkBuffSpec.interval or 7)
+                    self:RecomputeDynamicAttackDamage()
+                    log("PlayerStats: 링크 소형 랜덤버프 발동 atk%=" .. string.format("%.3f", self.LinkPeriodicBuffAtkPercent))
+                end
             end
         end
 
