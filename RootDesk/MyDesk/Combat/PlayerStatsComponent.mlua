@@ -980,10 +980,8 @@ script PlayerStatsComponent extends Component
     @ExecSpace("ServerOnly")
     method void UpdateZoneState()
         -- 마을(Lobby)·캐릭터 선택(choice_map)은 비전투 지형이라 버서크 자해 DoT를 끄고 대신 자동
-        -- 체력/마나 회복을 켠다. 아직 실제로 연결된 전투 맵이 없어(토벌전장1~3은 RootDesk/MyDesk/test/에
-        -- 검증만 된 상태, 유저의 Task 1 작업 대기 중) 화이트리스트가 아닌 "안전지대 목록에 없으면
-        -- 전투 지형"으로 판정 - 나중에 실제 전투 맵이 연결돼도 코드 수정 없이 자동으로 전투 지형
-        -- 취급된다.
+        -- 체력/마나 회복을 켠다. 화이트리스트가 아닌 "안전지대 목록에 없으면 전투 지형"으로 판정 -
+        -- 새 맵이 추가돼도 코드 수정 없이 자동으로 전투 지형 취급된다.
         local map = self.Entity.CurrentMap
         local mapName = isvalid(map) and map.Name or ""
         local inSafeZone = (mapName == "Lobby") or (mapName == "choice_map")

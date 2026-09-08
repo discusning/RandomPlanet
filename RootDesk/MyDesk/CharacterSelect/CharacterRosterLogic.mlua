@@ -452,10 +452,7 @@ script CharacterRosterLogic extends Logic
     method void RequestEnterBattlefield(integer fieldIndex, integer difficultyTier)
         -- Called from BattlefieldSelectController when the player picks a battlefield from the
         -- Lobby's field-select popup (1st-floor portal, up-arrow). fieldIndex 1~3 maps to a real
-        -- map's {name, spawn pos} - only slot 1 (토벌전장1) exists today (Phase 1 Task 1 only got
-        -- this far); 2/3 stay disabled in the popup until those maps are built, so this table only
-        -- needs one real entry for now. Adding a battlefield later is a one-line addition here plus
-        -- un-disabling its popup button and wiring its click handler.
+        -- map's {name, spawn pos}.
         local fields = {
             [1] = { name = "토벌전장1", pos = Vector3(0, -2.9, 0) },
             [2] = { name = "토벌전장2", pos = Vector3(0, 4.68, 0) },
