@@ -328,6 +328,12 @@ script TraitEffectEngine extends Logic
         if otherSlotTrait == "고독" then
             base = base * 1.15
         end
+        -- M2 Phase C(2026-09-08) - 미친 과학자 링크("공명의 유대": 다른 슬롯 링크효율+10%) 신규
+        -- 연결. 고독 링크와 정확히 같은 메커니즘(다른 슬롯에 편성됐을 때 반대편 슬롯 효율 보정)이라
+        -- 신규 게터/필드 없이 이 함수에 케이스만 추가.
+        if otherSlotTrait == "미친 과학자" then
+            base = base * 1.10
+        end
         return base
     end
 
