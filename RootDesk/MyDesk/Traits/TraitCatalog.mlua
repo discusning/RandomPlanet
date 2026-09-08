@@ -154,7 +154,7 @@ script TraitCatalog extends Logic
         d["둔감"] = { pool="bad", basicName="정밀", basicDesc="명중률−10, 대신 명중 시 데미지+10%", basicEffect={acc=-10, atk=0.10},
             linkName="둔감한 방벽", linkDesc="파티 상태이상 시 낮은 확률로 즉시 해제" }
         d["유리몸"] = { pool="bad", basicName="보호막 생성", basicDesc="방어력 감소, 대신 15초마다 소형 방어막", basicEffect={dr=-0.08, periodicShieldGrant={interval=15, pct=0.10}},
-            linkName="안전 확보", linkDesc="파티 입장 후 첫 피격 무효" }
+            linkEffect={firstHitImmune=true}, linkName="안전 확보", linkDesc="파티 입장 후 첫 피격 무효" }
         d["낭비벽"] = { pool="bad", basicName="마나 순환", basicDesc="스킬 MP 소모+15%, 대신 처치 시 MP 회복", basicEffect={mpc=0.15},
             linkEffect={mpc=-0.05}, linkName="풍족한 지원", linkDesc="파티 MP 소모−8%" }
         d["느림보"] = { pool="bad", basicName="이중 시전", basicDesc="공격 속도−10%, 대신 낮은 확률로 스킬 2연발", basicEffect={as=-0.10},

@@ -474,6 +474,9 @@ script CharacterRosterLogic extends Logic
         local rewardStatsComp = player:GetComponent("script.PlayerStatsComponent")
         if isvalid(rewardStatsComp) then
             rewardStatsComp.RestBonusActive = rewardBonus
+            -- 2026-09-08 QA - 유리몸 링크("안전 확보": 파티 입장 후 첫 피격 무효) 신규 연결.
+            -- "입장 후"이므로 런당이 아니라 전장 진입마다 다시 사용 가능해야 한다.
+            rewardStatsComp.FirstHitImmuneUsedThisVisit = false
         end
         -- M2 Phase F(2026-09-08) - 난이도 4단계(전체 기획서 §5-1). 목적지 맵의 FieldWaveSpawner가
         -- 아직 로드/생성되지 않았을 수도 있는 인스턴스 맵 구조가 아니라 항상 존재하는 정적 맵이므로,

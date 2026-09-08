@@ -253,6 +253,12 @@ script TraitEffectEngine extends Logic
         return mod.executeCritThreshold or 0
     end
 
+    -- M2 Phase C(2026-09-08) - 유리몸 링크("안전 확보": 파티 입장 후 첫 피격 무효) 전용.
+    method boolean HasLinkFirstHitImmune(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.firstHitImmune == true
+    end
+
     -- M2 Phase C(2026-09-08) - 거리의 방랑자 링크("탐험 지원": 몬스터 게이트에서 스탯 구슬 획득량
     -- 대폭 증가) 전용. 이 프로젝트는 스탯 구슬을 경험치로 근사(§8-2 관행)하므로, 게이트 모드에서만
     -- 적용되는 경험치 보너스로 구현 - 상시 exp 채널과 달리 소비처(Monster.GrantXpToAttacker)가

@@ -94,6 +94,14 @@ script PlayerHit extends Component
             end
         end
 
+        -- 2026-09-08 QA - 유리몸 링크("안전 확보": 파티 입장 후 첫 피격 무효) 신규 연결. 전장
+        -- 진입마다 1회만 소모(CharacterRosterLogic.RequestEnterBattlefield가 리셋).
+        if isvalid(statsComp) and statsComp.LinkFirstHitImmuneAvailable and not statsComp.FirstHitImmuneUsedThisVisit then
+            statsComp.FirstHitImmuneUsedThisVisit = true
+            log("PlayerHit: 유리몸 링크 - 첫 피격 무효")
+            return
+        end
+
         -- M2 Phase B 2단계(2026-09-06) - 운명의 동전(coinFlipDefense): 50% 무효/50% 2배, 이후의
         -- 방어막·반사 계산 전부가 이 굴림 이후의 dmg를 기준으로 삼는다.
         -- M2 Phase B(2026-09-08) - Trait2(3차 전직 추가 특성)도 트리거형 효과를 발동할 수 있게
