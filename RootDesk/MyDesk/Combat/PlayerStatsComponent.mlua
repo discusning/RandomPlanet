@@ -326,6 +326,7 @@ script PlayerStatsComponent extends Component
             self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
             log("PlayerStats: level up -> " .. self.Level)
             self:GrantSkillTierIfMilestone(self.Level)
+            self:ApplyCosmeticEvolution(self.Level)
             leveledUp = true
             levelsGained = levelsGained + 1
         end
@@ -545,6 +546,33 @@ script PlayerStatsComponent extends Component
         end
         self.PromotionMilestoneElapsed = _UtilLogic.ElapsedSeconds
         log("PlayerStats: 전직 조건(레벨" .. level .. ") 충족, tier=" .. tier .. " - 전직 퀘스트 보스(필드 미니보스) 처치 대기")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyCosmeticEvolution(integer level)
+        -- 피부 갈이(basicEffect.cosmetic, avg풀) - "5·10·15·20레벨마다 코스튬 자동 진화(전투 효과
+        -- 없음, 순수 비주얼)"이 게터/소비처가 없어 정직하게 미구현으로 남아있었다(2026-09-08 QA
+        -- 발견, 원안 §부록 G-3 #12가 "특히 추천"한 항목 - CostumeManagerComponent:SetEquip 시퀀스
+        -- 연동으로 구현). 실제 장비(무기/모자/코트/바지/신발/장갑/방패/귀장식, EquipmentLogic
+        -- 참고)가 쓰지 않는 슬롯(Cape/EyeAccessory/FaceAccessory)만 사용해 장비 표시와 충돌하지
+        -- 않는다. "미카엘" 테마로 점층 - 5:빛의 기사 망토 -> 10:미카엘의 안경 -> 15:자체발광 얼굴
+        -- 효과 -> 20:천사 미카엘의 날개(망토 승격, 최종형).
+        if not self:HasTrait("피부 갈이") then return end
+        local costume = self.Entity.CostumeManagerComponent
+        if not isvalid(costume) then return end
+        if level == 5 then
+            costume:SetEquip(MapleAvatarItemCategory.Cape, "b1602d4bdb3c4e8fbef3497dcf43bf1d")
+            log("PlayerStats: 피부 갈이 - 레벨5 진화(빛의 기사 망토)")
+        elseif level == 10 then
+            costume:SetEquip(MapleAvatarItemCategory.EyeAccessory, "fb566010625a421c8b20a62a4956caf9")
+            log("PlayerStats: 피부 갈이 - 레벨10 진화(미카엘의 안경)")
+        elseif level == 15 then
+            costume:SetEquip(MapleAvatarItemCategory.FaceAccessory, "e56bfdaf402346a9951e6d1d0977bb0d")
+            log("PlayerStats: 피부 갈이 - 레벨15 진화(자체발광)")
+        elseif level == 20 then
+            costume:SetEquip(MapleAvatarItemCategory.Cape, "3fee9e48afa742438223455b2c9d9254")
+            log("PlayerStats: 피부 갈이 - 레벨20 진화(천사 미카엘의 날개, 최종형)")
+        end
     end
 
     @ExecSpace("ServerOnly")
