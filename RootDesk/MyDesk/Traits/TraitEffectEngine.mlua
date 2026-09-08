@@ -302,6 +302,23 @@ script TraitEffectEngine extends Logic
         return mod.onHitBuffLink
     end
 
+    -- M2 Phase C(2026-09-08) - 유리대포 링크("수호 기도": 25초마다 파티 치명타 무효) 전용. 이
+    -- 프로젝트엔 몬스터 공격에 "치명타" 개념이 없어 수호자의 basicEffect(periodicShield)와 동일한
+    -- 원칙으로 방어막 생성으로 근사 - PlayerStatsComponent.CombatTick의 기존 방어막 블록 직후,
+    -- 별도 틱 카운터로 소비한다. {interval, pct} 형태로 반환.
+    method table GetLinkPeriodicShield(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.periodicShieldLink
+    end
+
+    -- M2 Phase C(2026-09-08) - 영혼 포획자 링크("포획 지원": 낮은 확률로 처치 시 파티에게 짧은
+    -- 무적 프레임) 전용. Monster.GrantXpToAttacker(처치 지점)가 확률을 굴리고,
+    -- PlayerHit.HandleHitEvent가 무적 시간대인지 확인해 소비한다. {chance, duration} 형태로 반환.
+    method table GetLinkCaptureInvuln(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.captureInvulnLink
+    end
+
     -- M2 Phase C(2026-09-08) - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
     -- 유리몸 링크(firstHitImmune, 전액 무효 + "입장 후"마다 재사용)와 달리 부분 경감 + "런당" 1회.
     method number GetLinkFirstHitReduction(string trait)

@@ -228,7 +228,7 @@ script TraitCatalog extends Logic
         d["부패한 계약서"] = { pool="gmb", basicName="부패한 계약서", basicDesc="3차 전직 추가 특성 추첨이 무조건 Hidden 풀에서만 나옴", basicEffect={forceHiddenRerollAt13=true},
             linkName="계약 지원", linkDesc="이능 선택지가 낮은 확률로 상위 등급으로 대체" }
         d["영혼 포획자"] = { pool="gmb", basicName="영혼 포획자", basicDesc="몬스터 처치 시 낮은 확률로 5초간 아군 전환(선행 서브시스템 필요)",
-            linkName="포획 지원", linkDesc="낮은 확률로 처치 시 파티에게 짧은 무적 프레임" }
+            linkEffect={captureInvulnLink={chance=0.15, duration=1.5}}, linkName="포획 지원", linkDesc="낮은 확률로 처치 시 파티에게 짧은 무적 프레임" }
         d["기생하는 대가"] = { pool="gmb", basicName="기생하는 대가", basicDesc="HP10%↓ 도달 시 링크 캐릭터 HP 소모해 채움(런당 1회, 링크 시스템 선행 필요)",
             linkName="희생 지원", linkDesc="링크 캐릭터 HP 일부 소모해 액티브 최대체력 판 동안 소폭 증가" }
 
@@ -238,7 +238,7 @@ script TraitCatalog extends Logic
         d["불운"] = { pool="hb", basicName="후원", basicDesc="드랍률 0, 대신 처치 경험치 2배", basicEffect={drop=-1.0, exp=1.0},
             linkEffect={clearCurrencyBonus=0.20}, linkName="후원", linkDesc="파티 클리어 시 영구재화+20%" }
         d["유리대포"] = { pool="hb", basicName="수호 기도", basicDesc="최대 체력−50%, 대신 모든 데미지+50%", basicEffect={hp=-0.50, atk=0.50},
-            linkName="수호 기도", linkDesc="25초마다 파티 치명타 무효" }
+            linkEffect={periodicShieldLink={interval=25, pct=0.25}}, linkName="수호 기도", linkDesc="25초마다 파티 치명타 무효" }
         d["외길"] = { pool="hb", basicName="일격필살 지원", basicDesc="스킬 슬롯 2개로 제한, 대신 보유 스킬 데미지+60%", basicEffect={atk=0.60},
             linkEffect={atk=0.03}, linkName="일격필살 지원", linkDesc="파티 크리 시 낮은 확률로 확정 추가타" }
         d["금욕"] = { pool="hb", basicName="재생 지원", basicDesc="회복 아이템 사용 불가, 대신 처치 시 체력 소폭 회복", basicEffect={noPotion=true, healOnKill={chance=1.0, pct=0.04}},

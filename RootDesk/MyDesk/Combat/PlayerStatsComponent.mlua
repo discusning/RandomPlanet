@@ -196,6 +196,12 @@ script PlayerStatsComponent extends Component
     -- 유리몸 링크(firstHitImmune)와 달리 "런당" 1회라 ReviveUsedThisRun과 동일하게 캐릭터
     -- 로드 시에만 리셋(전장 재진입으로는 재사용 불가).
     @Sync @HideFromInspector property boolean FirstHitReductionUsedThisRun = false
+    -- 2026-09-08 QA - 유리대포 링크("수호 기도": 25초마다 파티 치명타 무효, 방어막으로 근사) 전용.
+    -- ShieldAmount 자체는 마나실드/수호자/유리몸과 동일하게 공유하되 틱 카운터만 별도.
+    @HideFromInspector property number LinkShieldTickElapsed = 0
+    -- 2026-09-08 QA - 영혼 포획자 링크("포획 지원": 낮은 확률로 처치 시 짧은 무적) 전용. 이
+    -- 시각 이전(ElapsedSeconds 미만)이면 무적 - Monster.GrantXpToAttacker가 굴리고 세팅.
+    @HideFromInspector property number LinkCaptureInvulnUntilElapsed = 0
     -- 2026-09-08 QA - 럭키 세븐/복불복 상자 링크(주기적 소형 랜덤 버프) 전용. 본인 특성의
     -- RandomBuffAtkPercent와 독립된 채널(둘 다 활성이어도 합산되도록).
     @HideFromInspector property number LinkPeriodicBuffAtkPercent = 0
@@ -252,6 +258,7 @@ script PlayerStatsComponent extends Component
         -- 새 캐릭터로 새는 것을 방지 - 위 BerserkDamageBonusPercent 리셋과 동일한 이유).
         self.ShieldAmount = 0
         self.ShieldTickElapsed = 0
+        self.LinkShieldTickElapsed = 0
         self.HitStackAtkPercent = 0
         self.KillStackAtkPercent = 0
         self.TimeStackAtkPercent = 0
@@ -268,6 +275,7 @@ script PlayerStatsComponent extends Component
         self.LinkPeriodicBuffTickElapsed = 0
         self.LinkOnHitBuffAtkPercent = 0
         self.LinkOnHitBuffExpireElapsed = 0
+        self.LinkCaptureInvulnUntilElapsed = 0
         self.BurstKillWindowStart = 0
         self.BurstKillCountInWindow = 0
         self.LastCritWaveNumber = -1
@@ -1310,6 +1318,18 @@ script PlayerStatsComponent extends Component
                 self.ShieldTickElapsed = 0
                 self.ShieldAmount = math.floor(player.MaxHp * (shieldSpec.pct or 0))
                 log("PlayerStats: periodic shield granted amount=" .. self.ShieldAmount)
+            end
+        end
+
+        -- 유리대포 링크(periodicShieldLink) - 위 본인판과 동일한 방어막 근사, 별도 틱 카운터로 소비.
+        local linkShieldSpec = _TraitEffectEngine:GetLinkPeriodicShield(self.LinkTrait1)
+        if linkShieldSpec == nil and self.LinkTrait2 ~= "" then linkShieldSpec = _TraitEffectEngine:GetLinkPeriodicShield(self.LinkTrait2) end
+        if linkShieldSpec ~= nil then
+            self.LinkShieldTickElapsed = self.LinkShieldTickElapsed + 1
+            if self.LinkShieldTickElapsed >= (linkShieldSpec.interval or 999999) then
+                self.LinkShieldTickElapsed = 0
+                self.ShieldAmount = math.floor(player.MaxHp * (linkShieldSpec.pct or 0))
+                log("PlayerStats: 유리대포 링크 방어막 발동 amount=" .. self.ShieldAmount)
             end
         end
     end
