@@ -245,6 +245,14 @@ script TraitEffectEngine extends Logic
         return mod.townRegenBonus or 0
     end
 
+    -- M2 Phase C(2026-09-08) - 동전 던지기 사형집행인 링크("확정타": 체력10%↓ 적 공격 시 확정
+    -- 크리티컬) 전용. 본인 특성의 "크리 시 즉사"(onCritExecuteChance)와는 다른 발동 조건(체력 임계값)
+    -- 이라 별도 채널 - PlayerAttack.CalcCritical이 대상의 Hp 비율과 비교해 소비한다.
+    method number GetLinkExecuteCritThreshold(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.executeCritThreshold or 0
+    end
+
     -- M2 Phase C(2026-09-08) - 거리의 방랑자 링크("탐험 지원": 몬스터 게이트에서 스탯 구슬 획득량
     -- 대폭 증가) 전용. 이 프로젝트는 스탯 구슬을 경험치로 근사(§8-2 관행)하므로, 게이트 모드에서만
     -- 적용되는 경험치 보너스로 구현 - 상시 exp 채널과 달리 소비처(Monster.GrantXpToAttacker)가

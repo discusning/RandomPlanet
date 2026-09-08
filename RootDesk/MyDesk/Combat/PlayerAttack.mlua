@@ -106,6 +106,16 @@ script PlayerAttack extends AttackComponent
                 end
             end
         end
+        -- 2026-09-08 QA - 동전 던지기 사형집행인 링크("확정타": 체력10%↓ 적 공격 시 확정 크리티컬)
+        -- 신규 연결. 본인 특성의 onCritExecuteChance(크리 시 즉사)와는 별개 채널.
+        if isvalid(statsComp) and statsComp.LinkExecuteCritThreshold > 0 then
+            local monster = defender:GetComponent("script.Monster")
+            if isvalid(monster) and monster.MaxHp > 0 and (monster.Hp / monster.MaxHp) < statsComp.LinkExecuteCritThreshold then
+                self._T.lastWasCrit = true
+                return true
+            end
+        end
+
         local result = _UtilLogic:RandomDouble() < self.CriticalChance
         self._T.lastWasCrit = result
         return result
