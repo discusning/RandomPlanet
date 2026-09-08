@@ -58,9 +58,7 @@ script PlayerStatsComponent extends Component
     -- 계정 귀속 영구 저장 + 전역 리더보드 연동은 Phase H 몫 - 지금은 세션 내 최근 값만 보관.
     @Sync property number LastPromotionClearSeconds = 0
 
-    -- 1차 특성(MVP 6종, CharacterSelectStageController.InitRandomPools의 traitPool과 매칭) - 2026-08-16
-    -- 유저 요청으로 순수 표시문구에서 실제 효과로 승격, 전투력(CP, CharacterInfoUIController) 산식에도
-    -- 반영. 상인(아이템 드랍률)은 이 프로젝트에 루팅 시스템 자체가 없어 여전히 미구현 - 정직하게 비워둠.
+    -- 특성(115종, TraitCatalog/TraitRollLogic) - 전투력(CP, CharacterInfoUIController) 산식에도 반영.
     @Sync property string Trait = ""
     -- 3차 전직(13레벨) 추가 특성 (M2 Phase B, 2026-09-06 - 전체 기획서 §2-5 "3차 전직 시 추가로 1회
     -- 더 추첨"). 별도 선택 UI 없이 자동 지급(전체 기획서 원문 그대로 "추첨"이지 "선택"이 아님 - 이능
