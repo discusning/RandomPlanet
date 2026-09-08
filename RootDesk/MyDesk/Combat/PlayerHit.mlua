@@ -159,6 +159,16 @@ script PlayerHit extends Component
                 statsComp.HitStackAtkPercent = math.min(hitStack.cap or 1.0, statsComp.HitStackAtkPercent + (hitStack.perHit or 0))
                 statsComp:RecomputeDynamicAttackDamage()
             end
+            -- 2026-09-08 QA - 굶주린 살점 링크("고통 공유": 피격 시 낮은 확률로 짧은 공격력 버프).
+            -- 본인판(hitStackAtk, 확정 누적)과 달리 확률 게이트 + 짧은 지속시간 버프라 별도 채널.
+            local onHitBuff = _TraitEffectEngine:GetLinkOnHitBuff(statsComp.LinkTrait1)
+            if onHitBuff == nil and statsComp.LinkTrait2 ~= "" then onHitBuff = _TraitEffectEngine:GetLinkOnHitBuff(statsComp.LinkTrait2) end
+            if onHitBuff ~= nil and _UtilLogic:RandomDouble() < (onHitBuff.chance or 0) then
+                statsComp.LinkOnHitBuffAtkPercent = onHitBuff.atk or 0.08
+                statsComp.LinkOnHitBuffExpireElapsed = _UtilLogic.ElapsedSeconds + (onHitBuff.duration or 3)
+                statsComp:RecomputeDynamicAttackDamage()
+                log("PlayerHit: 굶주린 살점 링크 - 고통 공유 발동 atk%=" .. statsComp.LinkOnHitBuffAtkPercent)
+            end
         end
 
         local sc = self.Entity.StateComponent

@@ -188,6 +188,10 @@ script PlayerStatsComponent extends Component
     -- 2026-09-08 QA - 거울 갑옷 링크("반사의 축복": 파티가 받는 근접 피해 일부 반사) 전용. 본인
     -- 특성의 mirrorDamage(100% 반사)와 독립된 채널이라 둘 다 활성이면 PlayerHit에서 합산.
     @Sync property number LinkMirrorDamagePct = 0
+    -- 2026-09-08 QA - 굶주린 살점 링크("고통 공유": 피격 시 낮은 확률로 짧은 공격력 버프) 전용.
+    -- 본인 특성(HitStackAtkPercent, 확정 누적)과 독립된 채널.
+    @HideFromInspector property number LinkOnHitBuffAtkPercent = 0
+    @HideFromInspector property number LinkOnHitBuffExpireElapsed = 0
     -- 2026-09-08 QA - 럭키 세븐/복불복 상자 링크(주기적 소형 랜덤 버프) 전용. 본인 특성의
     -- RandomBuffAtkPercent와 독립된 채널(둘 다 활성이어도 합산되도록).
     @HideFromInspector property number LinkPeriodicBuffAtkPercent = 0
@@ -257,6 +261,8 @@ script PlayerStatsComponent extends Component
         self.LinkPeriodicBuffAtkPercent = 0
         self.LinkPeriodicBuffExpireElapsed = 0
         self.LinkPeriodicBuffTickElapsed = 0
+        self.LinkOnHitBuffAtkPercent = 0
+        self.LinkOnHitBuffExpireElapsed = 0
         self.BurstKillWindowStart = 0
         self.BurstKillCountInWindow = 0
         self.LastCritWaveNumber = -1
@@ -1155,7 +1161,7 @@ script PlayerStatsComponent extends Component
         -- 지워버리므로, 항상 이 메서드 하나만 실제 쓰기를 담당하게 한다.
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(attack) then return end
-        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus + self.LinkMasterBuffAtkPercent + self.LinkPeriodicBuffAtkPercent
+        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus + self.LinkMasterBuffAtkPercent + self.LinkPeriodicBuffAtkPercent + self.LinkOnHitBuffAtkPercent
         attack.AttackDamage = self.BaseAttackDamage * (1 + totalBonus)
     end
 
@@ -1181,6 +1187,11 @@ script PlayerStatsComponent extends Component
         -- 럭키 세븐/복불복 상자 링크(periodicBuffLink) - 발동 중인 소형 버프가 만료 시각을 지났으면 해제.
         if self.LinkPeriodicBuffAtkPercent ~= 0 and _UtilLogic.ElapsedSeconds >= self.LinkPeriodicBuffExpireElapsed then
             self.LinkPeriodicBuffAtkPercent = 0
+            self:RecomputeDynamicAttackDamage()
+        end
+        -- 굶주린 살점 링크(onHitBuffLink) - 발동 중인 피격 트리거 버프가 만료 시각을 지났으면 해제.
+        if self.LinkOnHitBuffAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= self.LinkOnHitBuffExpireElapsed then
+            self.LinkOnHitBuffAtkPercent = 0
             self:RecomputeDynamicAttackDamage()
         end
 

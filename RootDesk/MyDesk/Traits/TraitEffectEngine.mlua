@@ -294,6 +294,14 @@ script TraitEffectEngine extends Logic
         return mod.mirrorDamageLink or 0
     end
 
+    -- M2 Phase C(2026-09-08) - 굶주린 살점 링크("고통 공유": 피격당할 때마다 낮은 확률로 짧은 공격력
+    -- 버프) 전용. 본인 특성(hitStackAtk, 확정 누적+런 종료까지 유지)과 달리 링크는 확률형 트리거+
+    -- 짧은 지속시간 버프 - PlayerHit.HandleHitEvent가 소비한다. {chance, duration} 형태로 반환.
+    method table GetLinkOnHitBuff(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.onHitBuffLink
+    end
+
     -- 링크 효율 보정계수(전체 기획서 §2-6) - 액티브(플레이어블) 캐릭터 본인이 보유한 특성이 자신이
     -- "받는" 링크 효과 전체에 곱연산으로 적용된다. 링크 캐릭터 쪽 특성이 아니라 본인 특성 기준.
     method number GetLinkEfficiencyMultiplier(string trait, string trait2)
