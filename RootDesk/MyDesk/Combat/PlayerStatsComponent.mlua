@@ -408,10 +408,22 @@ script PlayerStatsComponent extends Component
         if not self.AbilityChoicePending then
             return
         end
+        -- 2026-09-08 QA - 미친 과학자(gmb) basicDesc("이능 효과 2배, 단 효과가 무작위로 결정(선택
+        -- 불가)")가 이능 선택 UI 흐름을 바꿔야 한다고 판단해 보류돼 있었으나, 팝업을 그대로 3택1로
+        -- 보여주되 여기서 클릭값을 무시하고 무작위로 덮어쓰는 방식(운명론자의 서버측 최종 방어선과
+        -- 동일한 패턴)으로 UI 변경 없이 구현 가능함을 재확인 - "2배"는 세 선택지 중 수치 배증이
+        -- 명확한 "추가 스탯"에만 적용(재분배/특성변경은 배증 개념이 성립하지 않아 그대로 1배 적용).
+        local isMadScientist = self:HasTrait("미친 과학자")
+        if isMadScientist then
+            local roll = _UtilLogic:RandomIntegerRange(1, 3)
+            local picked = (roll == 1) and "redistribute" or (roll == 2) and "bonus" or "trait"
+            log("PlayerStats: 미친 과학자 - 선택 무시, 무작위 결정=" .. picked)
+            choice = picked
+        end
         if choice == "redistribute" then
             self:ApplyStatRedistribute()
         elseif choice == "bonus" then
-            self:ApplyBonusStats()
+            self:ApplyBonusStats(isMadScientist and 2 or 1)
         elseif choice == "trait" then
             -- 운명론자(hb) - basicDesc가 명시한 "특성 변경 불가"가 지금까지 실제로는 강제되지
             -- 않았다(atk=0.15 등 시작 스탯+40% 보너스만 적용되고 페널티는 "선행 필요"로 미구현
@@ -460,9 +472,10 @@ script PlayerStatsComponent extends Component
     end
 
     @ExecSpace("ServerOnly")
-    method void ApplyBonusStats()
+    method void ApplyBonusStats(integer multiplier)
         -- "추가 스탯" - BonusStatPoints(3)를 4종 스탯에 1점씩 무작위로 배분(안전한 순증가 옵션).
-        for i = 1, self.BonusStatPoints do
+        -- multiplier는 미친 과학자(basicDesc "이능 효과 2배") 전용 - 그 외 호출은 항상 1.
+        for i = 1, self.BonusStatPoints * multiplier do
             local pick = _UtilLogic:RandomIntegerRange(1, 4)
             if pick == 1 then self.Str = self.Str + 1
             elseif pick == 2 then self.Dex = self.Dex + 1
