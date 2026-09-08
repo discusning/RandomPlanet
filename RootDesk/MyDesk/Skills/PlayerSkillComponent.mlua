@@ -390,6 +390,10 @@ script PlayerSkillComponent extends Component
         if rouletteChance == 0 and isvalid(statsComp) and statsComp.Trait2 ~= "" then
             rouletteChance = _TraitEffectEngine:GetOnSkillCooldownRoulette(statsComp.Trait2)
         end
+        -- 2026-09-08 QA - 회전룰렛 링크("돌아가는 운명") 신규 연결.
+        if isvalid(statsComp) then
+            rouletteChance = rouletteChance + statsComp.LinkSkillCooldownRouletteChance
+        end
         if rouletteChance > 0 then
             local roll = _UtilLogic:RandomDouble()
             if roll < rouletteChance then

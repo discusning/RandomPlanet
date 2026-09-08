@@ -171,6 +171,12 @@ script PlayerStatsComponent extends Component
     -- 2026-09-08 QA - 거리의 방랑자 링크("탐험 지원": 몬스터 게이트에서 스탯 구슬 획득량 대폭 증가)
     -- 전용. Monster.GrantXpToAttacker가 IsGateMode일 때만 이 값을 exp 보너스로 반영한다.
     @Sync property number LinkGateDropBonus = 0
+    -- 2026-09-08 QA - 회전룰렛 링크("돌아가는 운명") 전용. PlayerSkillComponent.UseSkillSlot이
+    -- 본인 특성 롤과 합산해서 읽는다.
+    @Sync property number LinkSkillCooldownRouletteChance = 0
+    -- 2026-09-08 QA - 금욕 링크("재생 지원": 비전투 시 파티 회복 속도 증가) 전용. TownRegenTick이
+    -- TownRegenPercent(전원 공통 기본값)에 이 값을 더해서 읽는다.
+    @Sync property number LinkTownRegenBonus = 0
     -- 순교자(lowHpCritMult)가 크리 데미지 배율에 얹는 보너스의 베이스라인 - RecalculateDerived가 매번
     -- (ApplyToStats 이후) 갱신해서 CombatTick의 매 틱 조건부 가산이 드리프트하지 않게 한다.
     @HideFromInspector property number BaseCritDamageMultiplier = 0
@@ -897,6 +903,8 @@ script PlayerStatsComponent extends Component
         self.LinkOnKillCurrencyChance = 0
         self.LinkClearCurrencyBonus = 0
         self.LinkGateDropBonus = 0
+        self.LinkSkillCooldownRouletteChance = 0
+        self.LinkTownRegenBonus = 0
         -- M2 Phase C(2026-09-08) - 고독을 링크 슬롯에 편성하면(본인 특성이 아니라 "다른 슬롯"으로)
         -- 반대편 슬롯의 링크 효율을 +15%(부록 D-6 "다른 슬롯 링크효율+15%") 올린다 - 그래서 두 슬롯의
         -- 효율이 서로 다를 수 있어 슬롯별로 따로 계산한다(예전엔 linkEfficiency 하나를 공유).
@@ -910,6 +918,8 @@ script PlayerStatsComponent extends Component
             self.LinkOnKillCurrencyChance = self.LinkOnKillCurrencyChance + _TraitEffectEngine:GetLinkOnKillCurrencyChance(self.LinkTrait1) * linkEfficiency1
             self.LinkClearCurrencyBonus = self.LinkClearCurrencyBonus + _TraitEffectEngine:GetLinkClearCurrencyBonus(self.LinkTrait1) * linkEfficiency1
             self.LinkGateDropBonus = self.LinkGateDropBonus + _TraitEffectEngine:GetLinkGateDropBonus(self.LinkTrait1) * linkEfficiency1
+            self.LinkSkillCooldownRouletteChance = self.LinkSkillCooldownRouletteChance + _TraitEffectEngine:GetLinkOnSkillCooldownRoulette(self.LinkTrait1) * linkEfficiency1
+            self.LinkTownRegenBonus = self.LinkTownRegenBonus + _TraitEffectEngine:GetLinkTownRegenBonus(self.LinkTrait1) * linkEfficiency1
         end
         if self.LinkTrait2 ~= "" then
             _TraitEffectEngine:ApplyLinkToStats(self, self.LinkTrait2, linkEfficiency2)
@@ -918,6 +928,8 @@ script PlayerStatsComponent extends Component
             self.LinkOnKillCurrencyChance = self.LinkOnKillCurrencyChance + _TraitEffectEngine:GetLinkOnKillCurrencyChance(self.LinkTrait2) * linkEfficiency2
             self.LinkClearCurrencyBonus = self.LinkClearCurrencyBonus + _TraitEffectEngine:GetLinkClearCurrencyBonus(self.LinkTrait2) * linkEfficiency2
             self.LinkGateDropBonus = self.LinkGateDropBonus + _TraitEffectEngine:GetLinkGateDropBonus(self.LinkTrait2) * linkEfficiency2
+            self.LinkSkillCooldownRouletteChance = self.LinkSkillCooldownRouletteChance + _TraitEffectEngine:GetLinkOnSkillCooldownRoulette(self.LinkTrait2) * linkEfficiency2
+            self.LinkTownRegenBonus = self.LinkTownRegenBonus + _TraitEffectEngine:GetLinkTownRegenBonus(self.LinkTrait2) * linkEfficiency2
         end
         self.LinkOnKillCurrencyChance = math.max(0, math.min(1.0, self.LinkOnKillCurrencyChance))
         -- 박애주의자를 링크 슬롯에 편성 + 두 슬롯 모두 활성이면(부록 D-6 "링크 2슬롯 모두 활성 시
@@ -1236,12 +1248,14 @@ script PlayerStatsComponent extends Component
         -- PlayerAttack처럼 별도 컴포넌트 조회가 필요 없다.
         local player = self.Entity.PlayerComponent
         if not isvalid(player) or player.MaxHp <= 0 then return end
+        -- 2026-09-08 QA - 금욕 링크("재생 지원": 비전투 시 파티 회복 속도 증가) 신규 연결. 전원
+        -- 공통 기본값(TownRegenPercent/TownMpRegenPercent)은 그대로 두고 링크 보너스만 더한다.
         if player.Hp < player.MaxHp then
-            player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * self.TownRegenPercent)
+            player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * (self.TownRegenPercent + self.LinkTownRegenBonus))
             log("PlayerStats: TownRegenTick healed to Hp=" .. player.Hp .. "/" .. player.MaxHp)
         end
         if self.MaxMp > 0 and self.CurrentMp < self.MaxMp then
-            self.CurrentMp = math.min(self.MaxMp, self.CurrentMp + self.MaxMp * self.TownMpRegenPercent)
+            self.CurrentMp = math.min(self.MaxMp, self.CurrentMp + self.MaxMp * (self.TownMpRegenPercent + self.LinkTownRegenBonus))
             log("PlayerStats: TownRegenTick restored Mp=" .. self.CurrentMp .. "/" .. self.MaxMp)
         end
     end

@@ -230,6 +230,21 @@ script TraitEffectEngine extends Logic
         return mod.clearCurrencyBonus or 0
     end
 
+    -- M2 Phase C(2026-09-08) - 회전룰렛 링크("돌아가는 운명": 파티 스킬 사용 시 낮은 확률로 쿨다운
+    -- 초기화/2배) 전용. 본인 특성용 GetOnSkillCooldownRoulette와 동일 키를 링크 슬롯에서 읽는다.
+    method number GetLinkOnSkillCooldownRoulette(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.onSkillCooldownRoulette or 0
+    end
+
+    -- M2 Phase C(2026-09-08) - 금욕 링크("재생 지원": 비전투 시 파티 회복 속도 증가) 전용. 마을
+    -- 자동회복(TownRegenPercent)은 "특성과 무관하게 전원 적용"이 기존 설계(유저 요청)라 그 값 자체는
+    -- 건드리지 않고, 링크로 받는 보너스만 별도로 얹는다.
+    method number GetLinkTownRegenBonus(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.townRegenBonus or 0
+    end
+
     -- M2 Phase C(2026-09-08) - 거리의 방랑자 링크("탐험 지원": 몬스터 게이트에서 스탯 구슬 획득량
     -- 대폭 증가) 전용. 이 프로젝트는 스탯 구슬을 경험치로 근사(§8-2 관행)하므로, 게이트 모드에서만
     -- 적용되는 경험치 보너스로 구현 - 상시 exp 채널과 달리 소비처(Monster.GrantXpToAttacker)가
