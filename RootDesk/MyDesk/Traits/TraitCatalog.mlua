@@ -277,7 +277,7 @@ script TraitCatalog extends Logic
         d["고행자"] = { pool="hb", basicName="만시지탄", basicDesc="레벨업 시 스탯 자동 증가 없음, 대신 시작 스탯 보너스+경험치 1.5배", basicEffect={exp=0.50},
             linkEffect={exp=0.05}, linkName="고행의 깨달음", linkDesc="파티 경험치 획득량+10%" }
         d["순교자"] = { pool="hb", basicName="회피 기동", basicDesc="체력이 낮을수록 데미지 급증, 대신 자연 회복 불가+체력 상한−30%", basicEffect={hp=-0.30, lowHpAtkMult={threshold=1.0, value=0.5}},
-            linkName="최후의 인연", linkDesc="런당 1회 사망 시 HP10% 재기" }
+            linkEffect={reviveHpPercent=0.10}, linkName="최후의 인연", linkDesc="런당 1회 사망 시 HP10% 재기" }
         d["거울 갑옷"] = { pool="hb", basicName="반사의 축복", basicDesc="받는 피해의 100%를 그대로 반사, 대신 자신도 그대로 받음", basicEffect={mirrorDamage=1.0},
             linkName="반사의 축복", linkDesc="파티가 받는 근접 피해 일부 반사" }
         d["거리의 방랑자"] = { pool="hb", basicName="탐험 지원", basicDesc="웨이브 몬스터 수+25%, 대신 스탯 구슬 드랍량도+25%", basicEffect={exp=0.25},

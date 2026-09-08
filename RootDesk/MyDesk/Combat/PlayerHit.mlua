@@ -169,6 +169,14 @@ script PlayerHit extends Component
                 log("PlayerHit: 부활자 revive triggered, Hp=1")
                 return
             end
+            -- 2026-09-08 QA - 순교자 링크("최후의 인연": 런당 1회 사망 시 HP10% 재기) 신규 연결.
+            -- 부활자와 동일한 ReviveUsedThisRun을 공유(런당 부활은 출처 무관 총 1회로 제한).
+            if isvalid(statsComp) and not statsComp.ReviveUsedThisRun and statsComp.LinkReviveHpPercent > 0 then
+                statsComp.ReviveUsedThisRun = true
+                player.Hp = math.max(1, math.floor(player.MaxHp * statsComp.LinkReviveHpPercent))
+                log("PlayerHit: 순교자 링크 - 최후의 인연 발동, Hp=" .. player.Hp)
+                return
+            end
             player:ProcessDead()
             if isvalid(statsComp) then
                 statsComp:TriggerRunEnd()

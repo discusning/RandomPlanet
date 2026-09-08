@@ -253,6 +253,15 @@ script TraitEffectEngine extends Logic
         return mod.executeCritThreshold or 0
     end
 
+    -- M2 Phase C(2026-09-08) - 순교자 링크("최후의 인연": 런당 1회 사망 시 HP10% 재기) 전용.
+    -- 부활자의 본인 효과(reviveOnce, Hp=1 고정)와는 부활 시 회복량이 달라 별도 채널로 구현 -
+    -- PlayerHit.HandleHitEvent가 동일한 ReviveUsedThisRun 플래그를 공유해서 소비한다(런당 부활은
+    -- 출처와 무관하게 총 1회로 제한 - 중첩 방지, 정직하게 문서화).
+    method number GetLinkReviveHpPercent(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.reviveHpPercent or 0
+    end
+
     -- M2 Phase C(2026-09-08) - 유리몸 링크("안전 확보": 파티 입장 후 첫 피격 무효) 전용.
     method boolean HasLinkFirstHitImmune(string trait)
         local mod = self:GetLinkModifiers(trait)
