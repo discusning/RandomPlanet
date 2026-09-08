@@ -134,7 +134,7 @@ script TraitCatalog extends Logic
         d["친화력"] = { pool="avg", basicName="만찬", basicDesc="회복 아이템 효과+30%", basicEffect={potionMult=0.30},
             linkEffect={exp=0.03}, linkName="유산 계승", linkDesc="링크 레벨 비례 경험치 보너스" }
         d["신중함"] = { pool="avg", basicName="약점 간파", basicDesc="적을 처음 맞힐 때 데미지+20%", basicEffect={firstHitBonus=0.20},
-            linkName="신중한 조언", linkDesc="파티 첫 피격 1회 피해 20% 경감(런당 1회)" }
+            linkEffect={firstHitReduction=0.20}, linkName="신중한 조언", linkDesc="파티 첫 피격 1회 피해 20% 경감(런당 1회)" }
         d["적응력"] = { pool="avg", basicName="연격", basicDesc="처치 누적 시 전 스탯 아주 소폭 증가(낮은 상한)", basicEffect={killStackAtk={perKill=0.005, cap=0.15}},
             linkEffect={atk=0.02}, linkName="적응의 나눔", linkDesc="파티 처치 누적 시 전 스탯 아주 소폭 증가(공유)" }
         d["피부 갈이"] = { pool="avg", basicName="치장", basicDesc="5·10·15·20레벨마다 코스튬 자동 진화(전투 효과 없음, 순수 비주얼)", basicEffect={cosmetic=true},

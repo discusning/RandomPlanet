@@ -302,6 +302,13 @@ script TraitEffectEngine extends Logic
         return mod.onHitBuffLink
     end
 
+    -- M2 Phase C(2026-09-08) - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
+    -- 유리몸 링크(firstHitImmune, 전액 무효 + "입장 후"마다 재사용)와 달리 부분 경감 + "런당" 1회.
+    method number GetLinkFirstHitReduction(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.firstHitReduction or 0
+    end
+
     -- 링크 효율 보정계수(전체 기획서 §2-6) - 액티브(플레이어블) 캐릭터 본인이 보유한 특성이 자신이
     -- "받는" 링크 효과 전체에 곱연산으로 적용된다. 링크 캐릭터 쪽 특성이 아니라 본인 특성 기준.
     method number GetLinkEfficiencyMultiplier(string trait, string trait2)

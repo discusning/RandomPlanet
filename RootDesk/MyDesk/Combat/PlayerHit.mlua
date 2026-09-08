@@ -102,6 +102,19 @@ script PlayerHit extends Component
             return
         end
 
+        -- 2026-09-08 QA - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 신규 연결.
+        -- 유리몸 링크(전액 무효)와 달리 부분 경감이라 return하지 않고 dmg만 줄여서 계속 진행.
+        -- "런당" 1회라 전장 재진입으로는 재사용 불가(FirstHitReductionUsedThisRun은 캐릭터 로드시만 리셋).
+        if isvalid(statsComp) and not statsComp.FirstHitReductionUsedThisRun then
+            local reductionPct = _TraitEffectEngine:GetLinkFirstHitReduction(statsComp.LinkTrait1)
+            if reductionPct == 0 and statsComp.LinkTrait2 ~= "" then reductionPct = _TraitEffectEngine:GetLinkFirstHitReduction(statsComp.LinkTrait2) end
+            if reductionPct > 0 then
+                statsComp.FirstHitReductionUsedThisRun = true
+                dmg = math.floor(dmg * (1 - reductionPct))
+                log("PlayerHit: 신중함 링크 - 첫 피격 경감 " .. reductionPct .. ", dmg=" .. dmg)
+            end
+        end
+
         -- M2 Phase B 2단계(2026-09-06) - 운명의 동전(coinFlipDefense): 50% 무효/50% 2배, 이후의
         -- 방어막·반사 계산 전부가 이 굴림 이후의 dmg를 기준으로 삼는다.
         -- M2 Phase B(2026-09-08) - Trait2(3차 전직 추가 특성)도 트리거형 효과를 발동할 수 있게

@@ -192,6 +192,10 @@ script PlayerStatsComponent extends Component
     -- 본인 특성(HitStackAtkPercent, 확정 누적)과 독립된 채널.
     @HideFromInspector property number LinkOnHitBuffAtkPercent = 0
     @HideFromInspector property number LinkOnHitBuffExpireElapsed = 0
+    -- 2026-09-08 QA - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
+    -- 유리몸 링크(firstHitImmune)와 달리 "런당" 1회라 ReviveUsedThisRun과 동일하게 캐릭터
+    -- 로드 시에만 리셋(전장 재진입으로는 재사용 불가).
+    @Sync @HideFromInspector property boolean FirstHitReductionUsedThisRun = false
     -- 2026-09-08 QA - 럭키 세븐/복불복 상자 링크(주기적 소형 랜덤 버프) 전용. 본인 특성의
     -- RandomBuffAtkPercent와 독립된 채널(둘 다 활성이어도 합산되도록).
     @HideFromInspector property number LinkPeriodicBuffAtkPercent = 0
@@ -242,6 +246,7 @@ script PlayerStatsComponent extends Component
         self.EndedWaveReached = 0
         self.EndedFieldCleared = false
         self.ReviveUsedThisRun = false
+        self.FirstHitReductionUsedThisRun = false
         self.RestBonusActive = false
         -- M2 Phase B 2단계 - 캐릭터 교체마다 런-스코프 누적 상태를 전부 초기화(이전 캐릭터의 스택이
         -- 새 캐릭터로 새는 것을 방지 - 위 BerserkDamageBonusPercent 리셋과 동일한 이유).
