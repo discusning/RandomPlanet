@@ -185,6 +185,9 @@ script PlayerStatsComponent extends Component
     -- 2026-09-08 QA - 순교자 링크("최후의 인연": 런당 1회 사망 시 HP10% 재기) 전용. 부활자
     -- (본인, Hp=1 고정)와 회복량이 달라 별도 채널이지만 ReviveUsedThisRun 플래그는 공유한다.
     @Sync property number LinkReviveHpPercent = 0
+    -- 2026-09-08 QA - 거울 갑옷 링크("반사의 축복": 파티가 받는 근접 피해 일부 반사) 전용. 본인
+    -- 특성의 mirrorDamage(100% 반사)와 독립된 채널이라 둘 다 활성이면 PlayerHit에서 합산.
+    @Sync property number LinkMirrorDamagePct = 0
     -- 2026-09-08 QA - 럭키 세븐/복불복 상자 링크(주기적 소형 랜덤 버프) 전용. 본인 특성의
     -- RandomBuffAtkPercent와 독립된 채널(둘 다 활성이어도 합산되도록).
     @HideFromInspector property number LinkPeriodicBuffAtkPercent = 0
@@ -952,6 +955,7 @@ script PlayerStatsComponent extends Component
         self.LinkExecuteCritThreshold = 0
         self.LinkFirstHitImmuneAvailable = false
         self.LinkReviveHpPercent = 0
+        self.LinkMirrorDamagePct = 0
         -- M2 Phase C(2026-09-08) - 고독을 링크 슬롯에 편성하면(본인 특성이 아니라 "다른 슬롯"으로)
         -- 반대편 슬롯의 링크 효율을 +15%(부록 D-6 "다른 슬롯 링크효율+15%") 올린다 - 그래서 두 슬롯의
         -- 효율이 서로 다를 수 있어 슬롯별로 따로 계산한다(예전엔 linkEfficiency 하나를 공유).
@@ -972,6 +976,7 @@ script PlayerStatsComponent extends Component
                 self.LinkFirstHitImmuneAvailable = true
             end
             self.LinkReviveHpPercent = self.LinkReviveHpPercent + _TraitEffectEngine:GetLinkReviveHpPercent(self.LinkTrait1) * linkEfficiency1
+            self.LinkMirrorDamagePct = self.LinkMirrorDamagePct + _TraitEffectEngine:GetLinkMirrorDamagePct(self.LinkTrait1) * linkEfficiency1
         end
         if self.LinkTrait2 ~= "" then
             _TraitEffectEngine:ApplyLinkToStats(self, self.LinkTrait2, linkEfficiency2)
@@ -987,6 +992,7 @@ script PlayerStatsComponent extends Component
                 self.LinkFirstHitImmuneAvailable = true
             end
             self.LinkReviveHpPercent = self.LinkReviveHpPercent + _TraitEffectEngine:GetLinkReviveHpPercent(self.LinkTrait2) * linkEfficiency2
+            self.LinkMirrorDamagePct = self.LinkMirrorDamagePct + _TraitEffectEngine:GetLinkMirrorDamagePct(self.LinkTrait2) * linkEfficiency2
         end
         self.LinkOnKillCurrencyChance = math.max(0, math.min(1.0, self.LinkOnKillCurrencyChance))
         -- 박애주의자를 링크 슬롯에 편성 + 두 슬롯 모두 활성이면(부록 D-6 "링크 2슬롯 모두 활성 시

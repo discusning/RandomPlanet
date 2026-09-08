@@ -133,8 +133,11 @@ script PlayerHit extends Component
 
         if isvalid(statsComp) then
             -- 거울 갑옷(mirrorDamage) - 실제로 자신이 받은 최종 피해(dmg)의 비율만큼 공격자에게 반사.
+            -- 2026-09-08 QA - 거울 갑옷 링크("반사의 축복": 파티가 받는 근접 피해 일부 반사)도 동일
+            -- 소비처에서 합산(본인+링크 두 채널 모두 활성이어도 자연스럽게 더해짐).
             local mirrorPct = _TraitEffectEngine:GetMirrorDamagePct(statsComp.Trait)
             if mirrorPct == 0 and statsComp.Trait2 ~= "" then mirrorPct = _TraitEffectEngine:GetMirrorDamagePct(statsComp.Trait2) end
+            mirrorPct = mirrorPct + statsComp.LinkMirrorDamagePct
             if mirrorPct > 0 and dmg > 0 and isvalid(event.AttackerEntity) then
                 local atkMonster = event.AttackerEntity:GetComponent("script.Monster")
                 if isvalid(atkMonster) then

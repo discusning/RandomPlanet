@@ -279,7 +279,7 @@ script TraitCatalog extends Logic
         d["순교자"] = { pool="hb", basicName="회피 기동", basicDesc="체력이 낮을수록 데미지 급증, 대신 자연 회복 불가+체력 상한−30%", basicEffect={hp=-0.30, lowHpAtkMult={threshold=1.0, value=0.5}},
             linkEffect={reviveHpPercent=0.10}, linkName="최후의 인연", linkDesc="런당 1회 사망 시 HP10% 재기" }
         d["거울 갑옷"] = { pool="hb", basicName="반사의 축복", basicDesc="받는 피해의 100%를 그대로 반사, 대신 자신도 그대로 받음", basicEffect={mirrorDamage=1.0},
-            linkName="반사의 축복", linkDesc="파티가 받는 근접 피해 일부 반사" }
+            linkEffect={mirrorDamageLink=0.20}, linkName="반사의 축복", linkDesc="파티가 받는 근접 피해 일부 반사" }
         d["거리의 방랑자"] = { pool="hb", basicName="탐험 지원", basicDesc="웨이브 몬스터 수+25%, 대신 스탯 구슬 드랍량도+25%", basicEffect={exp=0.25},
             linkEffect={gateDropBonus=0.30}, linkName="탐험 지원", linkDesc="몬스터 게이트에서 스탯 구슬 획득량 대폭 증가" }
         d["굶주린 살점"] = { pool="hb", basicName="고통 공유", basicDesc="피격당할 때마다 공격력 소폭 누적(런 종료까지 유지), 대신 시작 체력 낮음", basicEffect={hp=-0.20, hitStackAtk={perHit=0.02, cap=0.40}},

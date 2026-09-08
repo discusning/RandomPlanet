@@ -286,6 +286,14 @@ script TraitEffectEngine extends Logic
         return mod.gateDropBonus or 0
     end
 
+    -- M2 Phase C(2026-09-08) - 거울 갑옷 링크("반사의 축복": 파티가 받는 근접 피해 일부 반사) 전용.
+    -- 본인 특성의 mirrorDamage(100% 반사, GetMirrorDamagePct)와 독립된 채널로 가산 - 둘 다 활성이면
+    -- PlayerHit.HandleHitEvent에서 합산된 비율로 한 번에 반사한다.
+    method number GetLinkMirrorDamagePct(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.mirrorDamageLink or 0
+    end
+
     -- 링크 효율 보정계수(전체 기획서 §2-6) - 액티브(플레이어블) 캐릭터 본인이 보유한 특성이 자신이
     -- "받는" 링크 효과 전체에 곱연산으로 적용된다. 링크 캐릭터 쪽 특성이 아니라 본인 특성 기준.
     method number GetLinkEfficiencyMultiplier(string trait, string trait2)
