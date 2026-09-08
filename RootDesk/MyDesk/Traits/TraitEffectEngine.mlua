@@ -302,6 +302,21 @@ script TraitEffectEngine extends Logic
         return mod.onHitBuffLink
     end
 
+    -- M2 Phase C(2026-09-08) - 느림보(bad)의 basicDesc "낮은 확률로 스킬 2연발"이 basicEffect에
+    -- 아예 없어 페널티(as=-0.10)만 적용되고 보상이 없던 무비용 페널티 버그 발견·수정 전용 게터.
+    -- PlayerSkillComponent.UseSkillSlot이 소비한다.
+    method number GetDoubleCastChance(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.doubleCastChance or 0
+    end
+
+    -- M2 Phase C(2026-09-08) - 산만함 링크("재시전 지원": 낮은 확률로 파티 스킬 2연발) 전용.
+    -- 본인판(느림보, GetDoubleCastChance)과 독립된 채널로 가산.
+    method number GetLinkDoubleCastChance(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.doubleCastLink or 0
+    end
+
     -- M2 Phase C(2026-09-08) - 유리대포 링크("수호 기도": 25초마다 파티 치명타 무효) 전용. 이
     -- 프로젝트엔 몬스터 공격에 "치명타" 개념이 없어 수호자의 basicEffect(periodicShield)와 동일한
     -- 원칙으로 방어막 생성으로 근사 - PlayerStatsComponent.CombatTick의 기존 방어막 블록 직후,

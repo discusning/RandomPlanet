@@ -427,6 +427,31 @@ script PlayerSkillComponent extends Component
             self:PlaySkillMotion(def.kind == "buff" and "Heal" or "Attack")
         end
 
+        self:DispatchSkillEffect(def)
+
+        -- 2026-09-08 QA - 느림보(bad)의 basicDesc "낮은 확률로 스킬 2연발"이 basicEffect에 없어
+        -- 페널티(as=-0.10)만 적용되고 보상이 전혀 없던 무비용 페널티 버그(도굴꾼류와 반대 방향 -
+        -- 이쪽은 "손해만 보는" 불공정). 산만함 링크("재시전 지원")도 동일 메커니즘의 링크 버전이라
+        -- 함께 연결 - MP/쿨다운 재차감 없이 디스패치만 한 번 더(위에서 이미 차감 완료).
+        local doubleCastChance = isvalid(statsComp) and _TraitEffectEngine:GetDoubleCastChance(statsComp.Trait) or 0
+        if doubleCastChance == 0 and isvalid(statsComp) and statsComp.Trait2 ~= "" then
+            doubleCastChance = _TraitEffectEngine:GetDoubleCastChance(statsComp.Trait2)
+        end
+        local linkDoubleCastChance = isvalid(statsComp) and _TraitEffectEngine:GetLinkDoubleCastChance(statsComp.LinkTrait1) or 0
+        if linkDoubleCastChance == 0 and isvalid(statsComp) and statsComp.LinkTrait2 ~= "" then
+            linkDoubleCastChance = _TraitEffectEngine:GetLinkDoubleCastChance(statsComp.LinkTrait2)
+        end
+        if (doubleCastChance + linkDoubleCastChance) > 0 and _UtilLogic:RandomDouble() < (doubleCastChance + linkDoubleCastChance) then
+            log("PlayerSkill: 느림보/산만함 링크 - 스킬 2연발 발동")
+            _TimerService:SetTimerOnce(function()
+                if isvalid(self.Entity) then self:DispatchSkillEffect(def) end
+            end, 0.15)
+        end
+    end
+
+    method void DispatchSkillEffect(table def)
+        -- def.kind에 따라 실제 판정 로직(Do*)으로 분기. UseSkillSlot 본 사용 + 느림보/산만함
+        -- 링크의 2연발 재사용 양쪽에서 호출되는 공용 진입점(MP/쿨다운 차감과는 독립).
         if def.kind == "melee_single" then
             -- 2026-09-06 (M2 Phase A) - VFX 타이밍 딜레이 적용(As-built 25차 "설계만 완료, 코드
             -- 미적용" 항목 - DoDash 주석에 있던 "DispatchSkill의 impactDelay" 개념을 실제로 구현).

@@ -157,7 +157,7 @@ script TraitCatalog extends Logic
             linkEffect={firstHitImmune=true}, linkName="안전 확보", linkDesc="파티 입장 후 첫 피격 무효" }
         d["낭비벽"] = { pool="bad", basicName="마나 순환", basicDesc="스킬 MP 소모+15%, 대신 처치 시 MP 회복", basicEffect={mpc=0.15},
             linkEffect={mpc=-0.05}, linkName="풍족한 지원", linkDesc="파티 MP 소모−8%" }
-        d["느림보"] = { pool="bad", basicName="이중 시전", basicDesc="공격 속도−10%, 대신 낮은 확률로 스킬 2연발", basicEffect={as=-0.10},
+        d["느림보"] = { pool="bad", basicName="이중 시전", basicDesc="공격 속도−10%, 대신 낮은 확률로 스킬 2연발", basicEffect={as=-0.10, doubleCastChance=0.15},
             linkEffect={msm=0.05}, linkName="여유로운 걸음", linkDesc="파티 이동속도+8%" }
         d["박복"] = { pool="bad", basicName="행운의 칼날", basicDesc="크리티컬 확률−4%, 대신 크리 시 낮은 확률로 즉시 재행동", basicEffect={cc=-0.04},
             linkEffect={drop=0.05}, linkName="박복한 자의 위로", linkDesc="파티 회복 아이템 드랍 확률+10%" }
@@ -168,7 +168,7 @@ script TraitCatalog extends Logic
         d["허약"] = { pool="bad", basicName="파쇄", basicDesc="공격력−8%, 대신 방어 관통 소폭", basicEffect={atk=-0.08},
             linkEffect={hp=0.04}, linkName="허약함의 대가", linkDesc="파티 최대 체력+8%" }
         d["산만함"] = { pool="bad", basicName="연속 스텝", basicDesc="스킬 쿨다운+10%, 대신 대시 후 3초간 공속+12%", basicEffect={mpc=0.05},
-            linkName="재시전 지원", linkDesc="낮은 확률로 파티 스킬 2연발" }
+            linkEffect={doubleCastLink=0.08}, linkName="재시전 지원", linkDesc="낮은 확률로 파티 스킬 2연발" }
         d["옹졸함"] = { pool="bad", basicName="인내의 일격", basicDesc="구슬 획득량−8%, 대신 무피격 시간 비례 데미지 증가", basicEffect={exp=-0.08},
             linkEffect={drop=0.05}, linkName="저축", linkDesc="파티 연속 처치 유지 시 구슬 획득+10%" }
         d["겁쟁이"] = { pool="bad", basicName="반격 태세", basicDesc="보스전 받는 피해 증가, 대신 피격 직후 다음 공격+20%", basicEffect={dr=-0.05},
