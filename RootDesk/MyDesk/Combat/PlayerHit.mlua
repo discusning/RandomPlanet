@@ -117,6 +117,13 @@ script PlayerHit extends Component
             return
         end
 
+        -- 2026-09-10 QA - 환영 교체 링크("잔상 지원": 대시 시 짧은 무적시간) 신규 연결.
+        -- PlayerSkillComponent.DoDash가 세팅, 여기선 시각 비교만.
+        if isvalid(statsComp) and _UtilLogic.ElapsedSeconds < statsComp.LinkDashInvulnUntilElapsed then
+            log("PlayerHit: 환영 교체 링크 - 잔상 지원 무적 중, 피해 무효")
+            return
+        end
+
         -- 2026-09-08 QA - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 신규 연결.
         -- 유리몸 링크(전액 무효)와 달리 부분 경감이라 return하지 않고 dmg만 줄여서 계속 진행.
         -- "런당" 1회라 전장 재진입으로는 재사용 불가(FirstHitReductionUsedThisRun은 캐릭터 로드시만 리셋).

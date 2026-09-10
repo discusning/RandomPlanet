@@ -352,6 +352,14 @@ script TraitEffectEngine extends Logic
         return mod.shieldGrantPct or 0
     end
 
+    -- M2 Phase C(2026-09-10) - 환영 교체 링크("잔상 지원": 대시/회피 시 짧은 무적시간 부여) 전용.
+    -- 본인 특성(환영 교체, 분신 소환 선행 서브시스템 필요로 미착수)과 달리 링크는 "무적시간 부여"만
+    -- 필요해 신규 서브시스템 없이 구현 가능 - PlayerSkillComponent.DoDash가 소비한다. 초 단위 duration.
+    method number GetLinkDashInvuln(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.dashInvulnLink or 0
+    end
+
     -- M2 Phase C(2026-09-08) - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
     -- 유리몸 링크(firstHitImmune, 전액 무효 + "입장 후"마다 재사용)와 달리 부분 경감 + "런당" 1회.
     method number GetLinkFirstHitReduction(string trait)

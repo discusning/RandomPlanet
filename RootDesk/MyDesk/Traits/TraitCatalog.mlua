@@ -84,7 +84,7 @@ script TraitCatalog extends Logic
         d["진화의 손길"] = { pool="hg", basicName="진화의 손길", basicDesc="같은 스킬 누적 50회 사용 시 진화형으로 자동 교체 (선행 서브시스템 필요)",
             linkName="진화 지원", linkDesc="링크 배치 시 스킬 진화 필요 사용 횟수−20%" }
         d["환영 교체"] = { pool="hg", basicName="환영 교체", basicDesc="스킬키로 분신과 위치 교체 + 소형 피해 (선행 서브시스템 필요)",
-            linkName="잔상 지원", linkDesc="대시/회피 시 짧은 무적시간 부여" }
+            linkEffect={dashInvulnLink=0.4}, linkName="잔상 지원", linkDesc="대시/회피 시 짧은 무적시간 부여" }
         d["메아리치는 발걸음"] = { pool="hg", basicName="메아리치는 발걸음", basicDesc="이동 중 지나온 자리에 화상 장판 (도트 프레임워크 선행 필요)",
             linkName="발자국 지원", linkDesc="파티 이동 경로에 약한 화상 장판 공유" }
         d["차원의 틈"] = { pool="hg", basicName="차원의 틈", basicDesc="크리 시 낮은 확률로 주변 몬스터를 끌어당김", basicEffect={onCritPullChance=0.08},

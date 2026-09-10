@@ -673,6 +673,18 @@ script PlayerSkillComponent extends Component
         if dir == 0 then dir = 1 end
         body:AddForce(Vector2(dir * def.force, 0))
 
+        -- 2026-09-10 QA - 환영 교체 링크("잔상 지원": 대시 시 짧은 무적시간) 신규 연결. 본인 특성의
+        -- 분신 소환(선행 서브시스템 필요, 미착수)과 달리 링크는 무적시간 부여만 필요해 구현 가능.
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        if isvalid(statsComp) then
+            local dashInvulnDuration = _TraitEffectEngine:GetLinkDashInvuln(statsComp.LinkTrait1)
+            if dashInvulnDuration == 0 and statsComp.LinkTrait2 ~= "" then dashInvulnDuration = _TraitEffectEngine:GetLinkDashInvuln(statsComp.LinkTrait2) end
+            if dashInvulnDuration > 0 then
+                statsComp.LinkDashInvulnUntilElapsed = _UtilLogic.ElapsedSeconds + dashInvulnDuration
+                log("PlayerSkill: 환영 교체 링크 - 잔상 지원 무적 발동")
+            end
+        end
+
         -- 2026-08-25 밸런스 - 대시에 실제 돌진 판정 데미지 추가(SkillCatalog 주석 참고, 해적 1차
         -- 공격 슬롯에 데미지 스킬이 하나도 없었던 문제 수정). AddForce와 같은 프레임에 즉시 판정 -
         -- 다른 근접 스킬처럼 타격 지연(DispatchSkill의 impactDelay)을 주면 이미 몸으로 부딪혀
