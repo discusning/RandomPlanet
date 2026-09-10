@@ -183,6 +183,28 @@ script PlayerHit extends Component
 
         player.Hp = math.max(0, player.Hp - dmg)
 
+        -- 2026-09-10 QA - KnockbackResistance(STR 파생 2차 스탯)가 지금까지 계산만 되고 실제로
+        -- 소비되는 곳이 전혀 없던 "죽은 스탯"이었음을 발견(이 세션 초반의 LUK/EvasionPercent와
+        -- 동일 유형의 근본적 QA 발견 - PlayerAttack.mlua 상단 주석에 "applied on the player's own
+        -- incoming-hit path once that exists"라고 명시돼 있던 대로, 몬스터가 플레이어를 실제로
+        -- 밀쳐내는 넉백 자체가 이 프로젝트에 없어서 저항할 대상 자체가 없었다). 몬스터 접촉 피해가
+        -- 실제로 적용된 바로 이 지점에 넉백 임펄스를 신규 추가 - 외골수/무게추 등 kb 채널 특성이
+        -- 이제 실제 효과를 갖는다.
+        if dmg > 0 and isvalid(event.AttackerEntity) then
+            local body = self.Entity.RigidbodyComponent
+            local attackerTransform = event.AttackerEntity.TransformComponent
+            local selfTransform = self.Entity.TransformComponent
+            if isvalid(body) and isvalid(attackerTransform) and isvalid(selfTransform) then
+                local dir = (selfTransform.WorldPosition.x >= attackerTransform.WorldPosition.x) and 1 or -1
+                local resistance = isvalid(statsComp) and statsComp.KnockbackResistance or 0
+                local force = 2.5 * (1 - resistance)
+                if force > 0 then
+                    body:AddForce(Vector2(dir * force, 0.5))
+                    log("PlayerHit: 넉백 적용 force=" .. string.format("%.2f", force) .. " resistance=" .. resistance)
+                end
+            end
+        end
+
         if isvalid(statsComp) then
             -- 거울 갑옷(mirrorDamage) - 실제로 자신이 받은 최종 피해(dmg)의 비율만큼 공격자에게 반사.
             -- 2026-09-08 QA - 거울 갑옷 링크("반사의 축복": 파티가 받는 근접 피해 일부 반사)도 동일
