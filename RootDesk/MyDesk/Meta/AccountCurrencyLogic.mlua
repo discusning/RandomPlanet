@@ -79,6 +79,17 @@ script AccountCurrencyLogic extends Logic
         self._T.loadComplete = true
         log("AccountCurrency: loaded value=" .. value .. " upgradeLevel=" .. level)
         _AccountUpgradeUIController:RefreshDisplay()
+        -- 2026-09-10 QA - choice_map의 "정수: ..." 표시가 currency load 완료 후에도 영원히 갱신되지
+        -- 않던 버그 수정. CharacterSelectStageController.RefreshStage는 로스터 로드(OnRosterLoaded)나
+        -- 유저 조작 시에만 재호출됐는데, 통화 로드는 그와 별개의 비동기 왕복이라 그 사이 타이밍에
+        -- 완료되면 아무도 다시 그려주지 않았다(둘 다 로드 중일 때만 우연히 맞아떨어지던 케이스).
+        local mapEntity = _EntityService:GetEntityByPath("/maps/choice_map")
+        if isvalid(mapEntity) then
+            local controller = mapEntity:GetComponent("script.CharacterSelectStageController")
+            if isvalid(controller) then
+                controller:RefreshStage()
+            end
+        end
     end
 
     @ExecSpace("ServerOnly")

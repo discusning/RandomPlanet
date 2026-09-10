@@ -191,12 +191,26 @@ script CharacterInfoUIController extends Component
 
         self.skillSummaryValue.Text = "-"
         if isvalid(skillComp) then
+            -- 2026-09-10 QA - 장착 스킬 요약이 공격 스킬(EquippedSkillId, 1번 슬롯)만 표시하고 버프
+            -- 스킬(EquippedSkillId2, 2번 슬롯)은 아예 누락돼 있던 것을 발견·수정 - HUD/스킬창은 둘 다
+            -- 보여주는데 이 요약만 절반만 보여줬다.
+            local parts = {}
             local eq = skillComp.EquippedSkillId
             if eq ~= nil and eq ~= "" then
                 local def = _SkillCatalog:GetSkillDef(eq)
                 if def ~= nil then
-                    self.skillSummaryValue.Text = def.name .. " (" .. def.job .. ")"
+                    table.insert(parts, def.name .. " (" .. def.job .. ")")
                 end
+            end
+            local eq2 = skillComp.EquippedSkillId2
+            if eq2 ~= nil and eq2 ~= "" then
+                local def2 = _SkillCatalog:GetSkillDef(eq2)
+                if def2 ~= nil then
+                    table.insert(parts, def2.name .. " (" .. def2.job .. ")")
+                end
+            end
+            if #parts > 0 then
+                self.skillSummaryValue.Text = table.concat(parts, " · ")
             end
         end
     end

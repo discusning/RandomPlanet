@@ -43,6 +43,14 @@ script EndingUIController extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnHallOfFameClicked()
+        -- 2026-09-10 QA - LeaderboardGroup의 GroupOrder(6)가 EndingGroup(13)보다 낮아 명예의 전당을
+        -- 열어도 ENDING 팝업 뒤에 가려 보이지 않던 버그 발견. GroupOrder를 leaderboard 쪽에서 더
+        -- 높게 올려도(18) 라이브 렌더링에는 반영되지 않아(활성화 시점 기준 동적 정렬로 추정, 정적
+        -- GroupOrder 값만으론 불충분) 대신 명시적으로 ENDING을 잠시 숨기는 방식으로 확실히 해결 -
+        -- LeaderboardUIController.OnCloseClicked에서 다시 보여준다.
+        if isvalid(self.endingGroup) then
+            self.endingGroup.Enable = false
+        end
         _LeaderboardUIController:Show()
     end
 

@@ -61,6 +61,13 @@ script LeaderboardUIController extends Logic
         if isvalid(self.leaderboardGroup) then
             self.leaderboardGroup.Enable = false
         end
+        -- 2026-09-10 QA - EndingUIController.OnHallOfFameClicked이 명예의 전당을 여는 동안 ENDING
+        -- 팝업을 잠시 숨겨놓은 것을 여기서 복원 - 이 팝업은 오직 ENDING 화면에서만 열리므로(다른
+        -- 진입점 없음) 항상 복원해도 안전하다. 이미 켜져 있으면(isvalid true) 무해한 재대입.
+        local endingEnt = _EntityService:GetEntityByPath("/ui/EndingGroup")
+        if isvalid(endingEnt) then
+            endingEnt.Enable = true
+        end
     end
 
     @ExecSpace("ClientOnly")
