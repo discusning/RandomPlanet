@@ -474,6 +474,8 @@ script TraitEffectEngine extends Logic
     -- 전용. "상위 옵션"을 미친 과학자(선택 시 수치 2배)와 동일한 배증 개념으로 근사 - "추가 스탯"
     -- 선택지에만 적용 가능(재분배/특성변경은 배증 개념이 성립하지 않는다는 기존 원칙 그대로).
     -- PlayerStatsComponent.RequestResolveAbilityChoice가 소비한다.
+    -- M2 Phase C(2026-09-10) - 큐브마스터 링크("이능 지원")와 부패한 계약서 링크("계약 지원":
+    -- 이능 선택지가 낮은 확률로 상위 등급으로 대체)가 문구상 사실상 동일 효과라 같은 채널을 공유.
     method number GetLinkAbilityUpgradeChance(string trait)
         local mod = self:GetLinkModifiers(trait)
         return mod.abilityUpgradeLink or 0

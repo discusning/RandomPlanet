@@ -226,7 +226,7 @@ script TraitCatalog extends Logic
         d["오염의 씨앗"] = { pool="gmb", basicName="오염의 씨앗", basicDesc="스탯 구슬 획득 시 낮은 확률로 등급 격상(경험치로 근사)", basicEffect={onKillBonusExp=0.08},
             linkEffect={atk=0.02}, linkName="감염 지원", linkDesc="낮은 확률로 처치 시 파티 전원 짧은 전스탯 버프" }
         d["부패한 계약서"] = { pool="gmb", basicName="부패한 계약서", basicDesc="3차 전직 추가 특성 추첨이 무조건 Hidden 풀에서만 나옴", basicEffect={forceHiddenRerollAt13=true},
-            linkName="계약 지원", linkDesc="이능 선택지가 낮은 확률로 상위 등급으로 대체" }
+            linkEffect={abilityUpgradeLink=0.15}, linkName="계약 지원", linkDesc="이능 선택지가 낮은 확률로 상위 등급으로 대체" }
         d["영혼 포획자"] = { pool="gmb", basicName="영혼 포획자", basicDesc="몬스터 처치 시 낮은 확률로 5초간 아군 전환(선행 서브시스템 필요)",
             linkEffect={captureInvulnLink={chance=0.15, duration=1.5}}, linkName="포획 지원", linkDesc="낮은 확률로 처치 시 파티에게 짧은 무적 프레임" }
         d["기생하는 대가"] = { pool="gmb", basicName="기생하는 대가", basicDesc="HP10%↓ 도달 시 링크 캐릭터 HP 소모해 채움(런당 1회, 링크 시스템 선행 필요)",
