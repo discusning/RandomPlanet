@@ -43,7 +43,7 @@ script TraitCatalog extends Logic
             linkEffect={lowHpInvulnLink={threshold=0.10, chance=0.25, duration=1.5}}, linkName="재림의 축복", linkDesc="파티 중 위기(HP10%↓) 캐릭터에게 낮은 확률로 짧은 무적" }
         d["먹보"] = { pool="hg", basicName="생명 전환", basicDesc="회복 아이템 효과량 증가", basicEffect={potionMult=0.5},
             linkEffect={potionMult=0.15}, linkName="포식의 나눔", linkDesc="파티 회복 아이템 효과량+15%" }
-        d["분신(도플갱어)"] = { pool="hg", basicName="콤보 마스터", basicDesc="무피격 시간 비례 데미지 증가 (분신 소환은 선행 서브시스템 필요)",
+        d["분신(도플갱어)"] = { pool="hg", basicName="콤보 마스터", basicDesc="무피격 시간 비례 데미지 증가 (분신 소환은 선행 서브시스템 필요)", basicEffect={unhitScaleAtk={perSecond=0.04, cap=0.40}},
             linkName="표식 공유", linkDesc="파티가 표식 능력 획득" }
         d["메아리"] = { pool="hg", basicName="무영창", basicDesc="공격 시 낮은 확률로 스킬 쿨다운 즉시 초기화", basicEffect={onHitCooldownReset=0.05},
             -- 2026-09-08 - "회피 성공 시" 조건은 PlayerHit의 신규 EvasionPercent 파이프라인 도입으로
