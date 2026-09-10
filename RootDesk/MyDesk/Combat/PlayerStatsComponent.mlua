@@ -195,6 +195,8 @@ script PlayerStatsComponent extends Component
     -- 링크(확률형)와 달리 "직후"라 매 피격마다 확정 발동하는 독립 채널.
     @HideFromInspector property number OwnOnHitBuffAtkPercent = 0
     @HideFromInspector property number OwnOnHitBuffExpireElapsed = 0
+    -- 2026-09-10 QA - 옹졸함(bad)의 basicDesc "무피격 시간 비례 데미지 증가" 본인판 전용.
+    @HideFromInspector property number UnhitScaleAtkPercent = 0
     @HideFromInspector property number LinkOnHitBuffExpireElapsed = 0
     -- 2026-09-08 QA - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
     -- 유리몸 링크(firstHitImmune)와 달리 "런당" 1회라 ReviveUsedThisRun과 동일하게 캐릭터
@@ -293,6 +295,7 @@ script PlayerStatsComponent extends Component
         self.LinkOnHitBuffExpireElapsed = 0
         self.OwnOnHitBuffAtkPercent = 0
         self.OwnOnHitBuffExpireElapsed = 0
+        self.UnhitScaleAtkPercent = 0
         self.LinkCaptureInvulnUntilElapsed = 0
         self.LinkLowHpInvulnUntilElapsed = 0
         self.LinkLowHpInvulnCooldownUntilElapsed = 0
@@ -1209,7 +1212,7 @@ script PlayerStatsComponent extends Component
         -- 지워버리므로, 항상 이 메서드 하나만 실제 쓰기를 담당하게 한다.
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(attack) then return end
-        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus + self.LinkMasterBuffAtkPercent + self.LinkPeriodicBuffAtkPercent + self.LinkOnHitBuffAtkPercent + self.OwnOnHitBuffAtkPercent
+        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus + self.LinkMasterBuffAtkPercent + self.LinkPeriodicBuffAtkPercent + self.LinkOnHitBuffAtkPercent + self.OwnOnHitBuffAtkPercent + self.UnhitScaleAtkPercent
         attack.AttackDamage = self.BaseAttackDamage * (1 + totalBonus)
     end
 
@@ -1322,6 +1325,22 @@ script PlayerStatsComponent extends Component
             local sinceHit = isvalid(hitComp) and (_UtilLogic.ElapsedSeconds - hitComp.LastHitElapsed) or 999
             if sinceHit >= (regenSpec.seconds or 0) and player.Hp < player.MaxHp then
                 player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * (regenSpec.pct or 0))
+            end
+        end
+
+        -- 2026-09-10 QA - 옹졸함(bad)의 basicDesc "무피격 시간 비례 데미지 증가" 본인판이
+        -- basicEffect에 없어 페널티(exp=-0.08)만 적용되던 무비용 페널티 버그 신규 수정. 재생력/
+        -- 회복가와 동일한 LastHitElapsed 추적을 재사용, 회복 대신 공격력이 무피격 시간에 비례해
+        -- 계속 오르다가(상한까지) 피격 시 hitComp.LastHitElapsed 갱신으로 자연히 리셋된다.
+        local unhitScaleSpec = _TraitEffectEngine:GetOwnUnhitScaleAtk(self.Trait)
+        if unhitScaleSpec == nil and hasTrait2 then unhitScaleSpec = _TraitEffectEngine:GetOwnUnhitScaleAtk(self.Trait2) end
+        if unhitScaleSpec ~= nil then
+            local hitComp2 = self.Entity:GetComponent("script.PlayerHit")
+            local sinceHit2 = isvalid(hitComp2) and (_UtilLogic.ElapsedSeconds - hitComp2.LastHitElapsed) or 0
+            local newVal = math.min(unhitScaleSpec.cap or 0.30, sinceHit2 * (unhitScaleSpec.perSecond or 0))
+            if newVal ~= self.UnhitScaleAtkPercent then
+                self.UnhitScaleAtkPercent = newVal
+                self:RecomputeDynamicAttackDamage()
             end
         end
 

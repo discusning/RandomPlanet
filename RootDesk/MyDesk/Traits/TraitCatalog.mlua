@@ -169,7 +169,7 @@ script TraitCatalog extends Logic
             linkEffect={hp=0.04}, linkName="허약함의 대가", linkDesc="파티 최대 체력+8%" }
         d["산만함"] = { pool="bad", basicName="연속 스텝", basicDesc="스킬 쿨다운+10%, 대신 대시 후 3초간 공속+12%", basicEffect={mpc=0.05},
             linkEffect={doubleCastLink=0.08}, linkName="재시전 지원", linkDesc="낮은 확률로 파티 스킬 2연발" }
-        d["옹졸함"] = { pool="bad", basicName="인내의 일격", basicDesc="구슬 획득량−8%, 대신 무피격 시간 비례 데미지 증가", basicEffect={exp=-0.08},
+        d["옹졸함"] = { pool="bad", basicName="인내의 일격", basicDesc="구슬 획득량−8%, 대신 무피격 시간 비례 데미지 증가", basicEffect={exp=-0.08, unhitScaleAtk={perSecond=0.03, cap=0.30}},
             linkEffect={drop=0.05}, linkName="저축", linkDesc="파티 연속 처치 유지 시 구슬 획득+10%" }
         d["겁쟁이"] = { pool="bad", basicName="반격 태세", basicDesc="보스전 받는 피해 증가, 대신 피격 직후 다음 공격+20%", basicEffect={dr=-0.05, onHitBuffOwn={atk=0.20, duration=3}},
             linkEffect={dr=0.08}, linkName="후위 엄호", linkDesc="파티 후방 피해−15%" }
