@@ -186,6 +186,22 @@ script PlayerAttack extends AttackComponent
             end
         end
 
+        -- 2026-09-10 QA - 박복(bad)의 basicDesc "크리 시 낮은 확률로 즉시 재행동" 본인판이
+        -- basicEffect에 없어 페널티(cc=-0.04)만 적용되던 무비용 페널티 버그 신규 수정. 메아리와
+        -- 동일한 쿨다운 초기화 메커니즘으로 근사, 크리였을 때만 발동.
+        if self._T.lastWasCrit then
+            local critCdResetChance = _TraitEffectEngine:GetOwnCritCooldownReset(statsComp.Trait)
+            if critCdResetChance == 0 and statsComp.Trait2 ~= "" then critCdResetChance = _TraitEffectEngine:GetOwnCritCooldownReset(statsComp.Trait2) end
+            if critCdResetChance > 0 and _UtilLogic:RandomDouble() < critCdResetChance then
+                local skillComp2 = self.Entity:GetComponent("script.PlayerSkillComponent")
+                if isvalid(skillComp2) then
+                    skillComp2.LastUseTime = -999
+                    skillComp2.LastUseTime2 = -999
+                    log("PlayerAttack: 박복 - 즉시 재행동 발동")
+                end
+            end
+        end
+
         -- 2026-09-10 QA - 저주의 표식(bad)의 basicDesc "타격 시 적 이동속도 감소" 본인판이
         -- basicEffect에 없어 페널티(atk=-0.03)만 적용되던 무비용 페널티 버그 신규 수정(느림보/
         -- 변덕과 동일 유형). 차원의 틈 링크와 동일한 Monster.ApplyGravitySlow 재사용.
