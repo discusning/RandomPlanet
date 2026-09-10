@@ -14,6 +14,7 @@ script InventoryUIController extends Component
     property Entity tabConsumable = "2c5229dd-6a9b-469a-a2c7-7253d09e0ddc"
     property Entity tabMisc = "f9394364-644b-4aac-a183-94457fddd007"
     property Entity btnClose = "83ec823b-e7ad-4a12-8126-551b85efa6ce"
+    property TextGUIRendererComponent hintText = "150db8f5-48a6-40cb-b66f-fd7e8b8413a2"
     property Entity slot1 = "7fcaaf35-8920-424b-acb3-08e80f533861"
     property Entity slot2 = "a87801e4-43ae-490c-aad8-f8edc96c9218"
     property Entity slot3 = "7ac08fd2-aa67-4931-8f7b-62cc69bd3fa2"
@@ -224,6 +225,19 @@ script InventoryUIController extends Component
         for _, tab in ipairs(self._T.tabs) do
             local sprite = tab.entity.SpriteGUIRendererComponent
             sprite.Color = (tab.category == self._T.activeCategory) and self:_TabActiveColor() or self:_TabInactiveColor()
+        end
+        -- 2026-09-10 QA(유저 피드백 "어색한 UI 찾아서 고쳐줘") - 하단 안내 문구가 탭과 무관하게
+        -- 항상 "장비 클릭→장착 / 주문서 클릭→강화" 고정 텍스트였음. 소비 탭에선 주문서 절반만
+        -- 맞고, 기타 탭(현재 완전히 비어있음)에선 두 문장 다 무관해 보이는 어색함이 있었음 - 탭별로
+        -- 맞는 안내만 보이도록 분리.
+        if isvalid(self.hintText) then
+            if self._T.activeCategory == "equip" then
+                self.hintText.Text = "장비를 클릭하면 즉시 장착됩니다."
+            elseif self._T.activeCategory == "consumable" then
+                self.hintText.Text = "주문서를 클릭해 선택한 뒤, 장비 창의 슬롯을 클릭하면 강화됩니다."
+            else
+                self.hintText.Text = "필드에서 획득한 기타 아이템이 여기에 모입니다."
+            end
         end
     end
 

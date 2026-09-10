@@ -280,10 +280,10 @@ script SkillUIController extends Component
             sprite.Color = Color(0.3, 0.26, 0.2, 0.4)
             return
         end
-        -- string.sub is byte-based, not codepoint-based - Korean UTF-8 glyphs are 3 bytes each, so
-        -- (1,2) truncates mid-glyph into an invalid sequence (renders as nothing/mojibake). (1,6)
-        -- safely captures up to 2 full Korean characters for every skill name in the catalog.
-        text.Text = string.sub(def.name, 1, 6)
+        -- 2026-09-10 QA(유저 피드백 "어색한 UI 찾아서 고쳐줘") - 예전엔 이름을 2글자로 잘라
+        -- "매직"/"디스"처럼 불완전한 단어로 보이게 표시했음(원래 각각 "매직 가드"/"디스에이블") -
+        -- 슬롯이 120x120으로 충분히 크고 텍스트가 폭에 맞춰 자동 줄바꿈되므로 전체 이름을 그대로 표시.
+        text.Text = def.name
         sprite.Color = self:ColorForKind(def.kind)
     end
 
