@@ -470,6 +470,15 @@ script TraitEffectEngine extends Logic
         return mod.killExplosionLink
     end
 
+    -- M2 Phase C(2026-09-10) - 큐브마스터 링크("이능 지원": 이능 선택지가 낮은 확률로 상위 옵션)
+    -- 전용. "상위 옵션"을 미친 과학자(선택 시 수치 2배)와 동일한 배증 개념으로 근사 - "추가 스탯"
+    -- 선택지에만 적용 가능(재분배/특성변경은 배증 개념이 성립하지 않는다는 기존 원칙 그대로).
+    -- PlayerStatsComponent.RequestResolveAbilityChoice가 소비한다.
+    method number GetLinkAbilityUpgradeChance(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.abilityUpgradeLink or 0
+    end
+
     -- M2 Phase C(2026-09-10) - 변덕(bad)의 basicDesc "처치 시 낮은 확률로 드랍 2배" 본인판이
     -- basicEffect에 없어 페널티(exp=-0.03)만 적용되고 보상이 없던 무비용 페널티 버그 발견·수정
     -- 전용(느림보와 동일 유형). 도박꾼(HasDropGamble, 확정 50/50)과 달리 확률 게이트가 있다.

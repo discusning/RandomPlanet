@@ -491,7 +491,15 @@ script PlayerStatsComponent extends Component
         if choice == "redistribute" then
             self:ApplyStatRedistribute()
         elseif choice == "bonus" then
-            self:ApplyBonusStats(isMadScientist and 2 or 1)
+            -- 2026-09-10 QA - 큐브마스터 링크("이능 지원": 이능 선택지가 낮은 확률로 상위 옵션)
+            -- 신규 연결. 미친 과학자와 동일한 "추가 스탯 2배" 배증 개념으로 근사, 확률 게이트만 다름.
+            local upgradeChance = _TraitEffectEngine:GetLinkAbilityUpgradeChance(self.LinkTrait1)
+            if upgradeChance == 0 and self.LinkTrait2 ~= "" then upgradeChance = _TraitEffectEngine:GetLinkAbilityUpgradeChance(self.LinkTrait2) end
+            local linkUpgraded = upgradeChance > 0 and _UtilLogic:RandomDouble() < upgradeChance
+            if linkUpgraded then
+                log("PlayerStats: 큐브마스터 링크 - 이능 지원 발동(상위 옵션)")
+            end
+            self:ApplyBonusStats((isMadScientist or linkUpgraded) and 2 or 1)
         elseif choice == "trait" then
             -- 운명론자(hb) - basicDesc가 명시한 "특성 변경 불가"가 지금까지 실제로는 강제되지
             -- 않았다(atk=0.15 등 시작 스탯+40% 보너스만 적용되고 페널티는 "선행 필요"로 미구현
