@@ -11,8 +11,8 @@ script PlayerHUDController extends Logic
     property TextGUIRendererComponent skillNameText = "ec6309fb-68a6-45ee-b76f-5c419708b1cd"
     property TextGUIRendererComponent skillStatusText = "e4a77839-f995-4905-84ae-c3d3c1fc59e1"
     -- 2번 스킬 슬롯(W) HUD 표시 - skillNameText/skillStatusText와 동일 패턴 (M2 Phase A, 2026-09-06)
-    property TextGUIRendererComponent skillName2Text = "4782d66b-c6c8-4417-a921-becc70b81f87"
-    property TextGUIRendererComponent skillStatus2Text = "d52112e8-59e1-4fd2-b042-3b9a7369f81d"
+    property TextGUIRendererComponent skillName2Text = "9ab9ecdc-497c-488c-a586-da3d00eb28a5"
+    property TextGUIRendererComponent skillStatus2Text = "9215ef8a-8938-4436-9b37-09a4278301cb"
     -- 2026-08-19 유저 요청 - "버프 스킬 유지 시간이 전혀 안 보인다". PlayerSkillComponent에 이미
     -- 있던 BuffActive/BuffExpireTime/BuffType은 @Sync가 없어 클라이언트가 애초에 읽을 수 없었다
     -- (그 자체가 진짜 원인) - 함께 @Sync 추가.
