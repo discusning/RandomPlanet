@@ -225,6 +225,17 @@ script PlayerHit extends Component
                 log("PlayerHit: 순교자 링크 - 최후의 인연 발동, Hp=" .. player.Hp)
                 return
             end
+            -- 2026-09-10 QA - 시간을 거스르는 자 링크("인연의 메아리": 런당 1회 사망 직전 0.5초
+            -- 무적) 신규 연결. 본인판(3초 전 스냅샷 복구)은 여전히 미구현이지만, 링크는 "사망을
+            -- 막는다"는 결과만 필요해 부활자/순교자와 동일한 ReviveUsedThisRun 예산을 공유하는
+            -- "Hp=1로 버팀" 근사로 구현(런당 부활은 출처 무관 총 1회 제한, 기존 원칙 그대로).
+            if isvalid(statsComp) and not statsComp.ReviveUsedThisRun and
+               (_TraitEffectEngine:HasLinkDeathPrevent(statsComp.LinkTrait1) or (statsComp.LinkTrait2 ~= "" and _TraitEffectEngine:HasLinkDeathPrevent(statsComp.LinkTrait2))) then
+                statsComp.ReviveUsedThisRun = true
+                player.Hp = 1
+                log("PlayerHit: 시간을 거스르는 자 링크 - 인연의 메아리 발동, Hp=1")
+                return
+            end
             player:ProcessDead()
             if isvalid(statsComp) then
                 statsComp:TriggerRunEnd()

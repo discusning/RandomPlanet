@@ -360,6 +360,15 @@ script TraitEffectEngine extends Logic
         return mod.dashInvulnLink or 0
     end
 
+    -- M2 Phase C(2026-09-10) - 시간을 거스르는 자 링크("인연의 메아리": 런당 1회 사망 직전 0.5초
+    -- 무적) 전용. 본인 특성(3초 전 위치+체력 스냅샷 복구, 스냅샷 버퍼 선행 필요로 미착수)과 달리
+    -- 링크는 "사망을 막는다"는 결과만 필요해, 부활자/순교자 링크와 동일하게 ReviveUsedThisRun
+    -- 예산을 공유하는 "Hp=1로 버팀" 근사로 구현 - PlayerHit.HandleHitEvent가 소비한다.
+    method boolean HasLinkDeathPrevent(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.deathPreventLink == true
+    end
+
     -- M2 Phase C(2026-09-08) - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
     -- 유리몸 링크(firstHitImmune, 전액 무효 + "입장 후"마다 재사용)와 달리 부분 경감 + "런당" 1회.
     method number GetLinkFirstHitReduction(string trait)

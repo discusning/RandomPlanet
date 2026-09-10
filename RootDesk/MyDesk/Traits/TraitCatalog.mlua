@@ -92,7 +92,7 @@ script TraitCatalog extends Logic
         d["동전 던지기 사형집행인"] = { pool="hg", basicName="동전 던지기 사형집행인", basicDesc="크리 시 낮은 확률(약5%)로 대상 즉사(보스 제외)", basicEffect={onCritExecuteChance=0.05},
             linkEffect={executeCritThreshold=0.10}, linkName="처형 지원", linkDesc="파티 공격이 체력10%↓ 적 처치 시 확정타" }
         d["시간을 거스르는 자"] = { pool="hg", basicName="시간을 거스르는 자", basicDesc="치명적 피해를 받으면 3초 전으로 복구(런당 1회) (스냅샷 버퍼 선행 필요)",
-            linkName="인연의 메아리", linkDesc="런당 1회 액티브 캐릭터 사망 직전 0.5초 무적" }
+            linkEffect={deathPreventLink=true}, linkName="인연의 메아리", linkDesc="런당 1회 액티브 캐릭터 사망 직전 0.5초 무적" }
         d["스피드스터"] = { pool="hg", basicName="스피드스터", basicDesc="힘/지능 계수 −70%, 대신 이동속도 계수 2.5배 + 이동속도 초과분 10%p당 공격력·스킬데미지+6%(상한+90%)", basicEffect={speedster=true},
             linkEffect={msm=0.05}, linkName="질풍 지원", linkDesc="파티 전원 이동 속도 소폭 증가" }
 
