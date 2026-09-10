@@ -231,6 +231,15 @@ script Monster extends Component
         local dropCount = 1
         if (isvalid(statsComp) and _TraitEffectEngine:HasDropGamble(statsComp.Trait)) or (isvalid(statsComp) and statsComp.Trait2 ~= "" and _TraitEffectEngine:HasDropGamble(statsComp.Trait2)) then
             dropCount = (_UtilLogic:RandomDouble() < 0.5) and 2 or 0
+        elseif isvalid(statsComp) then
+            -- 2026-09-10 QA - 변덕 링크("불확실한 운": 처치 시 낮은 확률로 드랍 2배/드랍 없음) 신규
+            -- 연결. 도박꾼 본인판과 동일한 50/50이지만 "낮은 확률로" 게이트를 먼저 통과해야 한다.
+            local gambleChance = _TraitEffectEngine:GetLinkDropGambleChance(statsComp.LinkTrait1)
+            if gambleChance == 0 and statsComp.LinkTrait2 ~= "" then gambleChance = _TraitEffectEngine:GetLinkDropGambleChance(statsComp.LinkTrait2) end
+            if gambleChance > 0 and _UtilLogic:RandomDouble() < gambleChance then
+                dropCount = (_UtilLogic:RandomDouble() < 0.5) and 2 or 0
+                log("Monster: 변덕 링크 - 불확실한 운 발동, dropCount=" .. dropCount)
+            end
         end
         if dropCount <= 0 then
             log("Monster: 도박꾼 dropGamble -> 0 (drop denied)")

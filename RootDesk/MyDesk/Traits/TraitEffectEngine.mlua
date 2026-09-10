@@ -377,6 +377,14 @@ script TraitEffectEngine extends Logic
         return mod.coinFlipLink or 0
     end
 
+    -- M2 Phase C(2026-09-10) - 변덕 링크("불확실한 운": 처치 시 낮은 확률로 드랍 2배, 낮은 확률로
+    -- 드랍 없음) 전용. 도박꾼의 본인판(dropGamble, 확정 50/50)과 동일한 소비처(Monster.TryDropPotion)를
+    -- 공유하되 "낮은 확률로" 게이트가 먼저 있다.
+    method number GetLinkDropGambleChance(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.dropGambleLink or 0
+    end
+
     -- M2 Phase C(2026-09-08) - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
     -- 유리몸 링크(firstHitImmune, 전액 무효 + "입장 후"마다 재사용)와 달리 부분 경감 + "런당" 1회.
     method number GetLinkFirstHitReduction(string trait)
