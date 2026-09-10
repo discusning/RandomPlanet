@@ -480,6 +480,29 @@ script PlayerSkillComponent extends Component
         elseif def.kind == "buff" then
             self:DoBuff(def)
         end
+
+        -- 2026-09-10 QA - 명상가 링크("지혜의 등불": 스킬 사용 시 소형 범위 확산) 신규 연결. 순수
+        -- 버프(magicguard 등)는 대상이 없어 제외 - 실제 공격/디버프 종류 스킬에서만 발동.
+        if def.kind ~= "buff" then
+            local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+            if isvalid(statsComp) then
+                local spreadSpec = _TraitEffectEngine:GetLinkWisdomSpread(statsComp.LinkTrait1)
+                if spreadSpec == nil and statsComp.LinkTrait2 ~= "" then spreadSpec = _TraitEffectEngine:GetLinkWisdomSpread(statsComp.LinkTrait2) end
+                if spreadSpec ~= nil then
+                    local attack = self.Entity:GetComponent("script.PlayerAttack")
+                    local transform = self.Entity.TransformComponent
+                    if isvalid(attack) and isvalid(transform) then
+                        local pos = transform.WorldPosition
+                        local shape = BoxShape(Vector2(pos.x, pos.y + 0.5), Vector2(2.0, 1.6), 0)
+                        local originalDamage = attack.AttackDamage
+                        attack.AttackDamage = math.floor(originalDamage * (spreadSpec.pct or 0.2))
+                        attack:AttackFast(shape, "skill.linkWisdomSpread", CollisionGroups.Monster)
+                        attack.AttackDamage = originalDamage
+                        log("PlayerSkill: 명상가 링크 - 지혜의 등불 소형 범위 확산 발동")
+                    end
+                end
+            end
+        end
     end
 
     @ExecSpace("Client")

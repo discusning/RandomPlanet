@@ -394,6 +394,15 @@ script TraitEffectEngine extends Logic
         return mod.gravitySupportLink
     end
 
+    -- M2 Phase C(2026-09-10) - 명상가 링크("지혜의 등불": 스킬 사용 시 소형 범위 확산) 전용.
+    -- 모든 스킬 종류(근접/원거리/버프 등)에 공통 적용되는 효과라 PlayerSkillComponent.
+    -- DispatchSkillEffect가 킨드 분기와 무관하게 캐스터 주변에 소형 범위 추가 피해를 발동한다.
+    -- {pct} 형태로 반환(현재 AttackDamage 대비 배율).
+    method table GetLinkWisdomSpread(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.wisdomSpreadLink
+    end
+
     -- M2 Phase C(2026-09-10) - 변덕(bad)의 basicDesc "처치 시 낮은 확률로 드랍 2배" 본인판이
     -- basicEffect에 없어 페널티(exp=-0.03)만 적용되고 보상이 없던 무비용 페널티 버그 발견·수정
     -- 전용(느림보와 동일 유형). 도박꾼(HasDropGamble, 확정 50/50)과 달리 확률 게이트가 있다.

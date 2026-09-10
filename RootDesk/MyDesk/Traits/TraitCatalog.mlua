@@ -126,7 +126,7 @@ script TraitCatalog extends Logic
         d["탐험가"] = { pool="avg", basicName="바람 걸음", basicDesc="이동 속도 증가", basicEffect={msm=0.12},
             linkEffect={drop=0.05}, linkName="발견의 길잡이", linkDesc="파티 드랍률+8%" }
         d["명상가"] = { pool="avg", basicName="확장", basicDesc="최대 MP+15%", basicEffect={mp=0.15},
-            linkName="지혜의 등불", linkDesc="스킬 사용 시 소형 범위 확산" }
+            linkEffect={wisdomSpreadLink={pct=0.20}}, linkName="지혜의 등불", linkDesc="스킬 사용 시 소형 범위 확산" }
         d["투지"] = { pool="avg", basicName="투지의 일격", basicDesc="체력이 낮을수록 크리티컬 데미지 증가", basicEffect={lowHpCritMult={threshold=0.4, value=0.25}},
             linkEffect={cm=0.05}, linkName="투지의 메아리", linkDesc="파티 중 크리 시 낮은 확률로 팀 전체 크리데미지 버프" }
         d["절제"] = { pool="avg", basicName="전투 개시", basicDesc="받는 피해−5%", basicEffect={dr=0.05},
