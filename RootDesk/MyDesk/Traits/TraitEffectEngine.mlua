@@ -344,6 +344,14 @@ script TraitEffectEngine extends Logic
         return mod.lowHpInvulnLink
     end
 
+    -- M2 Phase C(2026-09-10) - 마나실드 링크("방어막 나눔": 판 시작 시 파티 전원에게 1회성 소형
+    -- 방어막) 전용. "판 시작"은 LinkTrait1/2가 최초로 채워지는 PlayerStatsComponent.UpdateSquadLinks
+    -- 호출 시점으로 근사(런당 1회만 지급 - LinkShieldGrantUsedThisRun으로 재편성 시 중복 방지).
+    method number GetLinkShieldGrant(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.shieldGrantPct or 0
+    end
+
     -- M2 Phase C(2026-09-08) - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
     -- 유리몸 링크(firstHitImmune, 전액 무효 + "입장 후"마다 재사용)와 달리 부분 경감 + "런당" 1회.
     method number GetLinkFirstHitReduction(string trait)

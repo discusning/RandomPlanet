@@ -62,7 +62,7 @@ script TraitCatalog extends Logic
         d["마노"] = { pool="hg", basicName="파괴 본능", basicDesc="공격력+8%", basicEffect={atk=0.08},
             linkEffect={atk=0.03}, linkName="예지", linkDesc="다음 웨이브·보스 정보 표시" }
         d["마나실드"] = { pool="hg", basicName="가시 갑옷", basicDesc="피격 시 낮은 확률로 반사 피해 + 소형 방어막", basicEffect={shieldOnHit={chance=0.15,pct=0.08}},
-            linkName="방어막 나눔", linkDesc="판 시작 시 파티 전원에게 1회성 소형 방어막" }
+            linkEffect={shieldGrantPct=0.10}, linkName="방어막 나눔", linkDesc="판 시작 시 파티 전원에게 1회성 소형 방어막" }
         d["큐브마스터"] = { pool="hg", basicName="재추첨 숙련", basicDesc="이능/스킬 선택지 재추첨 가능", basicEffect={rerollChoice=true},
             linkName="이능 지원", linkDesc="이능 선택지 낮은 확률 상위 옵션" }
         d["연성술사"] = { pool="hg", basicName="잔류 마력", basicDesc="처치 시 낮은 확률로 경험치 추가 획득", basicEffect={healOnKill=nil, onKillBonusExp=0.20},

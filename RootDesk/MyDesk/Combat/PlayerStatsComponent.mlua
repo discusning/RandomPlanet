@@ -206,6 +206,9 @@ script PlayerStatsComponent extends Component
     -- 필드는 threshold 이하로 유지되는 동안 매 CombatTick마다 재굴림되는 것을 방지.
     @HideFromInspector property number LinkLowHpInvulnUntilElapsed = 0
     @HideFromInspector property number LinkLowHpInvulnCooldownUntilElapsed = 0
+    -- 2026-09-10 QA - 마나실드 링크("방어막 나눔": 판 시작 시 1회성 소형 방어막) 전용. 스쿼드
+    -- 재편성으로 UpdateSquadLinks가 여러 번 불려도 런당 1회만 지급되도록 하는 가드.
+    @HideFromInspector property boolean LinkShieldGrantUsedThisRun = false
     -- 2026-09-08 QA - 럭키 세븐/복불복 상자 링크(주기적 소형 랜덤 버프) 전용. 본인 특성의
     -- RandomBuffAtkPercent와 독립된 채널(둘 다 활성이어도 합산되도록).
     @HideFromInspector property number LinkPeriodicBuffAtkPercent = 0
@@ -257,6 +260,7 @@ script PlayerStatsComponent extends Component
         self.EndedFieldCleared = false
         self.ReviveUsedThisRun = false
         self.FirstHitReductionUsedThisRun = false
+        self.LinkShieldGrantUsedThisRun = false
         self.RestBonusActive = false
         -- M2 Phase B 2단계 - 캐릭터 교체마다 런-스코프 누적 상태를 전부 초기화(이전 캐릭터의 스택이
         -- 새 캐릭터로 새는 것을 방지 - 위 BerserkDamageBonusPercent 리셋과 동일한 이유).
@@ -796,6 +800,21 @@ script PlayerStatsComponent extends Component
         end
         log("PlayerStats: UpdateSquadLinks link1=" .. self.LinkTrait1 .. "(Lv." .. self.LinkLevel1 .. ") link2=" .. self.LinkTrait2 .. "(Lv." .. self.LinkLevel2 .. ")")
         self:RecalculateDerived()
+
+        -- 마나실드 링크(shieldGrantPct) - "판 시작 시 1회성 소형 방어막". 스쿼드가 재편성돼 이 메서드가
+        -- 다시 불려도 런당 1회만 지급(LinkShieldGrantUsedThisRun 가드).
+        if not self.LinkShieldGrantUsedThisRun then
+            local grantPct = _TraitEffectEngine:GetLinkShieldGrant(self.LinkTrait1)
+            if grantPct == 0 and self.LinkTrait2 ~= "" then grantPct = _TraitEffectEngine:GetLinkShieldGrant(self.LinkTrait2) end
+            if grantPct > 0 then
+                local player = self.Entity.PlayerComponent
+                if isvalid(player) and player.MaxHp > 0 then
+                    self.LinkShieldGrantUsedThisRun = true
+                    self.ShieldAmount = math.floor(player.MaxHp * grantPct)
+                    log("PlayerStats: 마나실드 링크 - 방어막 나눔 발동 amount=" .. self.ShieldAmount)
+                end
+            end
+        end
     end
 
     @ExecSpace("ClientOnly")
