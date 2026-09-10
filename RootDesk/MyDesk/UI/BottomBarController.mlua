@@ -9,6 +9,8 @@ script BottomBarController extends Component
     property Entity btnEquipment = "40dbcbd6-cbc0-426d-9a0a-a58d5937dcbe"
     property Entity btnSettings = "53330b64-ec9c-4a55-b746-fa331a9ab80c"
     property Entity btnSkill = "0a2fbdde-e798-46a7-bf34-a49214449f9e"
+    -- 2026-09-10 QA(유저 피드백) - 계정 강화 진입점을 choice_map 월드 버튼에서 이곳으로 이전.
+    property Entity btnUpgrade = "7420ba46-084b-4525-b153-774b3e722797"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -24,6 +26,10 @@ script BottomBarController extends Component
         if isvalid(self.btnSkill) then
             local hK = self.btnSkill:ConnectEvent(ButtonClickEvent, self.OnSkillClicked)
             table.insert(self._T.handlers, { entity = self.btnSkill, eventHandler = hK })
+        end
+        if isvalid(self.btnUpgrade) then
+            local hU = self.btnUpgrade:ConnectEvent(ButtonClickEvent, self.OnUpgradeClicked)
+            table.insert(self._T.handlers, { entity = self.btnUpgrade, eventHandler = hU })
         end
         self.Entity.Enable = false
     end
@@ -51,6 +57,7 @@ script BottomBarController extends Component
             { path = "/ui/EquipmentGroup", scriptType = "script.EquipmentUIController" },
             { path = "/ui/SettingsGroup", scriptType = "script.SettingsUIController" },
             { path = "/ui/SkillGroup", scriptType = "script.SkillUIController" },
+            { path = "/ui/AccountUpgradeGroup", scriptType = "script.AccountUpgradeUIController" },
         }
     end
 
@@ -65,6 +72,14 @@ script BottomBarController extends Component
 
     @ExecSpace("ClientOnly")
     method void CloseWindow(string path, string scriptType)
+        -- 2026-09-10 QA - AccountUpgradeUIController는 @Logic이라 다른 5개 창(@Component, "/ui/Xxx"
+        -- 엔티티에 붙어 GetEntityByPath+GetComponent로 찾아짐)과 달리 엔티티에 붙지 않는다 - 전역
+        -- _AccountUpgradeUIController로만 접근 가능해 아래 일반 경로는 조용히 아무 일도 안 하고
+        -- 끝난다(에러 없음, 그래서 처음엔 못 알아챔). scriptType으로 분기해 전역 참조로 우회.
+        if scriptType == "script.AccountUpgradeUIController" then
+            _AccountUpgradeUIController:Hide()
+            return
+        end
         local e = _EntityService:GetEntityByPath(path)
         if isvalid(e) then
             local c = e:GetComponent(scriptType)
@@ -76,6 +91,10 @@ script BottomBarController extends Component
 
     @ExecSpace("ClientOnly")
     method void ToggleWindow(string path, string scriptType)
+        if scriptType == "script.AccountUpgradeUIController" then
+            _AccountUpgradeUIController:Toggle()
+            return
+        end
         local e = _EntityService:GetEntityByPath(path)
         if isvalid(e) then
             local c = e:GetComponent(scriptType)
@@ -140,5 +159,11 @@ script BottomBarController extends Component
     method void OnSkillClicked()
         self:CloseOtherWindows("/ui/SkillGroup")
         self:ToggleWindow("/ui/SkillGroup", "script.SkillUIController")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnUpgradeClicked()
+        self:CloseOtherWindows("/ui/AccountUpgradeGroup")
+        self:ToggleWindow("/ui/AccountUpgradeGroup", "script.AccountUpgradeUIController")
     end
 end

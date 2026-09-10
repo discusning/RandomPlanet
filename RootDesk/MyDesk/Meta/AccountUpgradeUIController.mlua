@@ -39,11 +39,31 @@ script AccountUpgradeUIController extends Logic
 
     @ExecSpace("ClientOnly")
     method void Show()
-        -- choice_map의 BtnUpgrade 월드 버튼 터치 핸들러(CharacterSelectStageController)가 호출.
+        -- 2026-09-10 QA(유저 피드백 "시작화면에 강화 UI가 있는게 말이 안된다") - choice_map 월드
+        -- 버튼(BtnUpgrade)을 제거하고 Lobby 하단바(BottomBarController)의 "강화" 버튼으로 이전.
         if isvalid(self.upgradeGroup) then
             self.upgradeGroup.Enable = true
         end
         self:RefreshDisplay()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        if isvalid(self.upgradeGroup) then
+            self.upgradeGroup.Enable = false
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Toggle()
+        -- BottomBarController의 다른 5개 창(CharacterInfo/Inventory/Equipment/Settings/Skill)과
+        -- 동일한 Show/Hide/Toggle 인터페이스 - GetWindowList/CloseOtherWindows 상호배타 시스템에
+        -- 편입시키기 위함.
+        if isvalid(self.upgradeGroup) and self.upgradeGroup.Enable then
+            self:Hide()
+        else
+            self:Show()
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -78,9 +98,7 @@ script AccountUpgradeUIController extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnCloseClicked()
-        if isvalid(self.upgradeGroup) then
-            self.upgradeGroup.Enable = false
-        end
+        self:Hide()
     end
 
     @ExecSpace("ClientOnly")

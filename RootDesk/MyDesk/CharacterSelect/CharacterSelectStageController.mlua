@@ -9,9 +9,6 @@ script CharacterSelectStageController extends Component
     property Entity countText = "16584510-7692-4526-a5ca-89716f9ff30e"
     property Entity cardGroup = "1879e4ab-8a6e-4f06-9c8c-3370223bebe3"
     property Entity squadGroup = "5f96f6e4-814c-42e0-b42a-2b5926f6723b"
-    -- M2 Phase G(2026-09-06) - 계정 강화 팝업(AccountUpgradeGroup.ui)을 여는 월드 버튼(WorldButton.model
-    -- 신규 인스턴스, choice_map CountText 바로 아래 배치).
-    property Entity btnUpgrade = "2fd2ba7e-0928-4225-ad22-e59a3ab6fe44"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -31,13 +28,6 @@ script CharacterSelectStageController extends Component
         -- not per-standee TouchReceiveComponent/TouchEvent - see OnScreenTouched for why.
         local hScreen = _InputService:ConnectEvent(ScreenTouchEvent, self.OnScreenTouched)
         table.insert(self._T.handlers, { entity = _InputService, eventType = ScreenTouchEvent, eventHandler = hScreen })
-
-        -- M2 Phase G(2026-09-06) - 계정 강화 팝업을 여는 월드 버튼(TouchReceiveComponent 기반이라
-        -- 표준 TouchEvent 사용 - ButtonClickEvent는 .ui 전용).
-        if isvalid(self.btnUpgrade) then
-            local hUpgrade = self.btnUpgrade:ConnectEvent(TouchEvent, self.OnUpgradeButtonTouched)
-            table.insert(self._T.handlers, { entity = self.btnUpgrade, eventType = TouchEvent, eventHandler = hUpgrade })
-        end
 
         log("CharacterSelectStage: OnBeginPlay, standee1 valid=" .. tostring(isvalid(self.standee1)) .. " standee6 valid=" .. tostring(isvalid(self.standee6)) .. " cardGroup valid=" .. tostring(isvalid(self.cardGroup)))
         -- HideLocalPlayer/ShowLocalPlayer moved to CharacterRosterLogic (2026-07-23) so the Lobby's
@@ -376,12 +366,6 @@ script CharacterSelectStageController extends Component
         -- 별도 폴링 없이 다음 RefreshStage 호출(생성/삭제/선택 등)에서 자연히 갱신됨).
         local currencyStr = _AccountCurrencyLogic:IsLoadComplete() and tostring(_AccountCurrencyLogic:GetCurrency()) or "..."
         self.countText.TextRendererComponent.Text = "오늘 생성 가능: " .. _CharacterRosterLogic:GetDailyRemaining() .. "/6  |  정수: " .. currencyStr
-    end
-
-    @ExecSpace("ClientOnly")
-    method void OnUpgradeButtonTouched(TouchEvent event)
-        -- choice_map의 "강화" 월드 버튼 - 계정 강화 팝업(AccountUpgradeGroup.ui)을 연다.
-        _AccountUpgradeUIController:Show()
     end
 
     @ExecSpace("Server")
