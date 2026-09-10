@@ -425,6 +425,12 @@ script TraitEffectEngine extends Logic
         if otherSlotTrait == "미친 과학자" then
             base = base * 1.10
         end
+        -- M2 Phase C(2026-09-10) - 럭키/언럭키 데이 링크("증폭기": 파티 스탯 계열 링크효과+20%)
+        -- 신규 연결. "스탯 계열"만 분리하려면 ApplyModifiersToStats 구조 변경이 필요해, 고독/미친
+        -- 과학자와 동일하게 링크효율 보정계수 전체에 적용하는 근사로 통일(기존 확립된 원칙).
+        if otherSlotTrait == "럭키/언럭키 데이" then
+            base = base * 1.20
+        end
         return base
     end
 
