@@ -229,8 +229,17 @@ script Monster extends Component
         if roll > effectiveChance then return end
         -- M2 Phase B 2단계(2026-09-06) - 도박꾼(dropGamble): 처치 시 50% 확률 드랍 2배/50% 확률 0.
         local dropCount = 1
+        -- 2026-09-10 QA - 변덕(bad)의 basicDesc "처치 시 낮은 확률로 드랍 2배" 본인판이 basicEffect에
+        -- 없어 페널티만 적용되던 무비용 페널티 버그 신규 수정(느림보와 동일 유형).
+        local ownGambleChance = isvalid(statsComp) and _TraitEffectEngine:GetOwnDropGambleChance(statsComp.Trait) or 0
+        if ownGambleChance == 0 and isvalid(statsComp) and statsComp.Trait2 ~= "" then
+            ownGambleChance = _TraitEffectEngine:GetOwnDropGambleChance(statsComp.Trait2)
+        end
         if (isvalid(statsComp) and _TraitEffectEngine:HasDropGamble(statsComp.Trait)) or (isvalid(statsComp) and statsComp.Trait2 ~= "" and _TraitEffectEngine:HasDropGamble(statsComp.Trait2)) then
             dropCount = (_UtilLogic:RandomDouble() < 0.5) and 2 or 0
+        elseif ownGambleChance > 0 and _UtilLogic:RandomDouble() < ownGambleChance then
+            dropCount = (_UtilLogic:RandomDouble() < 0.5) and 2 or 0
+            log("Monster: 변덕 본인 dropGambleChance 발동, dropCount=" .. dropCount)
         elseif isvalid(statsComp) then
             -- 2026-09-10 QA - 변덕 링크("불확실한 운": 처치 시 낮은 확률로 드랍 2배/드랍 없음) 신규
             -- 연결. 도박꾼 본인판과 동일한 50/50이지만 "낮은 확률로" 게이트를 먼저 통과해야 한다.

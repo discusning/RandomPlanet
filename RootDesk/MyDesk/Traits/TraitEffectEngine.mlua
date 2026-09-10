@@ -385,6 +385,14 @@ script TraitEffectEngine extends Logic
         return mod.dropGambleLink or 0
     end
 
+    -- M2 Phase C(2026-09-10) - 변덕(bad)의 basicDesc "처치 시 낮은 확률로 드랍 2배" 본인판이
+    -- basicEffect에 없어 페널티(exp=-0.03)만 적용되고 보상이 없던 무비용 페널티 버그 발견·수정
+    -- 전용(느림보와 동일 유형). 도박꾼(HasDropGamble, 확정 50/50)과 달리 확률 게이트가 있다.
+    method number GetOwnDropGambleChance(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.dropGambleChance or 0
+    end
+
     -- M2 Phase C(2026-09-08) - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
     -- 유리몸 링크(firstHitImmune, 전액 무효 + "입장 후"마다 재사용)와 달리 부분 경감 + "런당" 1회.
     method number GetLinkFirstHitReduction(string trait)
