@@ -25,6 +25,9 @@ script Monster extends Component
     -- ApplyDisorder와 동일한 원본값 추적+타이머 복원 패턴.
     @HideFromInspector property boolean GravitySlowActive = false
     @HideFromInspector property number GravitySlowOriginalInputSpeed = 0
+    -- 2026-09-10 QA - 저주의 표식 링크("표식의 저주": 파티 공격이 적에게 표식 부여, 표식 대상
+    -- 피해+8%) 전용. PlayerAttack.CalcDamage가 직접 읽고 쓴다.
+    @HideFromInspector property number MarkedUntilElapsed = 0
     -- 물약 시스템 (M2 Phase A, 2026-09-06 - 전체 기획서 §3-3 "회복 아이템: 드랍으로 획득"). 퍼센트
     -- 정수(0~100) - 기본 12%로 시작, 전장 몬스터별로 `MapBuilder.patchComponent`나 개별 `.model`
     -- 값으로 오버라이드 가능(FieldMonster1~3 티어별 밸런스 조정과 동일 패턴).

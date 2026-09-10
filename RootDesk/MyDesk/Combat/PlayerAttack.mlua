@@ -73,6 +73,7 @@ script PlayerAttack extends AttackComponent
         -- 의 LastCritWaveNumber와 동일한 웨이브-추적 패턴, 대상만 크리 확정 대신 데미지 배율.
         -- 2026-09-08 QA 스윕에서 게터/소비처 없이 데이터만 있던 갭으로 발견해 연결.
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        local dmg = self.AttackDamage
         if isvalid(statsComp) then
             local bonus = _TraitEffectEngine:GetFirstHitBonus(statsComp.Trait)
             if bonus == 0 and statsComp.Trait2 ~= "" then bonus = _TraitEffectEngine:GetFirstHitBonus(statsComp.Trait2) end
@@ -82,12 +83,29 @@ script PlayerAttack extends AttackComponent
                     local spawner = map:GetComponent("script.FieldWaveSpawner")
                     if isvalid(spawner) and spawner.WaveNumber ~= statsComp.LastFirstHitWaveNumber then
                         statsComp.LastFirstHitWaveNumber = spawner.WaveNumber
-                        return math.floor(self.AttackDamage * (1 + bonus))
+                        dmg = math.floor(self.AttackDamage * (1 + bonus))
                     end
                 end
             end
         end
-        return self.AttackDamage
+
+        -- 2026-09-10 QA - 저주의 표식 링크("표식의 저주": 파티 공격이 적에게 표식 부여, 표식 대상
+        -- 피해+8%) 신규 연결. 이미 표식이 있는 대상이면 가산 피해 적용 후, 매 타격마다 표식을 갱신.
+        if isvalid(statsComp) then
+            local markSpec = _TraitEffectEngine:GetLinkMarkSupport(statsComp.LinkTrait1)
+            if markSpec == nil and statsComp.LinkTrait2 ~= "" then markSpec = _TraitEffectEngine:GetLinkMarkSupport(statsComp.LinkTrait2) end
+            if markSpec ~= nil then
+                local monster = defender:GetComponent("script.Monster")
+                if isvalid(monster) then
+                    if _UtilLogic.ElapsedSeconds < monster.MarkedUntilElapsed then
+                        dmg = math.floor(dmg * (1 + (markSpec.dmgBonus or 0)))
+                    end
+                    monster.MarkedUntilElapsed = _UtilLogic.ElapsedSeconds + (markSpec.duration or 5)
+                end
+            end
+        end
+
+        return dmg
     end
 
     method boolean CalcCritical(Entity attacker, Entity defender, string attackInfo)
@@ -165,6 +183,19 @@ script PlayerAttack extends AttackComponent
                 skillComp.LastUseTime = -999
                 skillComp.LastUseTime2 = -999
                 log("PlayerAttack: 메아리 무영창 - 쿨다운 초기화")
+            end
+        end
+
+        -- 2026-09-10 QA - 저주의 표식(bad)의 basicDesc "타격 시 적 이동속도 감소" 본인판이
+        -- basicEffect에 없어 페널티(atk=-0.03)만 적용되던 무비용 페널티 버그 신규 수정(느림보/
+        -- 변덕과 동일 유형). 차원의 틈 링크와 동일한 Monster.ApplyGravitySlow 재사용.
+        local onHitSlowSpec = _TraitEffectEngine:GetOwnOnHitSlow(statsComp.Trait)
+        if onHitSlowSpec == nil and statsComp.Trait2 ~= "" then onHitSlowSpec = _TraitEffectEngine:GetOwnOnHitSlow(statsComp.Trait2) end
+        if onHitSlowSpec ~= nil then
+            local slowMonster = defender:GetComponent("script.Monster")
+            if isvalid(slowMonster) then
+                slowMonster:ApplyGravitySlow(onHitSlowSpec.pct or 0.15, onHitSlowSpec.duration or 2)
+                log("PlayerAttack: 저주의 표식 - 타격 시 이동속도 감소 발동")
             end
         end
 

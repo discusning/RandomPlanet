@@ -179,8 +179,8 @@ script TraitCatalog extends Logic
             linkName="흡수 자동화", linkDesc="파티 드랍 자동 흡수" }
         d["변덕"] = { pool="bad", basicName="출혈", basicDesc="이능 선택지 중 1종 비활성, 대신 처치 시 낮은 확률로 드랍 2배", basicEffect={exp=-0.03, dropGambleChance=0.20},
             linkEffect={dropGambleLink=0.20}, linkName="불확실한 운", linkDesc="처치 시 낮은 확률 드랍 2배, 낮은 확률 드랍 없음" }
-        d["저주의 표식"] = { pool="bad", basicName="둔화", basicDesc="주기적 짧은 디버프, 대신 타격 시 적 이동속도 감소", basicEffect={atk=-0.03},
-            linkName="표식의 저주", linkDesc="파티 공격이 적에게 표식 부여, 표식 대상 피해+8%" }
+        d["저주의 표식"] = { pool="bad", basicName="둔화", basicDesc="주기적 짧은 디버프, 대신 타격 시 적 이동속도 감소", basicEffect={atk=-0.03, onHitSlow={pct=0.15, duration=2}},
+            linkEffect={markSupportLink={duration=5, dmgBonus=0.08}}, linkName="표식의 저주", linkDesc="파티 공격이 적에게 표식 부여, 표식 대상 피해+8%" }
 
         -- ===== Gamble (18%, 24종) =====
         d["올인"] = { pool="gmb", basicName="화상", basicDesc="공격력 대폭↑, 방어력 대폭↓", basicEffect={atk=0.30, dr=-0.20},
