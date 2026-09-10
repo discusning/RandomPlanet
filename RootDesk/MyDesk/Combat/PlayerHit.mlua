@@ -141,13 +141,30 @@ script PlayerHit extends Component
         -- 방어막·반사 계산 전부가 이 굴림 이후의 dmg를 기준으로 삼는다.
         -- M2 Phase B(2026-09-08) - Trait2(3차 전직 추가 특성)도 트리거형 효과를 발동할 수 있게
         -- 확장(Trait 우선, 없으면 Trait2 - CombatTick과 동일 원칙, 이하 이 메서드의 나머지 게터도 동일).
-        if isvalid(statsComp) and (_TraitEffectEngine:HasCoinFlipDefense(statsComp.Trait) or (statsComp.Trait2 ~= "" and _TraitEffectEngine:HasCoinFlipDefense(statsComp.Trait2))) then
+        local ownCoinFlip = isvalid(statsComp) and (_TraitEffectEngine:HasCoinFlipDefense(statsComp.Trait) or (statsComp.Trait2 ~= "" and _TraitEffectEngine:HasCoinFlipDefense(statsComp.Trait2)))
+        if ownCoinFlip then
             if _UtilLogic:RandomDouble() < 0.5 then
                 dmg = 0
                 log("PlayerHit: 운명의 동전 - 피해 무효")
             else
                 dmg = dmg * 2
                 log("PlayerHit: 운명의 동전 - 피해 2배")
+            end
+        end
+
+        -- 2026-09-10 QA - 운명의 동전 링크("동전의 양면": 파티가 받는 피해 낮은 확률로 무효/2배)
+        -- 신규 연결. 본인판이 이미 발동했으면 중복 적용하지 않는다(ownCoinFlip 가드).
+        if not ownCoinFlip and isvalid(statsComp) then
+            local coinChance = _TraitEffectEngine:GetLinkCoinFlipChance(statsComp.LinkTrait1)
+            if coinChance == 0 and statsComp.LinkTrait2 ~= "" then coinChance = _TraitEffectEngine:GetLinkCoinFlipChance(statsComp.LinkTrait2) end
+            if coinChance > 0 and _UtilLogic:RandomDouble() < coinChance then
+                if _UtilLogic:RandomDouble() < 0.5 then
+                    dmg = 0
+                    log("PlayerHit: 운명의 동전 링크 - 동전의 양면, 피해 무효")
+                else
+                    dmg = dmg * 2
+                    log("PlayerHit: 운명의 동전 링크 - 동전의 양면, 피해 2배")
+                end
             end
         end
 

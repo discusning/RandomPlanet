@@ -369,6 +369,14 @@ script TraitEffectEngine extends Logic
         return mod.deathPreventLink == true
     end
 
+    -- M2 Phase C(2026-09-10) - 운명의 동전 링크("동전의 양면": 파티가 받는 피해 낮은 확률로 무효,
+    -- 낮은 확률로 2배) 전용. 본인판(coinFlipDefense, 매 피격마다 확정 50/50)과 달리 링크는 "낮은
+    -- 확률로" 게이트가 먼저 있고, 그 게이트를 통과해야 동일한 50/50이 발동 - PlayerHit이 소비한다.
+    method number GetLinkCoinFlipChance(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.coinFlipLink or 0
+    end
+
     -- M2 Phase C(2026-09-08) - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
     -- 유리몸 링크(firstHitImmune, 전액 무효 + "입장 후"마다 재사용)와 달리 부분 경감 + "런당" 1회.
     method number GetLinkFirstHitReduction(string trait)
