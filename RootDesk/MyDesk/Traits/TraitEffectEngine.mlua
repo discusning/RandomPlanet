@@ -334,6 +334,16 @@ script TraitEffectEngine extends Logic
         return mod.captureInvulnLink
     end
 
+    -- M2 Phase C(2026-09-10) - 부활자 링크("재림의 축복": 파티 중 위기(HP10%↓) 캐릭터에게 낮은
+    -- 확률로 짧은 무적) 전용. 이 프로젝트엔 링크 캐릭터가 실제 엔티티로 존재하지 않아 "파티 중"을
+    -- 액티브(플레이어블) 캐릭터 본인 기준으로 근사(다른 위기감지형 링크와 동일 원칙) - 본인 HP가
+    -- threshold 이하로 내려갈 때마다 PlayerStatsComponent.CombatTick이 확률을 굴린다.
+    -- {threshold, chance, duration} 형태로 반환.
+    method table GetLinkLowHpInvuln(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.lowHpInvulnLink
+    end
+
     -- M2 Phase C(2026-09-08) - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
     -- 유리몸 링크(firstHitImmune, 전액 무효 + "입장 후"마다 재사용)와 달리 부분 경감 + "런당" 1회.
     method number GetLinkFirstHitReduction(string trait)

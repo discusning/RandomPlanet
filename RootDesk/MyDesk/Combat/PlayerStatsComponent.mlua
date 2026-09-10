@@ -202,6 +202,10 @@ script PlayerStatsComponent extends Component
     -- 2026-09-08 QA - 영혼 포획자 링크("포획 지원": 낮은 확률로 처치 시 짧은 무적) 전용. 이
     -- 시각 이전(ElapsedSeconds 미만)이면 무적 - Monster.GrantXpToAttacker가 굴리고 세팅.
     @HideFromInspector property number LinkCaptureInvulnUntilElapsed = 0
+    -- 2026-09-10 QA - 부활자 링크("재림의 축복": 위기 시 낮은 확률로 짧은 무적) 전용. 쿨다운
+    -- 필드는 threshold 이하로 유지되는 동안 매 CombatTick마다 재굴림되는 것을 방지.
+    @HideFromInspector property number LinkLowHpInvulnUntilElapsed = 0
+    @HideFromInspector property number LinkLowHpInvulnCooldownUntilElapsed = 0
     -- 2026-09-08 QA - 럭키 세븐/복불복 상자 링크(주기적 소형 랜덤 버프) 전용. 본인 특성의
     -- RandomBuffAtkPercent와 독립된 채널(둘 다 활성이어도 합산되도록).
     @HideFromInspector property number LinkPeriodicBuffAtkPercent = 0
@@ -276,6 +280,8 @@ script PlayerStatsComponent extends Component
         self.LinkOnHitBuffAtkPercent = 0
         self.LinkOnHitBuffExpireElapsed = 0
         self.LinkCaptureInvulnUntilElapsed = 0
+        self.LinkLowHpInvulnUntilElapsed = 0
+        self.LinkLowHpInvulnCooldownUntilElapsed = 0
         self.BurstKillWindowStart = 0
         self.BurstKillCountInWindow = 0
         self.LastCritWaveNumber = -1
@@ -1240,6 +1246,20 @@ script PlayerStatsComponent extends Component
             self.LowHpBonusAtkPercent = 0
         end
         self:RecomputeDynamicAttackDamage()
+
+        -- 부활자 링크(lowHpInvulnLink) - "파티 중 위기(HP10%↓) 캐릭터"를 액티브 캐릭터 본인 기준으로
+        -- 근사(링크 캐릭터가 실 엔티티로 존재하지 않는 이 프로젝트의 관행). threshold 이하로 유지되는
+        -- 동안 매 틱 재굴림되지 않도록 쿨다운(duration의 2배, 자체 설정)을 둔다.
+        local lowHpInvulnSpec = _TraitEffectEngine:GetLinkLowHpInvuln(self.LinkTrait1)
+        if lowHpInvulnSpec == nil and self.LinkTrait2 ~= "" then lowHpInvulnSpec = _TraitEffectEngine:GetLinkLowHpInvuln(self.LinkTrait2) end
+        if lowHpInvulnSpec ~= nil and hpRatio <= (lowHpInvulnSpec.threshold or 0.10) and _UtilLogic.ElapsedSeconds >= self.LinkLowHpInvulnCooldownUntilElapsed then
+            local duration = lowHpInvulnSpec.duration or 1.5
+            self.LinkLowHpInvulnCooldownUntilElapsed = _UtilLogic.ElapsedSeconds + duration * 2
+            if _UtilLogic:RandomDouble() < (lowHpInvulnSpec.chance or 0) then
+                self.LinkLowHpInvulnUntilElapsed = _UtilLogic.ElapsedSeconds + duration
+                log("PlayerStats: 부활자 링크 - 재림의 축복 무적 발동")
+            end
+        end
 
         -- 순교자(lowHpCritMult) - 체력이 threshold 이하일 때만 크리 데미지 배율 가산.
         local critMult = _TraitEffectEngine:GetLowHpCritMult(self.Trait)

@@ -40,7 +40,7 @@ script TraitCatalog extends Logic
         d["시간여행자"] = { pool="hg", basicName="유산", basicDesc="클리어 시 영구 재화+15%", basicEffect={clearCurrencyBonus=0.15},
             linkEffect={exp=0.10}, linkName="시간 도약", linkDesc="매 판 첫 3분간 파티 경험치 획득량+20%" }
         d["부활자"] = { pool="hg", basicName="불굴", basicDesc="치명적 피해를 1회 Hp 1로 버팀", basicEffect={reviveOnce=true},
-            linkName="재림의 축복", linkDesc="파티 중 위기(HP10%↓) 캐릭터에게 낮은 확률로 짧은 무적" }
+            linkEffect={lowHpInvulnLink={threshold=0.10, chance=0.25, duration=1.5}}, linkName="재림의 축복", linkDesc="파티 중 위기(HP10%↓) 캐릭터에게 낮은 확률로 짧은 무적" }
         d["먹보"] = { pool="hg", basicName="생명 전환", basicDesc="회복 아이템 효과량 증가", basicEffect={potionMult=0.5},
             linkEffect={potionMult=0.15}, linkName="포식의 나눔", linkDesc="파티 회복 아이템 효과량+15%" }
         d["분신(도플갱어)"] = { pool="hg", basicName="콤보 마스터", basicDesc="무피격 시간 비례 데미지 증가 (분신 소환은 선행 서브시스템 필요)",
