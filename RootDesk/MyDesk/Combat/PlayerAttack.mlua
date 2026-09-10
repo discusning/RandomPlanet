@@ -226,6 +226,25 @@ script PlayerAttack extends AttackComponent
             end
         end
 
+        -- 2026-09-10 QA - 폭탄 돌리기 링크("폭심 지원": 크리 시 낮은 확률로 소형 폭발) 신규 연결.
+        -- 본인판(처치 시 확정 폭발)과 달리 대상 위치를 중심으로 즉시 폭발.
+        if self._T.lastWasCrit then
+            local explosionSpec = _TraitEffectEngine:GetLinkKillExplosion(statsComp.LinkTrait1)
+            if explosionSpec == nil and statsComp.LinkTrait2 ~= "" then explosionSpec = _TraitEffectEngine:GetLinkKillExplosion(statsComp.LinkTrait2) end
+            if explosionSpec ~= nil and _UtilLogic:RandomDouble() < (explosionSpec.chance or 0) then
+                local defTransform = defender.TransformComponent
+                if isvalid(defTransform) then
+                    local pos = defTransform.WorldPosition
+                    local shape = BoxShape(Vector2(pos.x, pos.y + 0.5), Vector2(explosionSpec.radius or 1.5, explosionSpec.radius or 1.5), 0)
+                    local originalDamage = self.AttackDamage
+                    self.AttackDamage = math.floor(originalDamage * (explosionSpec.pct or 0.2))
+                    self:AttackFast(shape, "skill.linkKillExplosion", CollisionGroups.Monster)
+                    self.AttackDamage = originalDamage
+                    log("PlayerAttack: 폭탄 돌리기 링크 - 폭심 지원 발동")
+                end
+            end
+        end
+
         -- 동전 던지기 사형집행인(onCritExecuteChance) - 이번 타격이 크리였을 때만 발동, 보스는 제외
         -- (Monster.ExecuteKill 내부에서 IsBoss로 재확인).
         if self._T.lastWasCrit then

@@ -454,6 +454,22 @@ script TraitEffectEngine extends Logic
         return mod.unhitScaleAtk
     end
 
+    -- M2 Phase C(2026-09-10) - 폭탄 돌리기(gmb)의 basicDesc "처치 시 폭발(주변 적 피해)"가
+    -- basicEffect에 전혀 반영되지 않고 무관한 flat atk/dr 근사치만 있던 것을 발견 - 실제 폭발
+    -- AoE를 신규 구현. Monster.GrantXpToAttacker가 소비한다. {pct, radius} 형태로 반환
+    -- (pct는 공격력 대비 폭발 피해 비율).
+    method table GetOwnKillExplosion(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.killExplosion
+    end
+
+    -- M2 Phase C(2026-09-10) - 폭탄 돌리기 링크("폭심 지원": 크리 시 낮은 확률로 소형 폭발) 전용.
+    -- 본인판(처치 시 확정)과 발동 조건이 다른 별도 채널 - PlayerAttack.OnAttack이 소비한다.
+    method table GetLinkKillExplosion(string trait)
+        local mod = self:GetLinkModifiers(trait)
+        return mod.killExplosionLink
+    end
+
     -- M2 Phase C(2026-09-10) - 변덕(bad)의 basicDesc "처치 시 낮은 확률로 드랍 2배" 본인판이
     -- basicEffect에 없어 페널티(exp=-0.03)만 적용되고 보상이 없던 무비용 페널티 버그 발견·수정
     -- 전용(느림보와 동일 유형). 도박꾼(HasDropGamble, 확정 50/50)과 달리 확률 게이트가 있다.

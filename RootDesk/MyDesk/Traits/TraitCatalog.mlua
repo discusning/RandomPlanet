@@ -201,8 +201,8 @@ script TraitCatalog extends Logic
             linkEffect={onSkillCooldownRoulette=0.05}, linkName="돌아가는 운명", linkDesc="파티 스킬 사용 시 낮은 확률로 쿨다운 초기화 또는 2배" }
         d["양극화"] = { pool="gmb", basicName="역공 본능", basicDesc="크리티컬 확률 대폭 증가, 비크리 시 데미지 대폭 감소", basicEffect={cc=0.15, atk=-0.15},
             linkEffect={cc=0.04, atk=-0.03}, linkName="양극의 나눔", linkDesc="파티 크리 확률+8%, 대신 비크리 시 데미지−5%" }
-        d["폭탄 돌리기"] = { pool="gmb", basicName="분노의 반동", basicDesc="처치 시 폭발(주변 적 피해), 가끔 자신도 피해", basicEffect={atk=0.10, dr=-0.05},
-            linkEffect={atk=0.02}, linkName="폭심 지원", linkDesc="크리 시 낮은 확률로 소형 폭발" }
+        d["폭탄 돌리기"] = { pool="gmb", basicName="분노의 반동", basicDesc="처치 시 폭발(주변 적 피해), 가끔 자신도 피해", basicEffect={atk=0.10, dr=-0.05, killExplosion={pct=0.30, radius=2.0}},
+            linkEffect={killExplosionLink={chance=0.15, pct=0.20, radius=1.5}}, linkName="폭심 지원", linkDesc="크리 시 낮은 확률로 소형 폭발" }
         d["운명의 동전"] = { pool="gmb", basicName="되받아치기", basicDesc="피격 시 50% 확률 피해 무효/50% 확률 2배", basicEffect={coinFlipDefense=true},
             linkEffect={coinFlipLink=0.20}, linkName="동전의 양면", linkDesc="파티 받는 피해 낮은 확률 무효, 낮은 확률 2배" }
         d["광란의 질주"] = { pool="gmb", basicName="대시", basicDesc="공격·이동 속도 대폭 증가, 가끔 조작 미세 흔들림", basicEffect={as=0.20, msm=0.25},
