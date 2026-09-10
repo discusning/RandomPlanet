@@ -342,11 +342,18 @@ script PlayerSkillComponent extends Component
         if equippedId == "" then return end
         local def = _SkillCatalog:GetSkillDef(equippedId)
         if def == nil then return end
+        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+        -- 2026-09-10 QA - SkillCooldownReduction(INT 파생 2차 스탯)이 지금까지 계산만 되고 소비처가
+        -- 전혀 없던 "죽은 스탯"이었음을 발견(이 세션의 LUK/EvasionPercent, STR/KnockbackResistance에
+        -- 이은 세 번째 - RecalculateDerived 주석에 "inert until Phase 3 (no skill system yet)"라고
+        -- 명시돼 있었는데, 이미 오래전에 실제 스킬 시스템(Q/W, 쿨다운 포함)이 구축된 뒤에도 계속
+        -- 연결되지 않은 채 남아있었다). effectiveCooldown에 반영.
+        local cooldownReduction = isvalid(statsComp) and statsComp.SkillCooldownReduction or 0
+        local effectiveCooldown = def.cooldown * (1 - cooldownReduction)
         local lastUseTime = slot == 2 and self.LastUseTime2 or self.LastUseTime
-        if _UtilLogic.ElapsedSeconds - lastUseTime < def.cooldown then
+        if _UtilLogic.ElapsedSeconds - lastUseTime < effectiveCooldown then
             return
         end
-        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
         -- 침묵의 맹세(hb) - basicDesc가 명시한 "MP 소모 스킬 사용 불가"가 지금까지 실제로는
         -- 강제되지 않았다(atk=1.0 보너스만 적용되고 페널티는 "선행 필요"로 미구현 상태였음 -
         -- 2026-09-08 밸런스 점검에서 발견한 무비용 특성). 이 특성은 스킬 자체를 아예 못 쓰게 막는다
