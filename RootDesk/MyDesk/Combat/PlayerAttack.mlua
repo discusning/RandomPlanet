@@ -186,6 +186,17 @@ script PlayerAttack extends AttackComponent
             end
         end
 
+        -- 2026-09-10 QA - 무딘 칼(bad)의 basicDesc "크리 시 체력 소폭 회복" 본인판이 basicEffect에
+        -- 없어 페널티(cm=-0.10)만 적용되던 무비용 페널티 버그 신규 수정.
+        if self._T.lastWasCrit then
+            local critHealPct = _TraitEffectEngine:GetOwnCritHeal(statsComp.Trait)
+            if critHealPct == 0 and statsComp.Trait2 ~= "" then critHealPct = _TraitEffectEngine:GetOwnCritHeal(statsComp.Trait2) end
+            if critHealPct > 0 and player.Hp > 0 then
+                player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * critHealPct)
+                log("PlayerAttack: 무딘 칼 - 크리 시 체력 회복")
+            end
+        end
+
         -- 2026-09-10 QA - 박복(bad)의 basicDesc "크리 시 낮은 확률로 즉시 재행동" 본인판이
         -- basicEffect에 없어 페널티(cc=-0.04)만 적용되던 무비용 페널티 버그 신규 수정. 메아리와
         -- 동일한 쿨다운 초기화 메커니즘으로 근사, 크리였을 때만 발동.

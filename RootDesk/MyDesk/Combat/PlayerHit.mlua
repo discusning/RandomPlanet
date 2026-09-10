@@ -211,6 +211,16 @@ script PlayerHit extends Component
                 statsComp.HitStackAtkPercent = math.min(hitStack.cap or 1.0, statsComp.HitStackAtkPercent + (hitStack.perHit or 0))
                 statsComp:RecomputeDynamicAttackDamage()
             end
+            -- 2026-09-10 QA - 겁쟁이(bad)의 basicDesc "피격 직후 다음 공격+20%" 본인판이
+            -- basicEffect에 없어 페널티(dr=-0.05)만 적용되던 무비용 페널티 버그 신규 수정.
+            local onHitBuffOwn = _TraitEffectEngine:GetOwnOnHitBuff(statsComp.Trait)
+            if onHitBuffOwn == nil and statsComp.Trait2 ~= "" then onHitBuffOwn = _TraitEffectEngine:GetOwnOnHitBuff(statsComp.Trait2) end
+            if onHitBuffOwn ~= nil then
+                statsComp.OwnOnHitBuffAtkPercent = onHitBuffOwn.atk or 0.20
+                statsComp.OwnOnHitBuffExpireElapsed = _UtilLogic.ElapsedSeconds + (onHitBuffOwn.duration or 3)
+                statsComp:RecomputeDynamicAttackDamage()
+                log("PlayerHit: 겁쟁이 - 피격 직후 다음 공격 버프 발동")
+            end
             -- 2026-09-08 QA - 굶주린 살점 링크("고통 공유": 피격 시 낮은 확률로 짧은 공격력 버프).
             -- 본인판(hitStackAtk, 확정 누적)과 달리 확률 게이트 + 짧은 지속시간 버프라 별도 채널.
             local onHitBuff = _TraitEffectEngine:GetLinkOnHitBuff(statsComp.LinkTrait1)

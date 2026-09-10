@@ -428,6 +428,22 @@ script TraitEffectEngine extends Logic
         return mod.onCritCooldownReset or 0
     end
 
+    -- M2 Phase C(2026-09-10) - 무딘 칼(bad)의 basicDesc "크리 시 체력 소폭 회복" 본인판이
+    -- basicEffect에 없어 페널티(cm=-0.10)만 적용되던 무비용 페널티 버그 발견·수정 전용.
+    -- PlayerAttack.OnAttack이 소비한다(현재 MaxHp 대비 비율).
+    method number GetOwnCritHeal(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.onCritHeal or 0
+    end
+
+    -- M2 Phase C(2026-09-10) - 겁쟁이(bad)의 basicDesc "피격 직후 다음 공격+20%" 본인판이
+    -- basicEffect에 없어 페널티(dr=-0.05)만 적용되던 무비용 페널티 버그 발견·수정 전용. 굶주린
+    -- 살점 링크(onHitBuffLink, 확률형)와 달리 "직후"라 매 피격마다 확정 발동. {atk, duration} 반환.
+    method table GetOwnOnHitBuff(string trait)
+        local mod = self:GetBasicModifiers(trait)
+        return mod.onHitBuffOwn
+    end
+
     -- M2 Phase C(2026-09-10) - 변덕(bad)의 basicDesc "처치 시 낮은 확률로 드랍 2배" 본인판이
     -- basicEffect에 없어 페널티(exp=-0.03)만 적용되고 보상이 없던 무비용 페널티 버그 발견·수정
     -- 전용(느림보와 동일 유형). 도박꾼(HasDropGamble, 확정 50/50)과 달리 확률 게이트가 있다.

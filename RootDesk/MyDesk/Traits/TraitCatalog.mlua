@@ -171,9 +171,9 @@ script TraitCatalog extends Logic
             linkEffect={doubleCastLink=0.08}, linkName="재시전 지원", linkDesc="낮은 확률로 파티 스킬 2연발" }
         d["옹졸함"] = { pool="bad", basicName="인내의 일격", basicDesc="구슬 획득량−8%, 대신 무피격 시간 비례 데미지 증가", basicEffect={exp=-0.08},
             linkEffect={drop=0.05}, linkName="저축", linkDesc="파티 연속 처치 유지 시 구슬 획득+10%" }
-        d["겁쟁이"] = { pool="bad", basicName="반격 태세", basicDesc="보스전 받는 피해 증가, 대신 피격 직후 다음 공격+20%", basicEffect={dr=-0.05},
+        d["겁쟁이"] = { pool="bad", basicName="반격 태세", basicDesc="보스전 받는 피해 증가, 대신 피격 직후 다음 공격+20%", basicEffect={dr=-0.05, onHitBuffOwn={atk=0.20, duration=3}},
             linkEffect={dr=0.08}, linkName="후위 엄호", linkDesc="파티 후방 피해−15%" }
-        d["무딘 칼"] = { pool="bad", basicName="치명 흡수", basicDesc="크리 데미지−10%, 대신 크리 시 체력 소폭 회복", basicEffect={cm=-0.10},
+        d["무딘 칼"] = { pool="bad", basicName="치명 흡수", basicDesc="크리 데미지−10%, 대신 크리 시 체력 소폭 회복", basicEffect={cm=-0.10, onCritHeal=0.03},
             linkEffect={cm=0.04}, linkName="무딘 날의 마무리", linkDesc="파티 크리티컬 데미지+8%" }
         d["게으름"] = { pool="bad", basicName="흡수 자동화", basicDesc="드랍 자동 흡수(범위 감소 대신)", basicEffect={drop=-0.05},
             linkName="흡수 자동화", linkDesc="파티 드랍 자동 흡수" }

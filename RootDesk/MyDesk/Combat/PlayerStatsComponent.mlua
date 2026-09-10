@@ -191,6 +191,10 @@ script PlayerStatsComponent extends Component
     -- 2026-09-08 QA - 굶주린 살점 링크("고통 공유": 피격 시 낮은 확률로 짧은 공격력 버프) 전용.
     -- 본인 특성(HitStackAtkPercent, 확정 누적)과 독립된 채널.
     @HideFromInspector property number LinkOnHitBuffAtkPercent = 0
+    -- 2026-09-10 QA - 겁쟁이(bad)의 basicDesc "피격 직후 다음 공격+20%" 본인판 전용. 굶주린 살점
+    -- 링크(확률형)와 달리 "직후"라 매 피격마다 확정 발동하는 독립 채널.
+    @HideFromInspector property number OwnOnHitBuffAtkPercent = 0
+    @HideFromInspector property number OwnOnHitBuffExpireElapsed = 0
     @HideFromInspector property number LinkOnHitBuffExpireElapsed = 0
     -- 2026-09-08 QA - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
     -- 유리몸 링크(firstHitImmune)와 달리 "런당" 1회라 ReviveUsedThisRun과 동일하게 캐릭터
@@ -287,6 +291,8 @@ script PlayerStatsComponent extends Component
         self.LinkPeriodicBuffTickElapsed = 0
         self.LinkOnHitBuffAtkPercent = 0
         self.LinkOnHitBuffExpireElapsed = 0
+        self.OwnOnHitBuffAtkPercent = 0
+        self.OwnOnHitBuffExpireElapsed = 0
         self.LinkCaptureInvulnUntilElapsed = 0
         self.LinkLowHpInvulnUntilElapsed = 0
         self.LinkLowHpInvulnCooldownUntilElapsed = 0
@@ -1203,7 +1209,7 @@ script PlayerStatsComponent extends Component
         -- 지워버리므로, 항상 이 메서드 하나만 실제 쓰기를 담당하게 한다.
         local attack = self.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(attack) then return end
-        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus + self.LinkMasterBuffAtkPercent + self.LinkPeriodicBuffAtkPercent + self.LinkOnHitBuffAtkPercent
+        local totalBonus = self.BerserkDamageBonusPercent + self.HitStackAtkPercent + self.KillStackAtkPercent + self.TimeStackAtkPercent + self.LowHpBonusAtkPercent + self.LuckyDayAtkPercent + self.RandomBuffAtkPercent + self.BurstAtkPercent + self.SpeedsterAtkBonus + self.LinkMasterBuffAtkPercent + self.LinkPeriodicBuffAtkPercent + self.LinkOnHitBuffAtkPercent + self.OwnOnHitBuffAtkPercent
         attack.AttackDamage = self.BaseAttackDamage * (1 + totalBonus)
     end
 
@@ -1234,6 +1240,11 @@ script PlayerStatsComponent extends Component
         -- 굶주린 살점 링크(onHitBuffLink) - 발동 중인 피격 트리거 버프가 만료 시각을 지났으면 해제.
         if self.LinkOnHitBuffAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= self.LinkOnHitBuffExpireElapsed then
             self.LinkOnHitBuffAtkPercent = 0
+            self:RecomputeDynamicAttackDamage()
+        end
+        -- 겁쟁이(onHitBuffOwn) - "피격 직후 다음 공격+20%" 버프가 만료 시각을 지났으면 해제.
+        if self.OwnOnHitBuffAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= self.OwnOnHitBuffExpireElapsed then
+            self.OwnOnHitBuffAtkPercent = 0
             self:RecomputeDynamicAttackDamage()
         end
 
