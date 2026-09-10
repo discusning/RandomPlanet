@@ -88,7 +88,7 @@ script TraitCatalog extends Logic
         d["메아리치는 발걸음"] = { pool="hg", basicName="메아리치는 발걸음", basicDesc="이동 중 지나온 자리에 화상 장판 (도트 프레임워크 선행 필요)",
             linkName="발자국 지원", linkDesc="파티 이동 경로에 약한 화상 장판 공유" }
         d["차원의 틈"] = { pool="hg", basicName="차원의 틈", basicDesc="크리 시 낮은 확률로 주변 몬스터를 끌어당김", basicEffect={onCritPullChance=0.08},
-            linkName="중력 지원", linkDesc="크리 시 낮은 확률로 적 이동속도 감소" }
+            linkEffect={gravitySupportLink={chance=0.15, pct=0.30, duration=2}}, linkName="중력 지원", linkDesc="크리 시 낮은 확률로 적 이동속도 감소" }
         d["동전 던지기 사형집행인"] = { pool="hg", basicName="동전 던지기 사형집행인", basicDesc="크리 시 낮은 확률(약5%)로 대상 즉사(보스 제외)", basicEffect={onCritExecuteChance=0.05},
             linkEffect={executeCritThreshold=0.10}, linkName="처형 지원", linkDesc="파티 공격이 체력10%↓ 적 처치 시 확정타" }
         d["시간을 거스르는 자"] = { pool="hg", basicName="시간을 거스르는 자", basicDesc="치명적 피해를 받으면 3초 전으로 복구(런당 1회) (스냅샷 버퍼 선행 필요)",

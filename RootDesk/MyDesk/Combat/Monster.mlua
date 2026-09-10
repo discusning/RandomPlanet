@@ -21,6 +21,10 @@ script Monster extends Component
     property number Evasion = 0
     @Sync @HideFromInspector property boolean DisorderActive = false
     @HideFromInspector property number DisorderOriginalEvasion = 0
+    -- 2026-09-10 QA - 차원의 틈 링크("중력 지원": 크리 시 낮은 확률로 적 이동속도 감소) 전용.
+    -- ApplyDisorder와 동일한 원본값 추적+타이머 복원 패턴.
+    @HideFromInspector property boolean GravitySlowActive = false
+    @HideFromInspector property number GravitySlowOriginalInputSpeed = 0
     -- 물약 시스템 (M2 Phase A, 2026-09-06 - 전체 기획서 §3-3 "회복 아이템: 드랍으로 획득"). 퍼센트
     -- 정수(0~100) - 기본 12%로 시작, 전장 몬스터별로 `MapBuilder.patchComponent`나 개별 `.model`
     -- 값으로 오버라이드 가능(FieldMonster1~3 티어별 밸런스 조정과 동일 패턴).
@@ -118,6 +122,28 @@ script Monster extends Component
             if isvalid(self.Entity) then
                 self.Evasion = self.DisorderOriginalEvasion
                 self.DisorderActive = false
+            end
+        end, duration)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyGravitySlow(number pct, number duration)
+        -- 2026-09-10 QA - 차원의 틈 링크("중력 지원": 크리 시 낮은 확률로 적 이동속도 감소) 신규
+        -- 연결. ApplyDisorder와 동일한 원본값 추적+타이머 복원 패턴(재시전으로 값이 누적되지 않도록
+        -- 활성 중이면 먼저 원래 값으로 되돌린 뒤 다시 적용).
+        local move = self.Entity.MovementComponent
+        if not isvalid(move) then return end
+        if self.GravitySlowActive then
+            move.InputSpeed = self.GravitySlowOriginalInputSpeed
+        end
+        self.GravitySlowOriginalInputSpeed = move.InputSpeed
+        move.InputSpeed = move.InputSpeed * (1 - pct)
+        self.GravitySlowActive = true
+        _TimerService:SetTimerOnce(function()
+            if isvalid(self.Entity) then
+                local m = self.Entity.MovementComponent
+                if isvalid(m) then m.InputSpeed = self.GravitySlowOriginalInputSpeed end
+                self.GravitySlowActive = false
             end
         end, duration)
     end

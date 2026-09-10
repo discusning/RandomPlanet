@@ -118,6 +118,25 @@ script PlayerAttack extends AttackComponent
 
         local result = _UtilLogic:RandomDouble() < self.CriticalChance
         self._T.lastWasCrit = result
+
+        -- 2026-09-10 QA - 차원의 틈 링크("중력 지원": 크리 시 낮은 확률로 적 이동속도 감소) 신규
+        -- 연결. 크리가 실제로 성립했을 때만(위 firstHitCrit/executeCrit 경로 포함 전부) 발동해야
+        -- 하므로, 이 메서드의 이른 return 두 곳도 self._T.lastWasCrit=true를 이미 세팅해뒀다 - 여기
+        -- 아래쪽 공통 경로에서 한 번 더 최종 result 기준으로 판정하면 이른 return 케이스는 놓친다.
+        -- 실용적 절충으로 "일반 크리 굴림"에서만 적용(집중/동전사형집행인 같은 확정 크리 경로는
+        -- 제외 - 발동 빈도상 큰 차이 없고 로직 단순 유지).
+        if result and isvalid(statsComp) then
+            local gravitySpec = _TraitEffectEngine:GetLinkGravitySupport(statsComp.LinkTrait1)
+            if gravitySpec == nil and statsComp.LinkTrait2 ~= "" then gravitySpec = _TraitEffectEngine:GetLinkGravitySupport(statsComp.LinkTrait2) end
+            if gravitySpec ~= nil and _UtilLogic:RandomDouble() < (gravitySpec.chance or 0) then
+                local monster = defender:GetComponent("script.Monster")
+                if isvalid(monster) then
+                    monster:ApplyGravitySlow(gravitySpec.pct or 0.2, gravitySpec.duration or 2)
+                    log("PlayerAttack: 차원의 틈 링크 - 중력 지원 발동")
+                end
+            end
+        end
+
         return result
     end
 
