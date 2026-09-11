@@ -76,7 +76,9 @@ script PlayerHUDController extends Logic
         local skill = localPlayer:GetComponent("script.PlayerSkillComponent")
         if isvalid(skill) then
             if skill.EquippedSkillId == "" then
-                self.skillNameText.Text = "(no skill)"
+                -- 2026-09-12 QA(유저 요청 "어색한 UI... 찾아서 고치는 QA") - 나머지 HUD/팝업 전부
+                -- 한국어인데 이 자리만 영어 placeholder 문구("(no skill)")가 그대로 남아있었음.
+                self.skillNameText.Text = "스킬 없음"
                 self.skillStatusText.Text = ""
             else
                 local def = _SkillCatalog:GetSkillDef(skill.EquippedSkillId)
@@ -104,7 +106,7 @@ script PlayerHUDController extends Logic
             -- 2번 스킬 슬롯(W) - skillNameText/skillStatusText와 동일 패턴, LastUseTime2 기준
             -- (M2 Phase A, 2026-09-06 - EquippedSkillId2는 이미 있었으나 HUD 표시가 빠져 있었음)
             if skill.EquippedSkillId2 == "" then
-                self.skillName2Text.Text = "(no skill)"
+                self.skillName2Text.Text = "스킬 없음"
                 self.skillStatus2Text.Text = ""
             else
                 local def2 = _SkillCatalog:GetSkillDef(skill.EquippedSkillId2)
