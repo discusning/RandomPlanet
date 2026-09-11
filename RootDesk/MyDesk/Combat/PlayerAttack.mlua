@@ -259,7 +259,11 @@ script PlayerAttack extends AttackComponent
             end
         end
 
-        if statsComp.Trait == "버서크" then
+        -- 2026-09-12 QA - 버서크의 나머지 판정(UpdateZoneState의 BerserkTick 가동, 물약 차단)은
+        -- 전부 Trait/Trait2 양쪽을 보는데 이 피격시 회복 15%만 Trait만 검사하고 있었다 - Trait2
+        -- 슬롯에 버서크를 보유한 캐릭터는 아래 범용 흡혈 풀에도 걸리지 않아(버서크는 basicEffect
+        -- 자체가 없는 legacy 특성) 이 회복을 완전히 못 받던 비대칭을 수정.
+        if statsComp.Trait == "버서크" or statsComp.Trait2 == "버서크" then
             local heal = self.AttackDamage * 0.15
             player.Hp = math.min(player.MaxHp, player.Hp + heal)
             return

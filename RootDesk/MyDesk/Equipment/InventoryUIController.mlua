@@ -355,7 +355,11 @@ script InventoryUIController extends Component
         local localPlayer = _UserService.LocalPlayer
         if not isvalid(localPlayer) then return end
         local stats = localPlayer:GetComponent("script.PlayerStatsComponent")
-        if isvalid(stats) and stats.Trait == "버서크" then
+        -- 2026-09-12 QA - 아래 소모 처리(인벤토리 카운트 감소)는 이 이른 return 이전엔 실행되지
+        -- 않는데, Trait2에 버서크를 보유한 캐릭터는 이 체크를 그냥 통과해 물약이 실제로
+        -- 소모(로스터 저장까지)된 뒤에야 서버가 회복만 거부해 - 아이템이 통째로 낭비되던 버그.
+        -- 다른 버서크 체크(UpdateZoneState 등)와 동일하게 Trait2도 함께 검사하도록 수정.
+        if isvalid(stats) and (stats.Trait == "버서크" or stats.Trait2 == "버서크") then
             log("Inventory: potion use blocked - 버서크 특성은 회복 아이템 적용 불가")
             return
         end
