@@ -1285,6 +1285,30 @@ script PlayerStatsComponent extends Component
         if self.Trait == "시한부" or self.Trait2 == "시한부" then
             local elapsed = _UtilLogic.ElapsedSeconds - self.RunStartElapsed
             if elapsed >= 180 then
+                -- 2026-09-12 QA - PlayerHit.HandleHitEvent의 모든 사망(전투 피격)은 ProcessDead
+                -- 전에 ReviveUsedThisRun 예산을 공유하는 3개 부활원(부활자/순교자 링크/시간을
+                -- 거스르는 자 링크)을 먼저 확인하는데, 이 타임아웃 즉사 경로만 그 확인 없이 곧장
+                -- ProcessDead를 호출해 부활 특성 보유자에게도 무조건 죽는 유일한 예외였다 -
+                -- PlayerHit과 동일한 3분기를 그대로 반영(예산 공유 원칙 그대로 유지).
+                if not self.ReviveUsedThisRun and (_TraitEffectEngine:HasReviveOnce(self.Trait) or (self.Trait2 ~= "" and _TraitEffectEngine:HasReviveOnce(self.Trait2))) then
+                    self.ReviveUsedThisRun = true
+                    player.Hp = 1
+                    log("PlayerStats: 시한부 - 제한시간 초과했으나 부활자 발동, Hp=1")
+                    return
+                end
+                if not self.ReviveUsedThisRun and self.LinkReviveHpPercent > 0 then
+                    self.ReviveUsedThisRun = true
+                    player.Hp = math.max(1, math.floor(player.MaxHp * self.LinkReviveHpPercent))
+                    log("PlayerStats: 시한부 - 제한시간 초과했으나 순교자 링크 발동, Hp=" .. player.Hp)
+                    return
+                end
+                if not self.ReviveUsedThisRun and
+                   (_TraitEffectEngine:HasLinkDeathPrevent(self.LinkTrait1) or (self.LinkTrait2 ~= "" and _TraitEffectEngine:HasLinkDeathPrevent(self.LinkTrait2))) then
+                    self.ReviveUsedThisRun = true
+                    player.Hp = 1
+                    log("PlayerStats: 시한부 - 제한시간 초과했으나 시간을 거스르는 자 링크 발동, Hp=1")
+                    return
+                end
                 log("PlayerStats: 시한부 - 제한시간 초과, 즉사 트리거")
                 player.Hp = 0
                 player:ProcessDead()
