@@ -237,8 +237,8 @@ script PlayerSkillComponent extends Component
     @ExecSpace("Server")
     method void RequestRerollSkillChoice()
         -- 큐브마스터 특성 훅(전체 기획서 §2-3 "스킬 선택 시 제시 옵션 1회 재추첨 가능") - 이 특성이
-        -- 아직 축소 특성 풀(M1)에 없어 오늘은 사실상 항상 거부되지만, M2 Phase B에서 전체 114종
-        -- 특성 풀이 들어오면 이 메서드만으로 곧바로 동작한다(별도 배선 불필요).
+        -- M2 Phase B에서 전체 115종 특성 풀 도입 이후 정상 동작(당시 M1 축소 풀 기준 메모는
+        -- 삭제 - 아래 큐브마스터 판정 자체는 그때도 지금도 이 메서드만으로 곧바로 동작).
         if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
             return
         end

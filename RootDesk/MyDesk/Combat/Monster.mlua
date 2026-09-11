@@ -261,8 +261,11 @@ script Monster extends Component
     @ExecSpace("ServerOnly")
     method void TryDropPotion(Entity attacker)
         -- 버서크 특성은 회복 아이템 적용 불가(전체 기획서 §2-3) - 드랍 자체는 굳이 막지 않는다
-        -- (실제 사용 시점에 EquipmentLogic/PlayerHit 쪽에서 거부하면 충분 - 물약 시스템의 사용 단계
-        -- 참고). 금욕 특성도 동일 규칙이나 현재 축소 특성 풀(M1)에 없어 아직 해당 없음.
+        -- (실제 사용 시점에 PlayerStatsComponent.RequestUsePotion이 거부하면 충분). 2026-09-12
+        -- 정정 - "금욕도 동일 규칙이나 M1 축소 풀엔 없어 해당 없음"이라던 이전 메모는 stale함
+        -- (M2에서 전체 115종 풀로 전환된 지 오래) - RequestUsePotion은 특정 트레잇 이름이 아니라
+        -- `TraitEffectEngine:IsPotionBlocked`(basicEffect.noPotion)로 범용 판정하므로 금욕도
+        -- 이미 정상적으로 막힌다, 별도 조치 불필요.
         if not isvalid(attacker) or not isvalid(attacker.PlayerComponent) then return end
         -- M2 Phase B(2026-09-06) - 상인(노다지/§2-3 "아이템 드랍률")을 비롯한 DropRateMultiplier
         -- 계열 특성이 실제로 이 드랍 확률에 반영된다(원래 임시 대체였던 처치경험치 효과는 제거됨).
