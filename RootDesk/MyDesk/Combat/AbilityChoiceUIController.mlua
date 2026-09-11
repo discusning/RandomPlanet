@@ -73,7 +73,11 @@ script AbilityChoiceUIController extends Logic
         self.currentTraitCache = currentTrait
         self.currentTrait2Cache = currentTrait2
         if isvalid(self.btnReroll) then
-            self.btnReroll.Enable = (currentTrait == "큐브마스터" or currentTrait2 == "큐브마스터")
+            -- 2026-09-12 QA - 운명론자+큐브마스터 동시 보유 캐릭터(실제 도달 가능한 Trait/Trait2
+            -- 조합)에게 재추첨 버튼이 계속 보이던 것을 서버(RequestRerollAbilityPreview)와 짝 맞춰
+            -- 클라이언트에서도 숨김 - 위의 btnTrait와 동일한 운명론자 체크를 추가.
+            local isFatalist = (currentTrait == "운명론자" or currentTrait2 == "운명론자")
+            self.btnReroll.Enable = (currentTrait == "큐브마스터" or currentTrait2 == "큐브마스터") and not isFatalist
         end
         if isvalid(self.abilityGroup) then
             self.abilityGroup.Enable = true

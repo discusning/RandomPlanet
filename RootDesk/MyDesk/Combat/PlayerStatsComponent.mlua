@@ -456,6 +456,14 @@ script PlayerStatsComponent extends Component
         end
         if not self.AbilityChoicePending then return end
         if not (self.Trait == "큐브마스터" or self.Trait2 == "큐브마스터") then return end
+        -- 2026-09-12 QA - 운명론자(basicDesc "이능 재추첨·특성 변경 불가")는 RequestResolveAbilityChoice의
+        -- "trait" 분기에서 확정(선택)은 이미 막혀 있었지만, 이 메서드(재추첨=미리보기 재굴림)엔 그
+        -- 방어선이 없었다 - 운명론자+큐브마스터를 동시에 보유한 캐릭터(Trait/Trait2 조합으로 실제
+        -- 도달 가능)가 특성 변경 카드를 확정은 못 해도 재추첨만은 계속 할 수 있던 구멍이었음.
+        if self.Trait == "운명론자" or self.Trait2 == "운명론자" then
+            log("PlayerStats: 운명론자 - 이능 재추첨 거부")
+            return
+        end
         self.PendingTraitPreview = self:RollDifferentTrait()
         log("PlayerStats: 큐브마스터 재추첨 -> " .. self.PendingTraitPreview)
         self:OnAbilityPreviewRerolled(self.PendingTraitPreview)
