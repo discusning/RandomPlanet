@@ -87,6 +87,22 @@ script SkillChoiceUIController extends Logic
             self.card3.Enable = id3 ~= ""
         end
 
+        -- 2026-09-12 QA(유저 요청 "어색한 UI... 찾아서 고치는 QA") - AbilityChoiceUIController는
+        -- 큐브마스터가 아니면 "재추첨" 버튼을 숨기는데(ShowChoice의 동일 패턴), 이 스킬 선택
+        -- 팝업만 그 짝을 안 맞춰서 모든 플레이어에게 재추첨 버튼이 항상 보였음 - 눌러도 서버
+        -- (RequestRerollSkillChoice)가 조용히 거부할 뿐이라 죽은 버튼이 그대로 노출된 상태였다.
+        if isvalid(self.btnReroll) then
+            local isCubeMaster = false
+            local localPlayer = _UserService.LocalPlayer
+            if isvalid(localPlayer) then
+                local statsComp = localPlayer:GetComponent("script.PlayerStatsComponent")
+                if isvalid(statsComp) then
+                    isCubeMaster = (statsComp.Trait == "큐브마스터" or statsComp.Trait2 == "큐브마스터")
+                end
+            end
+            self.btnReroll.Enable = isCubeMaster
+        end
+
         if isvalid(self.skillChoiceGroup) then
             self.skillChoiceGroup.Enable = true
         end
