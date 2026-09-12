@@ -172,12 +172,19 @@ script EquipmentUIController extends Component
                 -- A scroll is armed - apply it to whatever is equipped in the clicked slot.
                 local result = _EquipmentLogic:ApplyScroll(data, selectedIdx, slot)
                 log("EquipmentUI: " .. result.message)
-                changed = true
                 -- 2026-09-12 시스템 업그레이드 - 강화(주문서) 성공/실패 피드백(클래식 메이플스토리
                 -- 관행). 지금까지 결과가 log()에만 찍히고 화면엔 스탯이 조용히 바뀌는 것 말고 아무
                 -- 표시가 없어, 성공/실패를 플레이어가 전혀 알 수 없었다. Refresh() 호출 후(아래) 슬롯
                 -- 색을 짧게 초록/빨강으로 물들여 결과를 알린다.
-                self._T.pendingScrollFlash = { slot = slot, success = result.success }
+                -- 2026-09-12 QA(전반적 QA 3차 확장) - `changed`/플래시 둘 다 `result.applied`로
+                -- 게이팅하도록 수정. 이전에는 ApplyScroll의 6가지 "아무것도 소모 안 됨" 이른 반환
+                -- (주문서 없음/대상 슬롯 비어있음/강화 횟수 초과 등)도 실제 롤 실패와 똑같이
+                -- `success=false`만 봐서 무조건 `changed=true`(불필요한 로스터 저장)였고, 새로 추가한
+                -- 빨간 실패 플래시까지 "아무 일도 안 일어났는데 실패했다"고 잘못 표시할 뻔했다.
+                changed = result.applied == true
+                if result.applied then
+                    self._T.pendingScrollFlash = { slot = slot, success = result.success }
+                end
             end
             _EquipmentLogic:SetSelectedInventoryIndex(nil)
         end
