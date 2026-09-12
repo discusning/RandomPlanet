@@ -811,7 +811,11 @@ script PlayerStatsComponent extends Component
         local healAmount = math.floor(player.MaxHp * healPercent)
         local before = player.Hp
         player.Hp = math.min(player.MaxHp, player.Hp + healAmount)
-        log("PlayerStats: RequestUsePotion healed " .. (player.Hp - before) .. " -> Hp=" .. player.Hp .. "/" .. player.MaxHp)
+        local actualHealed = player.Hp - before
+        log("PlayerStats: RequestUsePotion healed " .. actualHealed .. " -> Hp=" .. player.Hp .. "/" .. player.MaxHp)
+        -- 2026-09-12 시스템 업그레이드(인벤토리/장비) - 지금까지 물약 회복이 log()에만 찍히고 화면엔
+        -- HP 바가 조용히 늘어나는 것 말고 아무 숫자 표시가 없었다.
+        _CombatFeelLogic:PlayHealNumber(self.Entity, actualHealed, player.UserId)
     end
 
     @ExecSpace("Server")

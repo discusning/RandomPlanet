@@ -173,6 +173,11 @@ script EquipmentUIController extends Component
                 local result = _EquipmentLogic:ApplyScroll(data, selectedIdx, slot)
                 log("EquipmentUI: " .. result.message)
                 changed = true
+                -- 2026-09-12 시스템 업그레이드 - 강화(주문서) 성공/실패 피드백(클래식 메이플스토리
+                -- 관행). 지금까지 결과가 log()에만 찍히고 화면엔 스탯이 조용히 바뀌는 것 말고 아무
+                -- 표시가 없어, 성공/실패를 플레이어가 전혀 알 수 없었다. Refresh() 호출 후(아래) 슬롯
+                -- 색을 짧게 초록/빨강으로 물들여 결과를 알린다.
+                self._T.pendingScrollFlash = { slot = slot, success = result.success }
             end
             _EquipmentLogic:SetSelectedInventoryIndex(nil)
         end
@@ -183,6 +188,27 @@ script EquipmentUIController extends Component
         end
         self:Refresh()
         self:RefreshInventoryWindowIfOpen()
+        if self._T.pendingScrollFlash ~= nil then
+            self:PlayScrollFeedback(self._T.pendingScrollFlash.slot, self._T.pendingScrollFlash.success)
+            self._T.pendingScrollFlash = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PlayScrollFeedback(string slot, boolean success)
+        -- 강화 슬롯을 짧게(0.35초) 초록(성공)/빨강(실패)으로 물들인 뒤 Refresh()로 원래 상태(장착된
+        -- 아이템 썸네일의 정상 흰색, 혹은 빈 슬롯의 탠 색)를 다시 계산해 복원한다 - 색을 하드코딩해
+        -- 복원하는 대신 기존 Refresh 로직을 재사용해 그 사이 상태가 바뀌어도 항상 정확하다.
+        local btn = self._T.slotButtons[slot]
+        if not isvalid(btn) then return end
+        local sprite = btn.SpriteGUIRendererComponent
+        if not isvalid(sprite) then return end
+        sprite.Color = success and Color(0.4, 1.0, 0.4, 1) or Color(1.0, 0.35, 0.35, 1)
+        _TimerService:SetTimerOnce(function()
+            if isvalid(self.Entity) then
+                self:Refresh()
+            end
+        end, 0.35)
     end
 
     @ExecSpace("ClientOnly")
