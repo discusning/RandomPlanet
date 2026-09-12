@@ -60,7 +60,10 @@ script EndingUIController extends Logic
         -- true (Phase 4 permadeath). Freezes the on-screen stats - the underlying PlayerStatsComponent
         -- fields keep existing after this, so we snapshot into text here rather than re-reading live.
         if isvalid(self.levelText) then
-            self.levelText.Text = "Lv. " .. level
+            -- 2026-09-12 QA(전반적 텍스트 일관성 스캔) - 이 화면만 "Lv. " (점 뒤 공백)을 써서 나머지
+            -- 3곳(CharacterCardController/CharacterInfoUIController/PlayerHUDController)이 전부 쓰는
+            -- "Lv."(공백 없음)과 형식이 달랐다 - 순수 표기 통일, 로직 변경 없음.
+            self.levelText.Text = "Lv." .. level
         end
         if isvalid(self.killText) then
             self.killText.Text = "처치 " .. killCount .. "마리"

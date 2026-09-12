@@ -120,6 +120,18 @@ script Monster extends Component
         -- 크리 판정 직후 호출한다. HandleHitEvent와 동일한 처치 시퀀스(XP 지급 + Dead)를 그대로 재사용.
         if self.IsDead or self.IsBoss then return end
         self.Hp = 0
+        -- 2026-09-12 QA(자체 코드 리뷰) - HandleHitEvent에 처치 임팩트(파티클+카메라 셰이크)를
+        -- 추가했을 때 이 즉사 경로를 놓쳤음을 발견 - 위 주석대로 "동일한 처치 시퀀스"를 표방하면서도
+        -- 정작 가장 화려해야 할 즉사 순간에 새 피드백이 빠져 있었다. IsBoss는 위에서 이미 걸러지므로
+        -- 여기선 항상 일반(non-boss) 변주만 재생.
+        local pos = self.Entity.TransformComponent.WorldPosition
+        _ParticleService:PlayBasicParticle(BasicParticleType.SmallExplosion, self.Entity, Vector3(pos.x, pos.y, 0), 0, Vector3.one, false)
+        if isvalid(attacker) then
+            local attackerPlayer = attacker.PlayerComponent
+            if isvalid(attackerPlayer) then
+                _CombatFeelLogic:PlayKillImpact(false, attackerPlayer.UserId)
+            end
+        end
         self:GrantXpToAttacker(attacker)
         self:Dead()
     end
