@@ -21,6 +21,10 @@ script PlayerHUDController extends Logic
     property TextGUIRendererComponent buffStatusText = "5c87893b-c81b-44ee-b756-30f7ffb1849a"
     property number fullWidth = 220
     property any timerId = nil
+    -- 2026-09-12 시스템 업그레이드 - 저체력 경고 연출(Zelda/Dark Souls류 "저체력 심장박동" 관행).
+    -- 화면 전체를 덮는 반투명 빨간 오버레이 - 평소엔 alpha=0으로 숨겨져 있다가 체력비율이 낮을 때만
+    -- Tick()에서 사인파로 깜빡인다. raycast=false라 클릭을 가리지 않음.
+    property SpriteGUIRendererComponent lowHpOverlay = "173e2209-6131-450e-ad25-e9e458ae6bd7"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -56,6 +60,19 @@ script PlayerHUDController extends Logic
                 self.hpFillImage.Color = Color(1, 1, 0, 1)
             else
                 self.hpFillImage.Color = Color(1, 0, 0, 1)
+            end
+
+            -- 2026-09-12 시스템 업그레이드 - 저체력 경고(Zelda/Dark Souls류 "심장박동" 관행). 체력바
+            -- 색이 빨강으로 바뀌는 것과 같은 20% 임계값에서, 화면 전체 오버레이를 사인파로 깜빡여
+            -- HUD 구석을 보지 않고 있어도 위험을 알아챌 수 있게 한다. 10Hz 폴링이라 계단식으로
+            -- 보일 수 있으나 목표 주기(~0.8Hz)에 비해 충분히 촘촘해 육안상 매끄럽다.
+            if isvalid(self.lowHpOverlay) then
+                if ratio > 0 and ratio <= 0.2 then
+                    local pulse = 0.28 + 0.16 * math.sin(_UtilLogic.ElapsedSeconds * 5)
+                    self.lowHpOverlay.Color = Color(0.6, 0, 0, math.max(0, pulse))
+                else
+                    self.lowHpOverlay.Color = Color(0.6, 0, 0, 0)
+                end
             end
         end
 
