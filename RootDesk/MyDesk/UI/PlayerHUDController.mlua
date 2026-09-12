@@ -110,12 +110,24 @@ script PlayerHUDController extends Logic
                     -- is the server's clock as replicated to the client, matching what LastUseTime was
                     -- stamped with.
                     local remaining = def.cooldown - (_UtilLogic.ServerElapsedSeconds - skill.LastUseTime)
+                    local isReady = remaining <= 0
+                    -- 2026-09-12 시스템 업그레이드 - 스킬 레디 펄스(MOBA류 관행). 쿨다운→준비 전환
+                    -- 순간에만 0.3초간 골드색으로 반짝인 뒤 원래 초록색으로 가라앉는다 - "방금
+                    -- 스킬을 다시 쓸 수 있게 됐다"는 것을 텍스트 색이 바뀌는 것보다 눈에 띄게 알린다.
+                    if isReady and not self._T.skill1WasReady then
+                        self._T.skill1FlashUntil = _UtilLogic.ElapsedSeconds + 0.3
+                    end
+                    self._T.skill1WasReady = isReady
                     if remaining > 0 then
                         self.skillStatusText.Text = string.format("%.1f", remaining)
                         self.skillStatusText.FontColor = Color(1, 0.4, 0.4, 1)
                     else
                         self.skillStatusText.Text = "READY"
-                        self.skillStatusText.FontColor = Color(0.49, 0.99, 0.49, 1)
+                        if self._T.skill1FlashUntil ~= nil and _UtilLogic.ElapsedSeconds < self._T.skill1FlashUntil then
+                            self.skillStatusText.FontColor = Color(1, 0.85, 0.2, 1)
+                        else
+                            self.skillStatusText.FontColor = Color(0.49, 0.99, 0.49, 1)
+                        end
                     end
                 end
             end
@@ -130,12 +142,21 @@ script PlayerHUDController extends Logic
                 if def2 ~= nil then
                     self.skillName2Text.Text = "[W] " .. def2.name
                     local remaining2 = def2.cooldown - (_UtilLogic.ServerElapsedSeconds - skill.LastUseTime2)
+                    local isReady2 = remaining2 <= 0
+                    if isReady2 and not self._T.skill2WasReady then
+                        self._T.skill2FlashUntil = _UtilLogic.ElapsedSeconds + 0.3
+                    end
+                    self._T.skill2WasReady = isReady2
                     if remaining2 > 0 then
                         self.skillStatus2Text.Text = string.format("%.1f", remaining2)
                         self.skillStatus2Text.FontColor = Color(1, 0.4, 0.4, 1)
                     else
                         self.skillStatus2Text.Text = "READY"
-                        self.skillStatus2Text.FontColor = Color(0.49, 0.99, 0.49, 1)
+                        if self._T.skill2FlashUntil ~= nil and _UtilLogic.ElapsedSeconds < self._T.skill2FlashUntil then
+                            self.skillStatus2Text.FontColor = Color(1, 0.85, 0.2, 1)
+                        else
+                            self.skillStatus2Text.FontColor = Color(0.49, 0.99, 0.49, 1)
+                        end
                     end
                 end
             end
