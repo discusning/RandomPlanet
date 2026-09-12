@@ -73,6 +73,10 @@ script PlayerHit extends Component
         -- 없이 즉시 리턴) - LUK 투자가 처음으로 실전에서 의미를 갖게 된다.
         if isvalid(statsComp) and statsComp.EvasionPercent > 0 and _UtilLogic:RandomDouble() < statsComp.EvasionPercent then
             log("PlayerHit: 회피 성공 (EvasionPercent=" .. string.format("%.3f", statsComp.EvasionPercent) .. ")")
+            -- 2026-09-12 시스템 업그레이드 - 회피 성공이 지금까지 로그 한 줄 말고는 플레이어에게
+            -- 아무 시각적 피드백이 없었다("맞았는데 데미지가 0인지 회피한 건지" 구분 불가). 명중
+            -- 실패(PlayerAttack.IsAttackTarget)와 동일한 MISS 텍스트를 자기 머리 위에 띄운다.
+            _CombatFeelLogic:ShowMissText(self.Entity, player.UserId)
             return
         end
 

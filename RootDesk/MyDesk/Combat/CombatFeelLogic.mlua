@@ -1,0 +1,52 @@
+@Logic
+script CombatFeelLogic extends Logic
+
+    -- 전투 피드백 연출 모음(2026-09-12, 유저 요청 "시스템 업그레이드, 다른 RPG 모티브 가능") -
+    -- Diablo/Path of Exile/Hades류 액션 RPG가 공통으로 쓰는 두 가지 "타격감" 관행을 이 프로젝트의
+    -- 전투 파이프라인에 새로 연결한다:
+    --   1) 크리티컬 히트 시 짧은 히트스탑+카메라 셰이크 (지금까지 이 프로젝트 어디에도 없던
+    --      네이티브 API - _UtilLogic:SetClientTimeScale/CameraComponent:ShakeCamera 둘 다 msw-
+    --      combat-system §4 Game Feel에 정의돼 있지만 실제로 쓰인 곳이 없었다).
+    --   2) 회피(EvasionPercent)/명중 실패(Accuracy vs Evasion) 시 "MISS" 텍스트 - 네이티브
+    --      DamageSkinService:PlayTextDamage가 바로 이 용도(§11-3c)로 존재하는데도 두 판정
+    --      지점(PlayerHit의 회피 분기, PlayerAttack.IsAttackTarget의 명중 실패 분기) 모두 그냥
+    --      조용히 리턴만 하고 있어 플레이어가 "빗나간 건지 아무 일도 안 일어난 건지" 구분할 수
+    --      없었다.
+    -- 서버(PlayerAttack/PlayerHit)가 targetUserId를 지정해 호출하는 순수 Client RPC 전용 로직 -
+    -- 기존 CharacterRosterLogic.GrantPotionDrop과 동일한 "서버는 판정만, 연출 지시는 클라에
+    -- 위임" 패턴을 그대로 재사용(신규 아키텍처 도입 없음).
+
+    property number CritTimeScale = 0.05
+    property number CritTimeScaleDuration = 0.06
+    property number CritShakeIntensity = 0.35
+    property number CritShakeDuration = 0.15
+    property string MissSkinRuid = "02c22d93421b4038b3c413b3e40b57ec"
+
+    @ExecSpace("Client")
+    method void PlayCritImpact()
+        -- 크리티컬 히트 발생 시 아주 짧은(0.06초) 히트스탑 + 카메라 셰이크로 타격감을 강조한다.
+        -- SetClientTimeScale은 "방(room) 이동 시 자동으로 1로 리셋"이 엔진 기본 동작이라 타이머
+        -- 콜백이 못 돌아도(맵 전환 등) 값이 영구히 낮게 고정될 위험은 없다 - 그래도 정상 흐름에서는
+        -- 타이머로 명시 복원한다.
+        log("CombatFeel: 크리티컬 임팩트 발동 (timeScale=" .. self.CritTimeScale .. ")")
+        _UtilLogic:SetClientTimeScale(self.CritTimeScale)
+        _TimerService:SetTimerOnce(function()
+            _UtilLogic:SetClientTimeScale(1.0)
+            log("CombatFeel: 타임스케일 복원")
+        end, self.CritTimeScaleDuration)
+        local cam = _CameraService:GetCurrentCameraComponent()
+        if isvalid(cam) then
+            cam:ShakeCamera(self.CritShakeIntensity, self.CritShakeDuration)
+        end
+    end
+
+    @ExecSpace("Client")
+    method void ShowMissText(Entity target)
+        -- 회피 성공(PlayerHit) 또는 명중 실패(PlayerAttack.IsAttackTarget) 시 대상 머리 위에
+        -- "MISS" 텍스트를 띄운다. 네이티브 DamageSkinTextType.Miss 프리셋 재사용(신규 스킨 불필요).
+        if not isvalid(target) then return end
+        log("CombatFeel: MISS 텍스트 표시")
+        _DamageSkinService:PlayTextDamage(target, self.MissSkinRuid, DamageSkinTextType.Miss, DamageSkinTweenType.Default)
+    end
+
+end

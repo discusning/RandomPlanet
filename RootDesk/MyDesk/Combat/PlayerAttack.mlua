@@ -172,6 +172,15 @@ script PlayerAttack extends AttackComponent
         local player = self.Entity.PlayerComponent
         if not isvalid(player) or player.Hp <= 0 then return end
 
+        -- 2026-09-12 시스템 업그레이드 - 크리티컬 히트가 데미지 넘버 색상 말고는 별다른 타격감이
+        -- 없었다(Diablo/Hades류 액션 RPG의 관행인 히트스탑+카메라 셰이크가 이 프로젝트엔 전혀
+        -- 없었음 - 둘 다 네이티브 API인데도 미사용 상태였음). 크리가 실제로 확정된 이 지점(이미
+        -- 여러 트레잇 분기가 self._T.lastWasCrit을 신뢰하는 지점)에서 공격자 클라이언트에게만
+        -- 짧은 임팩트 연출을 지시.
+        if self._T.lastWasCrit then
+            _CombatFeelLogic:PlayCritImpact(player.UserId)
+        end
+
         -- M2 Phase B 2단계(2026-09-06) - 메아리(onHitCooldownReset): 명중한 공격마다 확률로 현재
         -- 장착된 두 스킬 슬롯의 쿨다운을 즉시 초기화. 트레잇과 무관하게 항상 실행(값이 없으면 0으로
         -- no-op).
@@ -287,7 +296,17 @@ script PlayerAttack extends AttackComponent
         local monster = defender:GetComponent("script.Monster")
         local evasion = monster.Evasion or 0
         local hitChance = math.max(0.5, math.min(1.0, 0.5 + (self.Accuracy - evasion) * 0.005))
-        return _UtilLogic:RandomDouble() < hitChance
+        local hit = _UtilLogic:RandomDouble() < hitChance
+        -- 2026-09-12 시스템 업그레이드 - 명중 실패가 지금까지 아무 피드백 없이 조용히 무시됐다
+        -- (몬스터 HP도, 데미지 넘버도 안 뜨니 "빗나감"과 "아무 일도 안 일어남"을 구분할 수 없었음).
+        -- 네이티브 DamageSkinTextType.Miss 텍스트를 몬스터 머리 위에 띄워 명중 실패를 명시한다.
+        if not hit then
+            local player = self.Entity.PlayerComponent
+            if isvalid(player) then
+                _CombatFeelLogic:ShowMissText(defender, player.UserId)
+            end
+        end
+        return hit
     end
 
 end
