@@ -2,17 +2,46 @@
 script ProjectileAttackComponent extends AttackComponent
     -- Attacker-side resolution for ProjectileComponent's AttackFrom call. Damage/crit are set once
     -- at spawn time by whichever skill fired the projectile (see PlayerSkillComponent).
+    -- 2026-09-13 QA(전반적 QA 4차 확장, 유저 승인 하 수정) - 이 컴포넌트가 OnAttack을 전혀
+    -- 오버라이드하지 않아 원거리/투사체 스킬(전 직업 11종 - 매직클로/썬더볼트/블리자드/메테오/
+    -- 더블샷/애로우레인/허리케인/플레임스로어/래피드파이어/배터리/럭키세븐) 적중이
+    -- PlayerAttack.OnAttack에만 연결된 모든 "크리 시"/"명중 시" 트레잇·링크 효과(버서크 흡혈/메아리/
+    -- 무딘칼/박복/저주의표식/폭탄돌리기 링크/동전던지기 사형집행인)와 이번 세션 신규 크리
+    -- 히트스탑+카메라 셰이크를 전혀 못 받던 구조적 결함을 발견 - CalcCritical/OnAttack을 발사자
+    -- (Owner)의 PlayerAttack 인스턴스로 그대로 위임해 근접/원거리 간 완전한 동작 동등성을
+    -- 확보한다(로직 복제 없음). CalcCritical 위임 덕분에 집중(웨이브 첫 타격 확정 크리)/동전 던지기
+    -- 사형집행인 링크(저체력 적 확정 크리) 같은 크리 판정 자체의 확정 조건도 함께 동등해진다.
 
     property number Damage = 10
     property number CriticalChance = 0
     property number CritDamageMultiplier = 1.5
 
+    method void SetOwner(Entity owner)
+        -- 발사자를 기록 - PlayerSkillComponent가 스폰 직후 호출한다. Entity 런타임 참조는 UUID
+        -- 바인딩이 불가능해 declared property 대신 _T(선언 불필요 임시 상태)로 보관.
+        self._T.owner = owner
+    end
+
     method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
+        -- 위임하지 않음 - self.Damage는 스폰 시점에 이미 스킬 계수(coef)까지 반영된 값이라,
+        -- PlayerAttack.CalcDamage(self.AttackDamage 기준)로 위임하면 그 계수 스케일링이 깨진다.
         return self.Damage
     end
 
     method boolean CalcCritical(Entity attacker, Entity defender, string attackInfo)
-        return _UtilLogic:RandomDouble() < self.CriticalChance
+        -- 발사자의 PlayerAttack.CalcCritical로 위임 - 그 메서드 내부는 전부 self.Entity(=발사자)
+        -- 기준으로 판단하므로(파라미터 attacker는 참조하지 않음) 위임만으로 근접과 동일하게
+        -- 작동한다. 발사자를 못 찾는 예외적 상황에서만 자체 단순 굴림으로 안전하게 폴백.
+        local owner = self._T.owner
+        if isvalid(owner) then
+            local ownerAttack = owner:GetComponent("script.PlayerAttack")
+            if isvalid(ownerAttack) then
+                return ownerAttack:CalcCritical(attacker, defender, attackInfo)
+            end
+        end
+        local result = _UtilLogic:RandomDouble() < self.CriticalChance
+        self._T.lastWasCrit = result
+        return result
     end
 
     method float GetCriticalDamageRate()
@@ -22,6 +51,16 @@ script ProjectileAttackComponent extends AttackComponent
     method boolean IsAttackTarget(Entity defender, string attackInfo)
         if isvalid(defender:GetComponent("script.Monster")) == false then return false end
         return __base:IsAttackTarget(defender, attackInfo)
+    end
+
+    method void OnAttack(Entity defender)
+        -- 발사자의 PlayerAttack.OnAttack으로 위임 - 버서크 흡혈/메아리/무딘칼/박복/저주의표식/
+        -- 폭탄돌리기 링크/동전던지기 사형집행인/크리 히트스탑+카메라 셰이크 전부 그대로 재사용.
+        local owner = self._T.owner
+        if not isvalid(owner) then return end
+        local ownerAttack = owner:GetComponent("script.PlayerAttack")
+        if not isvalid(ownerAttack) then return end
+        ownerAttack:OnAttack(defender)
     end
 
 end

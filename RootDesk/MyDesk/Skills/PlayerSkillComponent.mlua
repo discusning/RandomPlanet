@@ -618,6 +618,8 @@ script PlayerSkillComponent extends Component
             projAttack.Damage = damage
             projAttack.CriticalChance = critChance
             projAttack.CritDamageMultiplier = critMult
+            -- 2026-09-13 QA(전반적 QA 4차 확장) - DoRanged와 동일한 이유로 발사자 기록.
+            projAttack:SetOwner(self.Entity)
         end
         if isvalid(projComp) then
             projComp.Speed = 10
@@ -682,6 +684,10 @@ script PlayerSkillComponent extends Component
             projAttack.Damage = damage
             projAttack.CriticalChance = attack.CriticalChance
             projAttack.CritDamageMultiplier = attack.CritDamageMultiplier
+            -- 2026-09-13 QA(전반적 QA 4차 확장) - 발사자를 기록해 크리 판정+온크리 트레잇 효과를
+            -- PlayerAttack.OnAttack/CalcCritical로 위임할 수 있게 한다(ProjectileAttackComponent
+            -- 주석 참고).
+            projAttack:SetOwner(self.Entity)
         end
         if isvalid(projComp) then
             projComp.Speed = 12
