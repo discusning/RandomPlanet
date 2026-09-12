@@ -21,6 +21,16 @@ script CombatFeelLogic extends Logic
     property number CritShakeIntensity = 0.35
     property number CritShakeDuration = 0.15
     property string MissSkinRuid = "02c22d93421b4038b3c413b3e40b57ec"
+    -- 2026-09-12 추가 업그레이드 - 처치 임팩트(킬 피드백, RoR2/Hades류 관행). 크리 임팩트보다
+    -- 약한 셰이크(처치는 크리보다 훨씬 자주 일어나므로 화면이 계속 흔들리면 오히려 방해가 된다),
+    -- 보스 처치는 살짝 더 크게.
+    property number KillShakeIntensity = 0.25
+    property number KillShakeDuration = 0.12
+    property number BossKillShakeIntensity = 0.9
+    property number BossKillShakeDuration = 0.4
+    -- 2026-09-12 추가 업그레이드 - 피격 플래시(Zelda/Hollow Knight류 관행). 지속시간을 i-frame
+    -- (PlayerHit.IFrameSeconds=0.5)보다 훨씬 짧게 잡아 같은 피격 안에서 여러 색이 겹치지 않게 한다.
+    property number HitFlashDuration = 0.12
 
     @ExecSpace("Client")
     method void PlayCritImpact()
@@ -47,6 +57,39 @@ script CombatFeelLogic extends Logic
         if not isvalid(target) then return end
         log("CombatFeel: MISS 텍스트 표시")
         _DamageSkinService:PlayTextDamage(target, self.MissSkinRuid, DamageSkinTextType.Miss, DamageSkinTweenType.Default)
+    end
+
+    @ExecSpace("Client")
+    method void FlashPlayerHit(Entity target)
+        -- 몬스터 접촉 피해를 실제로 받았을 때(방어막 등으로 완전 흡수되지 않은 경우만) 아바타를
+        -- 짧게 붉게 물들여 "맞았다"는 즉각적인 시각 피드백을 준다(Zelda/Hollow Knight류 액션 게임
+        -- 관행). SpriteRendererComponent.Color는 아바타 엔티티에서 무시되므로(msw-avatar 문서 -
+        -- 아바타 렌더러가 스프라이트 렌더러 출력을 덮어씀) 반드시 AvatarRendererComponent:SetColor를
+        -- 써야 한다.
+        if not isvalid(target) then return end
+        local renderer = target.AvatarRendererComponent
+        if not isvalid(renderer) then return end
+        log("CombatFeel: 피격 플래시")
+        renderer:SetColor(1.0, 0.3, 0.3, 1.0)
+        _TimerService:SetTimerOnce(function()
+            if isvalid(renderer) then
+                renderer:SetColor(1.0, 1.0, 1.0, 1.0)
+            end
+        end, self.HitFlashDuration)
+    end
+
+    @ExecSpace("Client")
+    method void PlayKillImpact(boolean isBossKill)
+        -- 몬스터 처치 순간 처치자 클라이언트에게만 짧은 카메라 셰이크를 준다(처치 파티클 자체는
+        -- Monster.HandleHitEvent가 ServerOnly에서 직접 _ParticleService로 재생 - 모든 클라이언트에
+        -- 보여야 하는 월드 이펙트라 굳이 개별 RPC 불필요, 여기서는 "손맛" 담당인 카메라 셰이크만).
+        local intensity = isBossKill and self.BossKillShakeIntensity or self.KillShakeIntensity
+        local duration = isBossKill and self.BossKillShakeDuration or self.KillShakeDuration
+        log("CombatFeel: 처치 임팩트 발동 (boss=" .. tostring(isBossKill) .. ")")
+        local cam = _CameraService:GetCurrentCameraComponent()
+        if isvalid(cam) then
+            cam:ShakeCamera(intensity, duration)
+        end
     end
 
 end

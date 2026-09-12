@@ -80,6 +80,20 @@ script Monster extends Component
             _EffectService:PlayEffect(self.HitVfxRuid, self.Entity, Vector3(event.AttackCenter.x, event.AttackCenter.y, 0), 0, Vector3(1, 1, 1), false)
         end
         if self.Hp > 0 or originalHp <= 0 then return end
+        -- 2026-09-12 시스템 업그레이드 - 처치 임팩트("킬 피드백", RoR2/Hades류 액션 게임 관행).
+        -- 파티클 버스트는 모든 관전자에게 보여야 하는 월드 이펙트라 서버(ServerOnly인 이 핸들러)가
+        -- 직접 재생 - 위의 HitVfxRuid 히트 스파크와 동일한 호출 패턴(_EffectService:PlayEffect가
+        -- 이미 이 자리에서 서버 사이드로 정상 동작 중이므로 같은 계열인 _ParticleService도 동일하게
+        -- 동작할 것으로 판단, 실측으로 확정 예정). 카메라 셰이크만 처치자 본인에게 국한되는 개인
+        -- 연출이라 CombatFeelLogic의 Client RPC로 분리.
+        local burstType = self.IsBoss and BasicParticleType.BigExplosion or BasicParticleType.SmallExplosion
+        _ParticleService:PlayBasicParticle(burstType, self.Entity, Vector3(event.AttackCenter.x, event.AttackCenter.y, 0), 0, Vector3.one, false)
+        if isvalid(event.AttackerEntity) then
+            local attackerPlayer = event.AttackerEntity.PlayerComponent
+            if isvalid(attackerPlayer) then
+                _CombatFeelLogic:PlayKillImpact(self.IsBoss, attackerPlayer.UserId)
+            end
+        end
         self:GrantXpToAttacker(event.AttackerEntity)
         self:Dead()
         if self.RespawnOn then

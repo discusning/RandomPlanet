@@ -186,6 +186,12 @@ script PlayerHit extends Component
         end
 
         player.Hp = math.max(0, player.Hp - dmg)
+        -- 2026-09-12 시스템 업그레이드 - 몬스터 접촉 피해를 실제로 받았을 때(방어막이 완전 흡수한
+        -- 경우 제외) 아바타 붉은 플래시로 즉각적인 피격 피드백을 준다(Zelda/Hollow Knight류 관행,
+        -- 지금까지 이 프로젝트엔 피격 시 화면 반응이 전혀 없었음).
+        if dmg > 0 then
+            _CombatFeelLogic:FlashPlayerHit(self.Entity, player.UserId)
+        end
 
         -- 2026-09-10 QA - KnockbackResistance(STR 파생 2차 스탯)가 지금까지 계산만 되고 실제로
         -- 소비되는 곳이 전혀 없던 "죽은 스탯"이었음을 발견(이 세션 초반의 LUK/EvasionPercent와
