@@ -385,6 +385,11 @@ script PlayerStatsComponent extends Component
         end
         if leveledUp then
             self:RecalculateDerived()
+            -- 2026-09-12 시스템 업그레이드 - 레벨업 임팩트(Diablo/WoW류 "레벨업 발광" 관행). 지금까지
+            -- 레벨업은 숫자 텍스트가 바뀌는 것 말고는 화면상 아무 반응이 없었다. 여러 레벨을 한 번에
+            -- 얻어도(다중 처치 XP 몰림 등) 한 번만 재생 - 몬스터 처치 파티클(Monster.HandleHitEvent)과
+            -- 동일한 원칙으로 모든 관전자가 봐야 하는 월드 이펙트라 서버가 직접 재생.
+            _ParticleService:PlayBasicParticleAttached(BasicParticleType.CircleBurst, self.Entity, Vector3(0, 0.5, 0), 0, Vector3.one, false)
             -- 이능 팝업 - 레벨업당 1회, 큐에 쌓아뒀다가 한 번에 하나씩만 띄운다(MaybeOpenNextAbilityChoice).
             self.PendingAbilityChoices = self.PendingAbilityChoices + levelsGained
             -- 천부적 재능(basicEffect.extraAbilityChoice) - "이능 선택 시 선택지 1개 추가"를 카드
