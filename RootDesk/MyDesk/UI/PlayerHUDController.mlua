@@ -169,6 +169,15 @@ script PlayerHUDController extends Logic
                 local remaining = skill.BuffExpireTime - _UtilLogic.ServerElapsedSeconds
                 if remaining > 0 then
                     self.buffStatusText.Text = string.format("%.1fs", remaining)
+                    -- 2026-09-12 시스템 업그레이드 - 버프 만료 임박 경고(WoW류 관행). 마지막 2초 동안
+                    -- 텍스트 색을 사인파로 흰색↔호박색 사이에서 깜빡여 "곧 끊긴다"를 알린다 - 저체력
+                    -- 화면 오버레이와 동일한 사인파 펄스 기법 재사용(신규 타이머 없음).
+                    if remaining <= 2 then
+                        local pulse = 0.5 + 0.5 * math.sin(_UtilLogic.ElapsedSeconds * 8)
+                        self.buffStatusText.FontColor = Color(1, 1 - 0.5 * pulse, 1 - pulse, 1)
+                    else
+                        self.buffStatusText.FontColor = Color(1, 1, 1, 1)
+                    end
                 else
                     self.buffStatusText.Text = ""
                 end
