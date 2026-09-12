@@ -111,6 +111,13 @@ script Monster extends Component
         local originalHp = self.Hp
         self.Hp = self.Hp - amount
         if self.Hp > 0 or originalHp <= 0 then return end
+        -- 2026-09-12 QA(전반적 QA 2라운드) - 처치 3경로(HandleHitEvent/ExecuteKill/여기) 중 이 경로만
+        -- 사망 파티클이 전혀 없어 거울 갑옷 반사로 죽는 몬스터만 아무 시각 피드백 없이 조용히
+        -- 사라지던 격차 발견. XP 미지급(위 주석)과 카메라 셰이크 생략(귀속 대상 모호)은 의도대로
+        -- 유지하되, "모든 관전자가 봐야 하는 월드 이펙트"인 파티클 버스트만은 다른 두 경로와 통일.
+        local pos = self.Entity.TransformComponent.WorldPosition
+        local burstType = self.IsBoss and BasicParticleType.BigExplosion or BasicParticleType.SmallExplosion
+        _ParticleService:PlayBasicParticle(burstType, self.Entity, Vector3(pos.x, pos.y, 0), 0, Vector3.one, false)
         self:Dead()
     end
 
