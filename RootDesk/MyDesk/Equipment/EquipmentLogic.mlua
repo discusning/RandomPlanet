@@ -12,7 +12,7 @@ script EquipmentLogic extends Logic
         -- Unannotated (not ClientOnly) so both the client process's instance AND the server
         -- process's instance load their own local catalog cache - ApplyEquipmentToAvatar needs
         -- the catalog on whichever side calls it (client for standees, server for the real
-        -- player's CostumeManagerComponent, matching CharacterRosterLogic.ApplyLookToPlayer's
+        -- player's CostumeManagerComponent, matching AvatarLookLogic.ApplyLookToPlayer's
         -- ServerOnly pattern).
         self._T.itemCatalog = {}
         self._T.scrollCatalog = {}
@@ -258,7 +258,7 @@ script EquipmentLogic extends Logic
         -- CostumeManagerComponent. `equipment` may be nil (nothing equipped yet - e.g. right
         -- after character creation). No ExecSpace annotation - runs on whichever side the caller
         -- is on: ClientOnly callers apply this to a standee's AvatarBody child (display-only),
-        -- ServerOnly callers (CharacterRosterLogic.ApplyLookToPlayer) apply it to the real
+        -- ServerOnly callers (AvatarLookLogic.ApplyLookToPlayer) apply it to the real
         -- player entity's own CostumeManagerComponent, matching that method's existing pattern
         -- for body/hair/face.
         if not isvalid(costumeEntity) then

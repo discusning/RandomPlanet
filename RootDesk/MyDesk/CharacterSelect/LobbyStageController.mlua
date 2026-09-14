@@ -178,12 +178,9 @@ script LobbyStageController extends Component
         -- Touching this NPC while a bottom-bar window (inventory/equipment/etc.) or the key-setting
         -- popup is already open used to stack this card on top of it (no mutual exclusion) - close
         -- everything else first, mirroring BottomBarController's own single-window pattern.
-        local bottomBarEntity = _EntityService:GetEntityByPath("/ui/BottomBarGroup")
-        if isvalid(bottomBarEntity) then
-            local bottomBar = bottomBarEntity:GetComponent("script.BottomBarController")
-            if isvalid(bottomBar) then
-                bottomBar:CloseOtherWindows("")
-            end
+        local bottomBar = _WindowHotkeyLogic:GetBottomBar()
+        if isvalid(bottomBar) then
+            bottomBar:CloseOtherWindows("")
         end
 
         local roster = _CharacterRosterLogic:GetRoster()
@@ -281,12 +278,9 @@ script LobbyStageController extends Component
     method void OpenBattlefieldSelect()
         -- Mirrors OpenSquadFormation's mutual-exclusion sweep below - close every other window
         -- first so this popup never stacks on top of one already open.
-        local bottomBarEntity = _EntityService:GetEntityByPath("/ui/BottomBarGroup")
-        if isvalid(bottomBarEntity) then
-            local bottomBar = bottomBarEntity:GetComponent("script.BottomBarController")
-            if isvalid(bottomBar) then
-                bottomBar:CloseOtherWindows("")
-            end
+        local bottomBar = _WindowHotkeyLogic:GetBottomBar()
+        if isvalid(bottomBar) then
+            bottomBar:CloseOtherWindows("")
         end
         if isvalid(self.battlefieldSelectGroup) then
             local popup = self.battlefieldSelectGroup:GetComponent("script.BattlefieldSelectController")

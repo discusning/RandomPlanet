@@ -100,12 +100,8 @@ script EquipmentUIController extends Component
     method any GetActiveCharacterData()
         -- The Equipment UI is only ever opened from the Lobby, where the active roster slot is
         -- the real player being controlled - see LobbyStageController's bottom-bar wiring.
-        local activeIdx = _CharacterRosterLogic:GetActiveIndex()
-        if activeIdx == nil then
-            return nil
-        end
-        local roster = _CharacterRosterLogic:GetRoster()
-        return roster[activeIdx]
+        -- 2026-09-15 코드 최적화 - 위임, 본체는 CharacterRosterLogic.GetActiveCharacterData.
+        return _CharacterRosterLogic:GetActiveCharacterData()
     end
 
     @ExecSpace("ClientOnly")
@@ -222,13 +218,8 @@ script EquipmentUIController extends Component
     method void RefreshInventoryWindowIfOpen()
         -- Equip/unequip/scroll all mutate the same shared inventory array the Inventory window
         -- displays - keep it in sync if it's currently open.
-        local invGroup = _EntityService:GetEntityByPath("/ui/InventoryGroup")
-        if isvalid(invGroup) and invGroup.Enable then
-            local invController = invGroup:GetComponent("script.InventoryUIController")
-            if isvalid(invController) then
-                invController:Refresh()
-            end
-        end
+        -- 2026-09-15 코드 최적화 - 위임, 본체는 CharacterRosterLogic.RefreshUIWindowIfOpen.
+        _CharacterRosterLogic:RefreshUIWindowIfOpen("/ui/InventoryGroup", "script.InventoryUIController")
     end
 
     @ExecSpace("ClientOnly")

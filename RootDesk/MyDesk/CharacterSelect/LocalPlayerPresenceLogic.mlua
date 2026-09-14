@@ -83,15 +83,10 @@ script LocalPlayerPresenceLogic extends Logic
 
     @ExecSpace("ClientOnly")
     method void SetBottomBarVisible(boolean visible)
-        -- BottomBarController is a @Component on /ui/BottomBarGroup's root (matching
-        -- EquipmentUIController/InventoryUIController's pattern), not a @Logic singleton like
-        -- _PlayerHUDController - so it's reached via entity-path lookup instead of a direct
-        -- _BottomBarController call.
-        local barGroup = _EntityService:GetEntityByPath("/ui/BottomBarGroup")
-        if not isvalid(barGroup) then
-            return
-        end
-        local bar = barGroup:GetComponent("script.BottomBarController")
+        -- BottomBarController is a @Component on /ui/BottomBarGroup's root, not a @Logic
+        -- singleton - reached via WindowHotkeyLogic's shared GetBottomBar() lookup (2026-09-15
+        -- 코드 최적화 - 동일한 /ui/BottomBarGroup + GetComponent 조회가 5곳에 중복돼 있던 것을 통합).
+        local bar = _WindowHotkeyLogic:GetBottomBar()
         if not isvalid(bar) then
             return
         end

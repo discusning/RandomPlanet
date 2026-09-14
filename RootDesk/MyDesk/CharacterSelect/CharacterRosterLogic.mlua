@@ -55,6 +55,18 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method any GetActiveCharacterData()
+        -- 2026-09-15 코드 최적화 - GetActiveIndex()+GetRoster()[idx] 2단계 패턴이
+        -- EquipmentUIController/InventoryUIController/CharacterInfoUIController 3곳에 동일하게
+        -- 중복돼 있던 것을 통합.
+        local activeIdx = self:GetActiveIndex()
+        if activeIdx == nil then
+            return nil
+        end
+        return self:GetRoster()[activeIdx]
+    end
+
+    @ExecSpace("ClientOnly")
     method void SetActiveIndex(integer idx)
         self._T.activeIndex = idx
         self:SaveRoster()
@@ -406,11 +418,18 @@ script CharacterRosterLogic extends Logic
 
     @ExecSpace("ClientOnly")
     method void RefreshInventoryWindowIfOpen()
-        local invGroup = _EntityService:GetEntityByPath("/ui/InventoryGroup")
-        if isvalid(invGroup) and invGroup.Enable then
-            local invController = invGroup:GetComponent("script.InventoryUIController")
-            if isvalid(invController) then
-                invController:Refresh()
+        self:RefreshUIWindowIfOpen("/ui/InventoryGroup", "script.InventoryUIController")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshUIWindowIfOpen(string path, string scriptType)
+        -- 2026-09-15 코드 최적화 - "열려 있으면 새로고침" 패턴이 CharacterRosterLogic/
+        -- EquipmentUIController/InventoryUIController 3곳에 동일하게 중복돼 있던 것을 통합.
+        local group = _EntityService:GetEntityByPath(path)
+        if isvalid(group) and group.Enable then
+            local controller = group:GetComponent(scriptType)
+            if isvalid(controller) then
+                controller:Refresh()
             end
         end
     end

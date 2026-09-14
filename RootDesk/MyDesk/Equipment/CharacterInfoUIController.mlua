@@ -127,12 +127,9 @@ script CharacterInfoUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void Refresh()
-        local activeIdx = _CharacterRosterLogic:GetActiveIndex()
-        if activeIdx == nil then
-            self:Hide()
-            return
-        end
-        local data = _CharacterRosterLogic:GetRoster()[activeIdx]
+        -- 2026-09-15 코드 최적화 - GetActiveIndex()+GetRoster()[idx] 2단계 조회를
+        -- CharacterRosterLogic.GetActiveCharacterData()로 통합.
+        local data = _CharacterRosterLogic:GetActiveCharacterData()
         if data == nil then
             self:Hide()
             return

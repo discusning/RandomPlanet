@@ -93,12 +93,9 @@ script KeyBindingPopupController extends Component
         -- (OnKeyDown below) called Open() directly and skipped it - so opening this popup while
         -- e.g. the skill window was open left both rendered stacked on screen at once). Mirrors
         -- BottomBarController's own CloseOtherWindows mutual-exclusion pattern.
-        local bottomBarEntity = _EntityService:GetEntityByPath("/ui/BottomBarGroup")
-        if isvalid(bottomBarEntity) then
-            local bottomBar = bottomBarEntity:GetComponent("script.BottomBarController")
-            if isvalid(bottomBar) then
-                bottomBar:CloseOtherWindows("")
-            end
+        local bottomBar = _WindowHotkeyLogic:GetBottomBar()
+        if isvalid(bottomBar) then
+            bottomBar:CloseOtherWindows("")
         end
 
         self.isOpen = true

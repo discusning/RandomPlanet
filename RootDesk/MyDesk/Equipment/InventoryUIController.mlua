@@ -178,12 +178,8 @@ script InventoryUIController extends Component
 
     @ExecSpace("ClientOnly")
     method any GetActiveCharacterData()
-        local activeIdx = _CharacterRosterLogic:GetActiveIndex()
-        if activeIdx == nil then
-            return nil
-        end
-        local roster = _CharacterRosterLogic:GetRoster()
-        return roster[activeIdx]
+        -- 2026-09-15 코드 최적화 - 위임, 본체는 CharacterRosterLogic.GetActiveCharacterData.
+        return _CharacterRosterLogic:GetActiveCharacterData()
     end
 
     method string GetItemCategory(table inst)
@@ -381,13 +377,8 @@ script InventoryUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void RefreshEquipmentWindowIfOpen()
-        local eqGroup = _EntityService:GetEntityByPath("/ui/EquipmentGroup")
-        if isvalid(eqGroup) and eqGroup.Enable then
-            local eqController = eqGroup:GetComponent("script.EquipmentUIController")
-            if isvalid(eqController) then
-                eqController:Refresh()
-            end
-        end
+        -- 2026-09-15 코드 최적화 - 위임, 본체는 CharacterRosterLogic.RefreshUIWindowIfOpen.
+        _CharacterRosterLogic:RefreshUIWindowIfOpen("/ui/EquipmentGroup", "script.EquipmentUIController")
     end
 
     @ExecSpace("ClientOnly")
