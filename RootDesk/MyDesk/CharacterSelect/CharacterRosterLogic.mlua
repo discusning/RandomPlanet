@@ -16,11 +16,6 @@ script CharacterRosterLogic extends Logic
         self._T.squadLinks = {}
         self._T.lastResetDate = ""
         self._T.loadComplete = false
-        -- Tracks whether the local player is actually in real gameplay (Lobby+) vs. parked on
-        -- choice_map - WindowHotkeyLogic checks this before honoring an Inventory/Equipment/
-        -- CharacterInfo/SkillWindow toggle keypress, mirroring the PlayerControllerComponent.Enable
-        -- gate already applied to combat input in Hide/ShowLocalPlayer below.
-        self._T.gameplayActive = false
 
         -- One-time per-world-session load of this player's saved roster (see RequestLoadRoster /
         -- OnRosterLoaded below). Previously this state was purely in-memory - lost on refresh/session
@@ -320,93 +315,26 @@ script CharacterRosterLogic extends Logic
 
     @ExecSpace("ClientOnly")
     method void HideLocalPlayer()
-        -- Moved here from CharacterSelectStageController (2026-07-23) so the Lobby's portal-return
-        -- handler can call it too - a map-scoped @Component can't be reached once the player has
-        -- left that component's map (see this script's OnBeginPlay comment), but this Logic can be
-        -- called from anywhere. choice_map shows only the 6 standees; the real local player entity
-        -- also exists there (with the account nickname) and must stay invisible whenever the
-        -- player is on that map instead of actually playing.
-        local localPlayer = _UserService.LocalPlayer
-        if not isvalid(localPlayer) then
-            log("CharacterRoster: HideLocalPlayer, LocalPlayer not valid yet")
-            return
-        end
-        if isvalid(localPlayer.AvatarRendererComponent) then
-            localPlayer.AvatarRendererComponent.Enable = false
-        end
-        if isvalid(localPlayer.NameTagComponent) then
-            localPlayer.NameTagComponent.Enable = false
-        end
-        -- Also disable native input handling while parked on the select stage - the real
-        -- player entity (invisible, standing under the standees) was still fully controllable,
-        -- so pressing the default Jump keys (Alt/Space) or the rebindable Attack key (Ctrl by
-        -- default) fired jump/attack sound+animation with no visible character on choice_map.
-        -- PlayerControllerComponent is the single dispatcher for both movement and action-key
-        -- events (see platform.md §10's "set Enable=false to fully hand off input"), so this one
-        -- flag silences both at once.
-        if isvalid(localPlayer.PlayerControllerComponent) then
-            localPlayer.PlayerControllerComponent.Enable = false
-        end
-        self._T.gameplayActive = false
-        _PlayerHUDController:Hide()
-        self:SetBottomBarVisible(false)
-        log("CharacterRoster: HideLocalPlayer, hid local player avatar/nametag/input")
+        -- 2026-09-15 코드 구조화 8/9 - 위임 래퍼, 본체는 CharacterSelect/LocalPlayerPresenceLogic.mlua.
+        _LocalPlayerPresenceLogic:HideLocalPlayer()
     end
 
     @ExecSpace("ClientOnly")
     method void ShowLocalPlayer()
-        -- Mirrors HideLocalPlayer's avatar restore, called directly on the client right before
-        -- entering real gameplay. Component.Enable is an engine @Sync property (server->client
-        -- one-way). HideLocalPlayer's hide is a client-only local override that never touched the
-        -- server's true value (it stayed true the whole time) - so a same-value server-side
-        -- "Enable = true" write is a no-op and never re-syncs to clear the local override. Undoing
-        -- the hide must happen on the same side that set it.
-        -- NameTagComponent is deliberately NOT re-enabled here (2026-07-31, found during playtest) -
-        -- it shows the player's real MSW account nickname, which reads as immersion-breaking for a
-        -- "nameless randomly-rolled character" (every standee only ever shows "Lv.N", never an
-        -- account name) in a solo-only game (GDD §2: no multiplayer, so no other player ever needs
-        -- to read this nametag). Stays hidden through actual gameplay too, not just the select stage.
-        local localPlayer = _UserService.LocalPlayer
-        if not isvalid(localPlayer) then
-            log("CharacterRoster: ShowLocalPlayer, LocalPlayer not valid yet")
-            return
-        end
-        if isvalid(localPlayer.AvatarRendererComponent) then
-            localPlayer.AvatarRendererComponent.Enable = true
-        end
-        if isvalid(localPlayer.PlayerControllerComponent) then
-            localPlayer.PlayerControllerComponent.Enable = true
-        end
-        self._T.gameplayActive = true
-        _PlayerHUDController:Show()
-        self:SetBottomBarVisible(true)
-        log("CharacterRoster: ShowLocalPlayer, restored local player avatar visibility + input (nametag stays hidden)")
+        -- 2026-09-15 코드 구조화 8/9 - 위임 래퍼, 본체는 CharacterSelect/LocalPlayerPresenceLogic.mlua.
+        _LocalPlayerPresenceLogic:ShowLocalPlayer()
     end
 
     @ExecSpace("ClientOnly")
     method boolean IsGameplayActive()
-        return self._T.gameplayActive == true
+        -- 2026-09-15 코드 구조화 8/9 - 위임 래퍼, 본체는 CharacterSelect/LocalPlayerPresenceLogic.mlua.
+        return _LocalPlayerPresenceLogic:IsGameplayActive()
     end
 
     @ExecSpace("ClientOnly")
     method void SetBottomBarVisible(boolean visible)
-        -- BottomBarController is a @Component on /ui/BottomBarGroup's root (matching
-        -- EquipmentUIController/InventoryUIController's pattern), not a @Logic singleton like
-        -- _PlayerHUDController - so it's reached via entity-path lookup instead of a direct
-        -- _BottomBarController call.
-        local barGroup = _EntityService:GetEntityByPath("/ui/BottomBarGroup")
-        if not isvalid(barGroup) then
-            return
-        end
-        local bar = barGroup:GetComponent("script.BottomBarController")
-        if not isvalid(bar) then
-            return
-        end
-        if visible then
-            bar:Show()
-        else
-            bar:Hide()
-        end
+        -- 2026-09-15 코드 구조화 8/9 - 위임 래퍼, 본체는 CharacterSelect/LocalPlayerPresenceLogic.mlua.
+        _LocalPlayerPresenceLogic:SetBottomBarVisible(visible)
     end
 
     @ExecSpace("Server")
