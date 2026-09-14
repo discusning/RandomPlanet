@@ -1,0 +1,308 @@
+@Logic
+script PlayerCombatTickLogic extends Logic
+
+    -- 2026-09-15 코드 구조화(유저 요청 "코드 구분화 작업") - PlayerStatsComponent.mlua(1519줄)에서
+    -- 매초/매틱 실행되는 전투·타운 리젠 로직(자석술사 연쇄킬/버서크 반응형 공보/시한부 즉사 등 CombatTick
+    -- 전체, BerserkTick, TownRegenTick, 그리고 이 셋이 공유하는 RecomputeDynamicAttackDamage/
+    -- RegisterBurstKill)만 순수하게 옮겼다 - 기존 TraitEffectEngine과 동일한 "본체는 여기,
+    -- PlayerStatsComponent엔 같은 이름의 위임 래퍼만 남김" 패턴이라 외부 호출부(statsComp:CombatTick()
+    -- 등, StartCombatTimer/StartTownRegenTimer의 타이머 콜백 포함)는 전혀 안 바뀐다. 로직/수치 변경 없음.
+
+    @ExecSpace("ServerOnly")
+    method void RegisterBurstKill(PlayerStatsComponent stats, table spec)
+        -- 자석술사(burstKill) - Monster.GrantXpToAttacker가 처치마다 호출. window초 안에 count회를
+        -- 채우면 duration초짜리 atk% 버프 발동(재발동 시 지속시간 갱신), window를 넘기면 카운트 리셋.
+        local now = _UtilLogic.ElapsedSeconds
+        if now - stats.BurstKillWindowStart > (spec.window or 3) then
+            stats.BurstKillWindowStart = now
+            stats.BurstKillCountInWindow = 1
+        else
+            stats.BurstKillCountInWindow = stats.BurstKillCountInWindow + 1
+        end
+        if stats.BurstKillCountInWindow >= (spec.count or 3) then
+            stats.BurstAtkPercent = spec.atk or 0
+            stats.BurstExpireElapsed = now + (spec.duration or 5)
+            stats.BurstKillCountInWindow = 0
+            self:RecomputeDynamicAttackDamage(stats)
+            log("PlayerStats: 자석술사 처치 연쇄 발동 atk%=" .. stats.BurstAtkPercent .. " 만료=" .. stats.BurstExpireElapsed)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RecomputeDynamicAttackDamage(PlayerStatsComponent stats)
+        -- 버서크(BerserkDamageBonusPercent) + M2 Phase B 2단계 누적/조건부 보너스(HitStack/KillStack/
+        -- TimeStack/LowHpBonus/LuckyDay)를 전부 BaseAttackDamage 위에 한 번에 곱해 적용한다 - 여러
+        -- 타이머(BerserkTick/CombatTick)가 매번 attack.AttackDamage를 직접 덮어쓰면 서로의 값을
+        -- 지워버리므로, 항상 이 메서드 하나만 실제 쓰기를 담당하게 한다.
+        local attack = stats.Entity:GetComponent("script.PlayerAttack")
+        if not isvalid(attack) then return end
+        local totalBonus = stats.BerserkDamageBonusPercent + stats.HitStackAtkPercent + stats.KillStackAtkPercent + stats.TimeStackAtkPercent + stats.LowHpBonusAtkPercent + stats.LuckyDayAtkPercent + stats.RandomBuffAtkPercent + stats.BurstAtkPercent + stats.SpeedsterAtkBonus + stats.LinkMasterBuffAtkPercent + stats.LinkPeriodicBuffAtkPercent + stats.LinkOnHitBuffAtkPercent + stats.OwnOnHitBuffAtkPercent + stats.UnhitScaleAtkPercent
+        attack.AttackDamage = stats.BaseAttackDamage * (1 + totalBonus)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void CombatTick(PlayerStatsComponent stats)
+        -- 전투 지형에서 1초마다 실행(StartCombatTimer 참고) - 아래 각 항목은 해당 특성의 basicEffect
+        -- 필드가 없으면 함수 초입에서 nil 체크로 조용히 스킵된다(범용 엔진과 동일한 no-op 원칙).
+        local player = stats.Entity.PlayerComponent
+        local attack = stats.Entity:GetComponent("script.PlayerAttack")
+        if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 or player.Hp <= 0 then return end
+        local hpRatio = player.Hp / player.MaxHp
+
+        -- 자석술사(burstKill) - 발동 중인 버프가 만료 시각을 지났으면 해제.
+        if stats.BurstAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= stats.BurstExpireElapsed then
+            stats.BurstAtkPercent = 0
+            self:RecomputeDynamicAttackDamage(stats)
+        end
+        -- 링크 마스터(hg) - "이능 획득 시 3초간 전 스탯 대폭 상승" 버프 만료 처리.
+        if stats.LinkMasterBuffAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= stats.LinkMasterBuffExpireElapsed then
+            stats.LinkMasterBuffAtkPercent = 0
+            self:RecomputeDynamicAttackDamage(stats)
+        end
+        -- 럭키 세븐/복불복 상자 링크(periodicBuffLink) - 발동 중인 소형 버프가 만료 시각을 지났으면 해제.
+        if stats.LinkPeriodicBuffAtkPercent ~= 0 and _UtilLogic.ElapsedSeconds >= stats.LinkPeriodicBuffExpireElapsed then
+            stats.LinkPeriodicBuffAtkPercent = 0
+            self:RecomputeDynamicAttackDamage(stats)
+        end
+        -- 굶주린 살점 링크(onHitBuffLink) - 발동 중인 피격 트리거 버프가 만료 시각을 지났으면 해제.
+        if stats.LinkOnHitBuffAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= stats.LinkOnHitBuffExpireElapsed then
+            stats.LinkOnHitBuffAtkPercent = 0
+            self:RecomputeDynamicAttackDamage(stats)
+        end
+        -- 겁쟁이(onHitBuffOwn) - "피격 직후 다음 공격+20%" 버프가 만료 시각을 지났으면 해제.
+        if stats.OwnOnHitBuffAtkPercent > 0 and _UtilLogic.ElapsedSeconds >= stats.OwnOnHitBuffExpireElapsed then
+            stats.OwnOnHitBuffAtkPercent = 0
+            self:RecomputeDynamicAttackDamage(stats)
+        end
+
+        -- 시한부(hb) - basicDesc가 명시한 "입장 후 제한시간 초과 시 즉사"가 지금까지 실제로는
+        -- 강제되지 않았다(exp=0.40/drop=0.40 보너스만 적용되고 페널티는 "선행 필요"로 미구현
+        -- 상태였음 - 2026-09-08 밸런스 점검에서 발견한 무비용 특성, 사실상 리스크 없는 순수 버프였다).
+        -- 정확한 제한시간이 원안에 명시돼 있지 않아 180초(3분)로 자체 설정했다 - 미검증 근사치,
+        -- 플레이 템포를 보고 조정 권장(다른 자체 설정 수치와 동일한 성격).
+        if stats.Trait == "시한부" or stats.Trait2 == "시한부" then
+            local elapsed = _UtilLogic.ElapsedSeconds - stats.RunStartElapsed
+            if elapsed >= 180 then
+                -- 2026-09-12 QA - PlayerHit.HandleHitEvent의 모든 사망(전투 피격)은 ProcessDead
+                -- 전에 ReviveUsedThisRun 예산을 공유하는 3개 부활원(부활자/순교자 링크/시간을
+                -- 거스르는 자 링크)을 먼저 확인하는데, 이 타임아웃 즉사 경로만 그 확인 없이 곧장
+                -- ProcessDead를 호출해 부활 특성 보유자에게도 무조건 죽는 유일한 예외였다 -
+                -- PlayerHit과 동일한 3분기를 그대로 반영(예산 공유 원칙 그대로 유지).
+                if not stats.ReviveUsedThisRun and (_TraitEffectEngine:HasReviveOnce(stats.Trait) or (stats.Trait2 ~= "" and _TraitEffectEngine:HasReviveOnce(stats.Trait2))) then
+                    stats.ReviveUsedThisRun = true
+                    player.Hp = 1
+                    log("PlayerStats: 시한부 - 제한시간 초과했으나 부활자 발동, Hp=1")
+                    return
+                end
+                if not stats.ReviveUsedThisRun and stats.LinkReviveHpPercent > 0 then
+                    stats.ReviveUsedThisRun = true
+                    player.Hp = math.max(1, math.floor(player.MaxHp * stats.LinkReviveHpPercent))
+                    log("PlayerStats: 시한부 - 제한시간 초과했으나 순교자 링크 발동, Hp=" .. player.Hp)
+                    return
+                end
+                if not stats.ReviveUsedThisRun and
+                   (_TraitEffectEngine:HasLinkDeathPrevent(stats.LinkTrait1) or (stats.LinkTrait2 ~= "" and _TraitEffectEngine:HasLinkDeathPrevent(stats.LinkTrait2))) then
+                    stats.ReviveUsedThisRun = true
+                    player.Hp = 1
+                    log("PlayerStats: 시한부 - 제한시간 초과했으나 시간을 거스르는 자 링크 발동, Hp=1")
+                    return
+                end
+                log("PlayerStats: 시한부 - 제한시간 초과, 즉사 트리거")
+                player.Hp = 0
+                player:ProcessDead()
+                stats:TriggerRunEnd()
+                return
+            end
+        end
+
+        -- M2 Phase B(2026-09-08) - 3차 전직 추가 특성(Trait2)이 있으면 트리거 계열 효과도 함께
+        -- 살핀다. 지금까지는 ApplyToStats(채널형 수치, 합산 가능)만 Trait2를 봤고 이 CombatTick의
+        -- 트리거형 효과(방어막/누적/저체력 등)는 stats.Trait만 확인했다 - Phase B 문서에 정직히 남겨둔
+        -- 갭. 두 특성이 동시에 같은 트리거를 갖는 극단 케이스만 아니면(115종 중 흔치 않음) 합산이
+        -- 애매한 트리거형 특성상 "Trait 우선, 없으면 Trait2"로 하나만 발동시키는 게 안전하다.
+        local hasTrait2 = stats.Trait2 ~= ""
+
+        -- 투지(lowHpAtkMult) - 체력이 threshold 이하일 때만 공격력 보너스 활성.
+        local atkMult = _TraitEffectEngine:GetLowHpAtkMult(stats.Trait)
+        if atkMult == nil and hasTrait2 then atkMult = _TraitEffectEngine:GetLowHpAtkMult(stats.Trait2) end
+        if atkMult ~= nil and hpRatio <= (atkMult.threshold or 1.0) then
+            stats.LowHpBonusAtkPercent = atkMult.value or 0
+        else
+            stats.LowHpBonusAtkPercent = 0
+        end
+        self:RecomputeDynamicAttackDamage(stats)
+
+        -- 부활자 링크(lowHpInvulnLink) - "파티 중 위기(HP10%↓) 캐릭터"를 액티브 캐릭터 본인 기준으로
+        -- 근사(링크 캐릭터가 실 엔티티로 존재하지 않는 이 프로젝트의 관행). threshold 이하로 유지되는
+        -- 동안 매 틱 재굴림되지 않도록 쿨다운(duration의 2배, 자체 설정)을 둔다.
+        local lowHpInvulnSpec = _TraitEffectEngine:GetLinkLowHpInvuln(stats.LinkTrait1)
+        if lowHpInvulnSpec == nil and stats.LinkTrait2 ~= "" then lowHpInvulnSpec = _TraitEffectEngine:GetLinkLowHpInvuln(stats.LinkTrait2) end
+        if lowHpInvulnSpec ~= nil and hpRatio <= (lowHpInvulnSpec.threshold or 0.10) and _UtilLogic.ElapsedSeconds >= stats.LinkLowHpInvulnCooldownUntilElapsed then
+            local duration = lowHpInvulnSpec.duration or 1.5
+            stats.LinkLowHpInvulnCooldownUntilElapsed = _UtilLogic.ElapsedSeconds + duration * 2
+            if _UtilLogic:RandomDouble() < (lowHpInvulnSpec.chance or 0) then
+                stats.LinkLowHpInvulnUntilElapsed = _UtilLogic.ElapsedSeconds + duration
+                log("PlayerStats: 부활자 링크 - 재림의 축복 무적 발동")
+            end
+        end
+
+        -- 순교자(lowHpCritMult) - 체력이 threshold 이하일 때만 크리 데미지 배율 가산.
+        local critMult = _TraitEffectEngine:GetLowHpCritMult(stats.Trait)
+        if critMult == nil and hasTrait2 then critMult = _TraitEffectEngine:GetLowHpCritMult(stats.Trait2) end
+        if critMult ~= nil then
+            if hpRatio <= (critMult.threshold or 1.0) then
+                attack.CritDamageMultiplier = stats.BaseCritDamageMultiplier + (critMult.value or 0)
+            else
+                attack.CritDamageMultiplier = stats.BaseCritDamageMultiplier
+            end
+        end
+
+        -- 시한폭탄(timeStackAtk) - 초당 누적, 상한까지.
+        local timeStack = _TraitEffectEngine:GetTimeStackAtk(stats.Trait)
+        if timeStack == nil and hasTrait2 then timeStack = _TraitEffectEngine:GetTimeStackAtk(stats.Trait2) end
+        if timeStack ~= nil then
+            stats.TimeStackAtkPercent = math.min(timeStack.cap or 1.0, stats.TimeStackAtkPercent + (timeStack.perSecond or 0))
+            self:RecomputeDynamicAttackDamage(stats)
+        end
+
+        -- 재생력/회복가(regenIfUnhit) - 마지막 피격 후 seconds 이상 지났으면 초당 회복.
+        local regenSpec = _TraitEffectEngine:GetRegenIfUnhit(stats.Trait)
+        if regenSpec == nil and hasTrait2 then regenSpec = _TraitEffectEngine:GetRegenIfUnhit(stats.Trait2) end
+        if regenSpec ~= nil then
+            local hitComp = stats.Entity:GetComponent("script.PlayerHit")
+            local sinceHit = isvalid(hitComp) and (_UtilLogic.ElapsedSeconds - hitComp.LastHitElapsed) or 999
+            if sinceHit >= (regenSpec.seconds or 0) and player.Hp < player.MaxHp then
+                player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * (regenSpec.pct or 0))
+            end
+        end
+
+        -- 2026-09-10 QA - 옹졸함(bad)의 basicDesc "무피격 시간 비례 데미지 증가" 본인판이
+        -- basicEffect에 없어 페널티(exp=-0.08)만 적용되던 무비용 페널티 버그 신규 수정. 재생력/
+        -- 회복가와 동일한 LastHitElapsed 추적을 재사용, 회복 대신 공격력이 무피격 시간에 비례해
+        -- 계속 오르다가(상한까지) 피격 시 hitComp.LastHitElapsed 갱신으로 자연히 리셋된다.
+        local unhitScaleSpec = _TraitEffectEngine:GetOwnUnhitScaleAtk(stats.Trait)
+        if unhitScaleSpec == nil and hasTrait2 then unhitScaleSpec = _TraitEffectEngine:GetOwnUnhitScaleAtk(stats.Trait2) end
+        if unhitScaleSpec ~= nil then
+            local hitComp2 = stats.Entity:GetComponent("script.PlayerHit")
+            local sinceHit2 = isvalid(hitComp2) and (_UtilLogic.ElapsedSeconds - hitComp2.LastHitElapsed) or 0
+            local newVal = math.min(unhitScaleSpec.cap or 0.30, sinceHit2 * (unhitScaleSpec.perSecond or 0))
+            if newVal ~= stats.UnhitScaleAtkPercent then
+                stats.UnhitScaleAtkPercent = newVal
+                self:RecomputeDynamicAttackDamage(stats)
+            end
+        end
+
+        -- 럭키 세븐(periodicRandomBuff) - interval초마다 공격력 랜덤 버프/디버프를 다시 굴린다.
+        -- 럭키/언럭키 데이(LuckyDayAtkPercent, 판 시작에 1회 고정)와 동일한 방식(단순 percent 가산,
+        -- RecomputeDynamicAttackDamage에 합산)이지만 반복 리롤이라는 점만 다르다.
+        local randomBuffSpec = _TraitEffectEngine:GetPeriodicRandomBuff(stats.Trait)
+        if randomBuffSpec == nil and hasTrait2 then randomBuffSpec = _TraitEffectEngine:GetPeriodicRandomBuff(stats.Trait2) end
+        if randomBuffSpec ~= nil then
+            stats.RandomBuffTickElapsed = stats.RandomBuffTickElapsed + 1
+            if stats.RandomBuffTickElapsed >= (randomBuffSpec.interval or 999999) then
+                stats.RandomBuffTickElapsed = 0
+                -- -10% ~ +15% 균등 분포(버프 쪽으로 살짝 치우침 - "럭키" 네이밍과 Gamble 풀의
+                -- "기댓값은 양수, 분산은 큼" 원칙에 맞춤, 도박꾼/올인 등 기존 gmb 풀 특성과 동일 기조).
+                stats.RandomBuffAtkPercent = -0.10 + _UtilLogic:RandomDouble() * 0.25
+                self:RecomputeDynamicAttackDamage(stats)
+                log("PlayerStats: 럭키 세븐 리롤 atk%=" .. string.format("%.3f", stats.RandomBuffAtkPercent))
+            end
+        end
+
+        -- 럭키 세븐/복불복 상자 링크(periodicBuffLink) - 링크 캐릭터 쪽 "주기적 소형 랜덤 버프".
+        -- 본인 특성판(RandomBuffAtkPercent, 확정 리롤/넓은 폭)과 독립된 채널이라 두 효과가 동시에
+        -- 활성이어도 totalBonus에서 그대로 합산된다. linkDesc가 "낮은 확률로"를 명시한 럭키 세븐은
+        -- chance 게이트를 거치고, 그런 문구가 없는 복불복 상자는 chance 기본값 1.0(매번 확정)으로 처리.
+        local linkBuffSpec = _TraitEffectEngine:GetLinkPeriodicBuff(stats.LinkTrait1)
+        if linkBuffSpec == nil and stats.LinkTrait2 ~= "" then linkBuffSpec = _TraitEffectEngine:GetLinkPeriodicBuff(stats.LinkTrait2) end
+        if linkBuffSpec ~= nil then
+            stats.LinkPeriodicBuffTickElapsed = stats.LinkPeriodicBuffTickElapsed + 1
+            if stats.LinkPeriodicBuffTickElapsed >= (linkBuffSpec.interval or 999999) then
+                stats.LinkPeriodicBuffTickElapsed = 0
+                if _UtilLogic:RandomDouble() < (linkBuffSpec.chance or 1.0) then
+                    -- "소형" 버프이므로 본인판(-10%~+15%)보다 좁은 -3%~+8% 폭으로 자체 설정(미검증 근사치).
+                    stats.LinkPeriodicBuffAtkPercent = -0.03 + _UtilLogic:RandomDouble() * 0.11
+                    stats.LinkPeriodicBuffExpireElapsed = _UtilLogic.ElapsedSeconds + (linkBuffSpec.interval or 7)
+                    self:RecomputeDynamicAttackDamage(stats)
+                    log("PlayerStats: 링크 소형 랜덤버프 발동 atk%=" .. string.format("%.3f", stats.LinkPeriodicBuffAtkPercent))
+                end
+            end
+        end
+
+        -- 마나실드/수호자/유리몸(periodicShield/periodicShieldGrant) - interval초마다 방어막 재생성.
+        -- 이 프로젝트엔 몬스터 공격에 "치명타" 개념이 없어 수호자의 "치명타 무효"는 방어막으로 근사.
+        local shieldSpec = _TraitEffectEngine:GetShieldSpec(stats.Trait)
+        if shieldSpec == nil and hasTrait2 then shieldSpec = _TraitEffectEngine:GetShieldSpec(stats.Trait2) end
+        if shieldSpec ~= nil then
+            stats.ShieldTickElapsed = stats.ShieldTickElapsed + 1
+            if stats.ShieldTickElapsed >= (shieldSpec.interval or 999999) then
+                stats.ShieldTickElapsed = 0
+                stats.ShieldAmount = math.floor(player.MaxHp * (shieldSpec.pct or 0))
+                log("PlayerStats: periodic shield granted amount=" .. stats.ShieldAmount)
+            end
+        end
+
+        -- 유리대포 링크(periodicShieldLink) - 위 본인판과 동일한 방어막 근사, 별도 틱 카운터로 소비.
+        local linkShieldSpec = _TraitEffectEngine:GetLinkPeriodicShield(stats.LinkTrait1)
+        if linkShieldSpec == nil and stats.LinkTrait2 ~= "" then linkShieldSpec = _TraitEffectEngine:GetLinkPeriodicShield(stats.LinkTrait2) end
+        if linkShieldSpec ~= nil then
+            stats.LinkShieldTickElapsed = stats.LinkShieldTickElapsed + 1
+            if stats.LinkShieldTickElapsed >= (linkShieldSpec.interval or 999999) then
+                stats.LinkShieldTickElapsed = 0
+                stats.ShieldAmount = math.floor(player.MaxHp * (linkShieldSpec.pct or 0))
+                log("PlayerStats: 유리대포 링크 방어막 발동 amount=" .. stats.ShieldAmount)
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void BerserkTick(PlayerStatsComponent stats)
+        -- 2026-08-25 재설계 (유저 실전 리포트 "버서크가 사실상 못 쓸 정도의 쓰레기" + 직접 시뮬레이션
+        -- 검증) - 기존엔 매초 최대체력의 3%를 자기 자신에게 실제로 깎는 자해 DoT였다(바닥 25%). 동일
+        -- 몬스터 압박(1.5초마다 10데미지 단일 몬스터 기준)에서 무특성 대비 실제 생존 시간을 시뮬레이션한
+        -- 결과 버서크만 20틱 중 14틱에 사망(무특성/균형/날렵함/절약가는 전부 20틱 끝까지 생존,
+        -- 단단함은 20틱째 60%나 남김) - 자해로 미리 깎아먹은 체력이 실제 몬스터 피해를 버틸 완충
+        -- 여력을 줄여, 공격력 보너스가 보상하기도 전에 죽는 순생존시간 손해였다(퍼머데스라 이 손해가
+        -- 특히 치명적 - "다른 특성보다 약하다"가 아니라 "특성이 없는 것보다도 못하다"는 게 문제).
+        --
+        -- 자해 DoT를 완전히 제거하고, 실제로 몬스터에게 맞아 깎인 체력 비율에 비례해 실시간으로
+        -- 공격력이 오르는 순수 반응형 방식으로 재설계 - 자기 체력을 스스로 깎지 않으므로 다른
+        -- 특성보다 생존이 나빠지는 경우가 구조적으로 없어졌다("다치수록 강해진다"는 플레이버는
+        -- 유지, "살수록 약해진다"는 자해였던 부분이라 제거). BaseAttackDamage(RecalculateDerived가
+        -- 매번 갱신) 기준으로 매번 곱해서 세팅하므로 스탯 재계산과 충돌하거나 값이 누적 드리프트하지
+        -- 않는다.
+        local player = stats.Entity.PlayerComponent
+        local attack = stats.Entity:GetComponent("script.PlayerAttack")
+        if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 then return end
+
+        local hpRatio = math.max(0, player.Hp) / player.MaxHp
+        stats.BerserkDamageBonusPercent = (1 - hpRatio) * stats.BerserkBonusCoef
+        -- M2 Phase B 2단계 - 다른 특성의 동적 보너스(스택/저체력/럭키데이)와 공존할 수 있도록 직접
+        -- 쓰기 대신 공용 메서드를 통해 적용(RecomputeDynamicAttackDamage 참고).
+        self:RecomputeDynamicAttackDamage(stats)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TownRegenTick(PlayerStatsComponent stats)
+        -- 안전지대(마을)에 있는 동안 실제 1초마다 정확히 한 번, 특성과 무관하게 Hp는 최대체력의
+        -- 8%를, Mp는 최대마나의 10%를 회복시킨다(유저 요청 두 건: Hp 자동회복 -> Mp 자동회복).
+        -- 버서크가 마을 진입 즉시 타이머를 끄고 공격력만 리셋하지만 체력 자체는 손대지 않으므로
+        -- (전투 지형에서 낮아진 체력이 남아있음) 이 타이머가 그걸 서서히 채워준다. 이미 꽉 찼으면
+        -- 그냥 클램프만 될 뿐이라 타이머를 계속 돌려도 무해하다. Mp는 PlayerComponent가 아니라
+        -- 이 스크립트 자신의 CurrentMp/MaxMp(RecalculateDerived가 매번 갱신)에 저장되므로
+        -- PlayerAttack처럼 별도 컴포넌트 조회가 필요 없다.
+        local player = stats.Entity.PlayerComponent
+        if not isvalid(player) or player.MaxHp <= 0 then return end
+        -- 2026-09-08 QA - 금욕 링크("재생 지원": 비전투 시 파티 회복 속도 증가) 신규 연결. 전원
+        -- 공통 기본값(TownRegenPercent/TownMpRegenPercent)은 그대로 두고 링크 보너스만 더한다.
+        if player.Hp < player.MaxHp then
+            player.Hp = math.min(player.MaxHp, player.Hp + player.MaxHp * (stats.TownRegenPercent + stats.LinkTownRegenBonus))
+            log("PlayerStats: TownRegenTick healed to Hp=" .. player.Hp .. "/" .. player.MaxHp)
+        end
+        if stats.MaxMp > 0 and stats.CurrentMp < stats.MaxMp then
+            stats.CurrentMp = math.min(stats.MaxMp, stats.CurrentMp + stats.MaxMp * (stats.TownMpRegenPercent + stats.LinkTownRegenBonus))
+            log("PlayerStats: TownRegenTick restored Mp=" .. stats.CurrentMp .. "/" .. stats.MaxMp)
+        end
+    end
+
+end
