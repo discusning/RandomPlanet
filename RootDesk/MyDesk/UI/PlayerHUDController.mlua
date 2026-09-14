@@ -94,8 +94,13 @@ script PlayerHUDController extends Logic
         if isvalid(skill) then
             -- 2026-09-15 코드 최적화 - 1번(Q)/2번(W) 슬롯 표시 블록이 필드명만 다르고 완전히
             -- 동일했던 것을 UpdateSkillSlotDisplay로 통합.
-            self:UpdateSkillSlotDisplay(skill.EquippedSkillId, skill.LastUseTime, "[Q] ", self.skillNameText, self.skillStatusText, "skill1WasReady", "skill1FlashUntil")
-            self:UpdateSkillSlotDisplay(skill.EquippedSkillId2, skill.LastUseTime2, "[W] ", self.skillName2Text, self.skillStatus2Text, "skill2WasReady", "skill2FlashUntil")
+            -- 2026-09-15 코드 최적화(보류 항목 판단) - 라벨이 "[Q] "/"[W] "로 하드코딩돼 있어서
+            -- KeyBindingPopupController에서 드래그로 리바인드해도 HUD 표시는 그대로 남아있던
+            -- 버그 수정. KeyBindingLogic.GetSymbol(죽은 코드였음)을 실제 바인딩 조회에 연결.
+            local skillKeyLabel = "[" .. _KeyBindingLogic:GetSymbol(_KeyBindingLogic:GetKeyForAction("Skill")) .. "] "
+            local skill2KeyLabel = "[" .. _KeyBindingLogic:GetSymbol(_KeyBindingLogic:GetKeyForAction("Skill2")) .. "] "
+            self:UpdateSkillSlotDisplay(skill.EquippedSkillId, skill.LastUseTime, skillKeyLabel, self.skillNameText, self.skillStatusText, "skill1WasReady", "skill1FlashUntil")
+            self:UpdateSkillSlotDisplay(skill.EquippedSkillId2, skill.LastUseTime2, skill2KeyLabel, self.skillName2Text, self.skillStatus2Text, "skill2WasReady", "skill2FlashUntil")
 
             -- 유저 요청(2026-08-19) "버프 유지 시간이 전혀 안 적혀있다" - 스킬 쿨다운 표시와 같은
             -- 패턴으로 ServerElapsedSeconds 기준 남은 시간을 보여준다.

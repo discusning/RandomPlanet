@@ -85,12 +85,6 @@ script KeyBindingLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
-    method table GetRegistry()
-        self:EnsureInitialized()
-        return self._T.registry
-    end
-
-    @ExecSpace("ClientOnly")
     method any GetKeyForAction(string actionName)
         self:EnsureInitialized()
         return self._T.currentKeys[actionName]
