@@ -339,68 +339,8 @@ script PlayerStatsComponent extends Component
 
     @ExecSpace("ServerOnly")
     method void GrantXp(integer amount)
-        -- Adds kill XP and auto-levels in a loop (no player choice yet - Phase 3 replaces this with
-        -- a 3-way level-up pick). Each level bumps all four stats by 1 and fully heals/restores MP.
-        --
-        -- 유저 리포트(2026-08-19) "버서커 특성이 아닌데 몬스터 처치 시 흡혈 효과가 있다" - 실제
-        -- 원인은 RecalculateDerived()가 while 루프 밖에서 무조건 호출되고 있었던 것. 그 안의
-        -- `player.Hp = maxHp`는 "레벨업 시 완전 회복"이라는 의도된 설계지만, 레벨업이 실제로
-        -- 일어나지 않은 평범한 킬(XP만 쌓이고 다음 레벨 문턱을 못 넘은 경우)에도 매번 호출돼
-        -- 특성/조건과 무관하게 모든 몬스터 처치가 사실상 즉시 풀피 회복으로 보였다. 실제로 레벨업이
-        -- 일어난 킬에서만 호출하도록 수정 - "레벨업 시 완전 회복"은 그대로 유지, "모든 킬마다 회복"만
-        -- 제거.
-        --
-        -- M2 Phase B(2026-09-06) - 상인은 이제 실제 드랍 시스템(물약, Monster.TryDropPotion)이 생겨
-        -- 원래 의도(아이템 드랍률)로 복원됐다(DropRateMultiplier 경유) - 여기의 처치경험치+20% 임시
-        -- 대체 효과는 제거. 대신 범용 특성 엔진의 ExpMultiplier(TraitEffectEngine, 견습/근면/불운/
-        -- 시간여행자 등 exp 계열 특성)를 전 특성 공통으로 적용한다.
-        -- M2 Phase I(2026-09-08) - 만렙(계정 강화 레벨에 따라 15~21, UnlockedMaxLevel)에 도달했으면
-        -- XP 자체를 더 쌓지 않는다(누적돼도 의미 없는 값이 계속 불어나는 것을 방지).
-        if self.Level >= self.UnlockedMaxLevel then
-            return
-        end
-        amount = math.floor(amount * (1 + self.ExpMultiplier))
-        self.CurrentXp = self.CurrentXp + amount
-        local leveledUp = false
-        local levelsGained = 0
-        -- 고행자(hb) - basicDesc가 명시한 "레벨업 시 스탯 자동 증가 없음"이 지금까지 실제로는
-        -- 강제되지 않았다(exp=0.50 보너스만 적용되고 페널티는 "선행 필요"로 미구현 상태였음 -
-        -- 2026-09-08 밸런스 점검에서 발견한 무비용 특성).
-        local statGainBlocked = self.Trait == "고행자" or self.Trait2 == "고행자"
-        while self.CurrentXp >= self.XpToNextLevel and self.Level < self.UnlockedMaxLevel do
-            self.CurrentXp = self.CurrentXp - self.XpToNextLevel
-            self.Level = self.Level + 1
-            if not statGainBlocked then
-                self.Str = self.Str + 1
-                self.Dex = self.Dex + 1
-                self.Intel = self.Intel + 1
-                self.Luk = self.Luk + 1
-            end
-            self.XpToNextLevel = self:ComputeXpToNextLevel(self.Level)
-            log("PlayerStats: level up -> " .. self.Level)
-            self:GrantSkillTierIfMilestone(self.Level)
-            self:ApplyCosmeticEvolution(self.Level)
-            leveledUp = true
-            levelsGained = levelsGained + 1
-        end
-        if leveledUp then
-            self:RecalculateDerived()
-            -- 2026-09-12 시스템 업그레이드 - 레벨업 임팩트(Diablo/WoW류 "레벨업 발광" 관행). 지금까지
-            -- 레벨업은 숫자 텍스트가 바뀌는 것 말고는 화면상 아무 반응이 없었다. 여러 레벨을 한 번에
-            -- 얻어도(다중 처치 XP 몰림 등) 한 번만 재생 - 몬스터 처치 파티클(Monster.HandleHitEvent)과
-            -- 동일한 원칙으로 모든 관전자가 봐야 하는 월드 이펙트라 서버가 직접 재생.
-            _ParticleService:PlayBasicParticleAttached(BasicParticleType.CircleBurst, self.Entity, Vector3(0, 0.5, 0), 0, Vector3.one, false)
-            -- 이능 팝업 - 레벨업당 1회, 큐에 쌓아뒀다가 한 번에 하나씩만 띄운다(MaybeOpenNextAbilityChoice).
-            self.PendingAbilityChoices = self.PendingAbilityChoices + levelsGained
-            -- 천부적 재능(basicEffect.extraAbilityChoice) - "이능 선택 시 선택지 1개 추가"를 카드
-            -- UI에 4번째 칸을 새로 만드는 대신(3택1 레이아웃이 고정폭이라 확장 리스크 있음), 이번
-            -- 레벨업당 이능 팝업을 한 번 더(3택1 메뉴를 한 번 더 통과) 주는 것으로 동등하게 구현 -
-            -- 큐 인프라가 이미 여러 번의 선택을 순차 처리하므로 신규 UI 불필요.
-            if self.Trait == "천부적 재능" or self.Trait2 == "천부적 재능" then
-                self.PendingAbilityChoices = self.PendingAbilityChoices + levelsGained
-            end
-            self:MaybeOpenNextAbilityChoice()
-        end
+        -- 2026-09-15 코드 구조화 - 위임 래퍼, 본체는 Combat/LevelProgressionLogic.mlua.
+        _LevelProgressionLogic:GrantXp(self, amount)
     end
 
     @ExecSpace("ServerOnly")
@@ -477,188 +417,38 @@ script PlayerStatsComponent extends Component
 
     @ExecSpace("ServerOnly")
     method void GrantSkillTierIfMilestone(integer level)
-        -- 전직 레벨(기획서 §2-5: 5/13/18) 도달 판정. 2차=5, 3차=13, 4차=18. M2 Phase D(2026-09-06) -
-        -- 레벨 요건을 채워도 곧바로 지급하지 않고 PromotionPending*를 세운 뒤 전직 퀘스트 보스(필드
-        -- 미니보스) 처치를 기다린다(RecordBossKillForPromotion이 실제 지급을 수행).
-        local tier = 0
-        if level == 5 then tier = 2
-        elseif level == 13 then tier = 3
-        elseif level == 18 then tier = 4
-        end
-        if tier == 0 then return end
-
-        -- 특성-전직 상호작용 (전체 기획서 §2-3 Hidden-bad 3종).
-        if self:HasTrait("봉인된 자") then
-            -- "전직을 1차까지만 가능" - 2차 이상 전부 영구 차단(대가로 시작 스탯 대폭 보너스는
-            -- basicEffect의 exp 보정과 별개로 TraitCatalog 데이터에 있어야 하며, 없다면 후속 보완 필요).
-            log("PlayerStats: 봉인된 자 - 전직 1차까지만 가능, tier=" .. tier .. " 요건 무시")
-            return
-        end
-        if tier == 4 and self:HasTrait("봉인구") then
-            -- "4차 전직 불가(3차까지)".
-            log("PlayerStats: 봉인구 - 4차 전직 불가, tier4 요건 무시")
-            return
-        end
-
-        if tier == 2 then self.PromotionPending2 = true
-        elseif tier == 3 then self.PromotionPending3 = true
-        else self.PromotionPending4 = true
-        end
-        self.PromotionMilestoneElapsed = _UtilLogic.ElapsedSeconds
-        log("PlayerStats: 전직 조건(레벨" .. level .. ") 충족, tier=" .. tier .. " - 전직 퀘스트 보스(필드 미니보스) 처치 대기")
+        -- 2026-09-15 코드 구조화 - 위임 래퍼, 본체는 LevelProgressionLogic.mlua.
+        _LevelProgressionLogic:GrantSkillTierIfMilestone(self, level)
     end
 
     @ExecSpace("ServerOnly")
     method void ApplyCosmeticEvolution(integer level)
-        -- 피부 갈이(basicEffect.cosmetic, avg풀) - "5·10·15·20레벨마다 코스튬 자동 진화(전투 효과
-        -- 없음, 순수 비주얼)"이 게터/소비처가 없어 정직하게 미구현으로 남아있었다(2026-09-08 QA
-        -- 발견, 원안 §부록 G-3 #12가 "특히 추천"한 항목 - CostumeManagerComponent:SetEquip 시퀀스
-        -- 연동으로 구현). 실제 장비(무기/모자/코트/바지/신발/장갑/방패/귀장식, EquipmentLogic
-        -- 참고)가 쓰지 않는 슬롯(Cape/EyeAccessory/FaceAccessory)만 사용해 장비 표시와 충돌하지
-        -- 않는다. "미카엘" 테마로 점층 - 5:빛의 기사 망토 -> 10:미카엘의 안경 -> 15:자체발광 얼굴
-        -- 효과 -> 20:천사 미카엘의 날개(망토 승격, 최종형).
-        if not self:HasTrait("피부 갈이") then return end
-        local costume = self.Entity.CostumeManagerComponent
-        if not isvalid(costume) then return end
-        if level == 5 then
-            costume:SetEquip(MapleAvatarItemCategory.Cape, "b1602d4bdb3c4e8fbef3497dcf43bf1d")
-            log("PlayerStats: 피부 갈이 - 레벨5 진화(빛의 기사 망토)")
-        elseif level == 10 then
-            costume:SetEquip(MapleAvatarItemCategory.EyeAccessory, "fb566010625a421c8b20a62a4956caf9")
-            log("PlayerStats: 피부 갈이 - 레벨10 진화(미카엘의 안경)")
-        elseif level == 15 then
-            costume:SetEquip(MapleAvatarItemCategory.FaceAccessory, "e56bfdaf402346a9951e6d1d0977bb0d")
-            log("PlayerStats: 피부 갈이 - 레벨15 진화(자체발광)")
-        elseif level == 20 then
-            costume:SetEquip(MapleAvatarItemCategory.Cape, "3fee9e48afa742438223455b2c9d9254")
-            log("PlayerStats: 피부 갈이 - 레벨20 진화(천사 미카엘의 날개, 최종형)")
-        end
+        -- 2026-09-15 코드 구조화 - 위임 래퍼, 본체는 LevelProgressionLogic.mlua.
+        _LevelProgressionLogic:ApplyCosmeticEvolution(self, level)
     end
 
     @ExecSpace("ServerOnly")
     method void RecordBossKillForPromotion()
-        -- Monster.GrantXpToAttacker가 IsBoss=true 처치를 감지하면 호출. 대기 중인 전직 중 가장 낮은
-        -- 티어 하나를 해결(레벨업이 몰려 여러 티어가 동시에 대기 중이어도 한 번의 보스 처치는 1개만
-        -- 해소 - 실제로 그럴 일은 드물지만, 다음 미니보스로 이어서 해결하면 된다).
-        local tier = 0
-        if self.PromotionPending2 then tier = 2
-        elseif self.PromotionPending3 then tier = 3
-        elseif self.PromotionPending4 then tier = 4
-        end
-        if tier == 0 then return end
-
-        if tier == 2 then self.PromotionPending2 = false
-        elseif tier == 3 then self.PromotionPending3 = false
-        else self.PromotionPending4 = false
-        end
-
-        self.LastPromotionClearSeconds = _UtilLogic.ElapsedSeconds - self.PromotionMilestoneElapsed
-        log("PlayerStats: 전직 퀘스트 보스 처치 확인 tier=" .. tier .. " 클리어타임=" .. self.LastPromotionClearSeconds .. "초")
-
-        -- M2 Phase H(2026-09-08) - 4차(최종) 전직만 전역 리더보드 대상(전체 기획서 §9 "전직 퀘스트
-        -- 보스 클리어 타임" - 헤드라인 지표로 최종 전직 하나만 다룬다, 2/3차는 개인 로그로만 남김).
-        if tier == 4 and isvalid(self.Entity.PlayerComponent) then
-            local profileCode = self.Entity.PlayerComponent.ProfileCode
-            local nickname = self.Entity.PlayerComponent.Nickname
-            _LeaderboardLogic:SubmitPromotionClearSeconds(profileCode, nickname, self.LastPromotionClearSeconds)
-        end
-
-        -- 외길(Hidden-bad) - "스킬 슬롯 2개로 제한(1차분만 유지)/이후 전직에서 스킬 획득이 중단" -
-        -- 보스는 정상적으로 처치하되(레벨/특성 진행은 막지 않음) 스킬 지급만 스킵.
-        if self:HasTrait("외길") then
-            log("PlayerStats: 외길 - 스킬 슬롯 2개 제한, tier=" .. tier .. " 스킬 지급 스킵")
-        else
-            local skillComp = self.Entity:GetComponent("script.PlayerSkillComponent")
-            if isvalid(skillComp) then
-                skillComp:GrantTierSkills(tier)
-            end
-        end
-
-        -- M2 Phase B(2026-09-06) - 3차 전직(13레벨) 추가 특성 1회 재추첨(전체 기획서 §2-5, Trait2
-        -- 선언부 주석 참고). 부패한 계약서(forceHiddenRerollAt13) 보유 시 Hidden 풀에서만 나온다.
-        if tier == 3 and self.Trait2 == "" then
-            if _TraitEffectEngine:HasForceHiddenRerollAt13(self.Trait) then
-                self.Trait2 = _TraitRollLogic:RollHiddenPool()
-            else
-                self.Trait2 = _TraitRollLogic:RollDifferentTrait(self.Trait)
-            end
-            log("PlayerStats: 3차 전직 추가 특성 획득 -> " .. self.Trait2)
-            self:RecalculateDerived()
-        end
+        -- 2026-09-15 코드 구조화 - 위임 래퍼, 본체는 LevelProgressionLogic.mlua.
+        _LevelProgressionLogic:RecordBossKillForPromotion(self)
     end
 
     @ExecSpace("ServerOnly")
     method void AddKill()
-        -- Called from Monster.GrantXpToAttacker alongside the XP grant - same trigger point, one
-        -- extra counter.
-        self.KillCount = self.KillCount + 1
+        -- 2026-09-15 코드 구조화 - 위임 래퍼, 본체는 LevelProgressionLogic.mlua.
+        _LevelProgressionLogic:AddKill(self)
     end
 
     @ExecSpace("ServerOnly")
     method void TriggerRunEnd()
-        -- Called from PlayerHit.HandleHitEvent when Hp reaches 0 (Phase 4 permadeath). Freezes a
-        -- stat snapshot into the Ended* fields and locks input - does NOT touch the character roster
-        -- (that's ClientOnly, owned by CharacterRosterLogic) and does NOT call PlayerComponent:Respawn()
-        -- - actual deletion + return-to-select only happens when the player clicks "재시작" on the
-        -- ENDING screen (see Field/EndingUIController.mlua), which is a client-initiated flow and so
-        -- needs no server->specific-client targeting.
-        if self.RunEnded then return end
-        self.EndedLevel = self.Level
-        self.EndedKillCount = self.KillCount
-        self.EndedSurvivalSeconds = _UtilLogic.ElapsedSeconds - self.RunStartElapsed
-        -- 사망은 항상 전장(토벌전장) 안에서만 일어나므로(PlayerHit이 몬스터 접촉 피격에서만
-        -- 트리거) 현재 맵의 FieldWaveSpawner를 그대로 읽는다 - 별도 추적 필드 불필요.
-        local map = self.Entity.CurrentMap
-        if isvalid(map) then
-            local spawner = map:GetComponent("script.FieldWaveSpawner")
-            if isvalid(spawner) then
-                self.EndedWaveReached = spawner.WaveNumber
-                self.EndedFieldCleared = spawner.FieldCleared
-            end
-        end
-        local controller = self.Entity.PlayerControllerComponent
-        if isvalid(controller) then
-            controller.Enable = false
-        end
-        self.RunEnded = true
-        self:GrantRunEndCurrency()
-        log("PlayerStats: TriggerRunEnd level=" .. self.EndedLevel .. " kills=" .. self.EndedKillCount .. " survivalSeconds=" .. string.format("%.1f", self.EndedSurvivalSeconds))
+        -- 2026-09-15 코드 구조화 - 위임 래퍼, 본체는 LevelProgressionLogic.mlua.
+        _LevelProgressionLogic:TriggerRunEnd(self)
     end
 
     @ExecSpace("ServerOnly")
     method void GrantRunEndCurrency()
-        -- M2 Phase G(2026-09-06) - 전체 기획서 §6-1/§6-2 "클리어 정산 -> 계정 메타 강화". 도달
-        -- 레벨/처치수/생존시간 기반으로 영구 재화(정수)를 계산해 AccountCurrencyLogic에 적립한다.
-        -- 빈곤의 서약(평소 획득 0)/한탕주의(평소 획득 0, 클리어 시 5배 일확천금)는 기존 특성-전직
-        -- 상호작용(봉인된 자/외길/봉인구)과 동일하게 트레잇 이름으로 직접 분기 - 이 둘은 "0으로
-        -- 억제"라는 규칙이라 가산형 basicEffect 채널로 표현하기 애매하기 때문. 시간여행자만
-        -- clearCurrencyBonus(가산형 채널)로 범용 엔진을 거친다.
-        local player = self.Entity.PlayerComponent
-        if not isvalid(player) then return end
-        local baseCurrency = self.EndedLevel * 5 + self.EndedKillCount * 2 + math.floor(self.EndedSurvivalSeconds / 10)
-        local granted = 0
-        if self:HasTrait("빈곤의 서약") then
-            granted = 0
-        elseif self:HasTrait("한탕주의") then
-            granted = self.EndedFieldCleared and (baseCurrency * 5) or 0
-        else
-            local bonus = _TraitEffectEngine:GetClearCurrencyBonus(self.Trait)
-            if self.Trait2 ~= "" then
-                bonus = bonus + _TraitEffectEngine:GetClearCurrencyBonus(self.Trait2)
-            end
-            -- 2026-09-08 QA - 불운 링크("후원": 파티 클리어 시 영구재화+20%) 신규 연결.
-            bonus = bonus + self.LinkClearCurrencyBonus
-            granted = math.floor(baseCurrency * (1 + bonus))
-        end
-        -- 2026-09-08 QA - RestGaugeLogic(휴식 게이지 소모 "보상 2배")가 오랫동안 신호만 남기고
-        -- 실제 지급이 없던 것을 신규 연결 - 런종료 재화 지급에 우선 적용.
-        if self.RestBonusActive then
-            granted = granted * 2
-        end
-        if granted > 0 then
-            _AccountCurrencyLogic:GrantCurrency(player.ProfileCode, granted, player.UserId)
-        end
-        log("PlayerStats: GrantRunEndCurrency base=" .. baseCurrency .. " granted=" .. granted .. " trait=" .. self.Trait)
+        -- 2026-09-15 코드 구조화 - 위임 래퍼, 본체는 LevelProgressionLogic.mlua.
+        _LevelProgressionLogic:GrantRunEndCurrency(self)
     end
 
     @ExecSpace("Server")
