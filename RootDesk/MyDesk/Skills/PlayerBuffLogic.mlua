@@ -1,0 +1,192 @@
+@Logic
+script PlayerBuffLogic extends Logic
+    -- 2026-09-15 코드 구조화 5/9 - PlayerSkillComponent.mlua에서 버프 적용/해제 로직(DoBuff/
+    -- RevertBuff/ResolveBasicParticleType)을 분리. DoBuff/RevertBuff는 원래 컴포넌트 인스턴스를
+    -- 명시적 파라미터(skill)로 받는다(PlayerSkillExecutionLogic과 동일한 델리게이팅 패턴).
+    -- ResolveBasicParticleType은 key->enum 순수 변환 함수라 인스턴스 상태를 전혀 건드리지 않으므로
+    -- skill 파라미터 없이 그대로 이동.
+
+    @ExecSpace("ServerOnly")
+    method void DoBuff(PlayerSkillComponent skill, table def)
+        -- Only the testableEffect actually changes a real value (see SkillCatalog comments) - the
+        -- rest of each buff's design is logged so the intent is visible without a fake mechanic.
+
+        -- Casting a second buff while an earlier one is still active used to leak the earlier one:
+        -- BuffParticleSerial/BuffType/BuffOriginalValue below were overwritten unconditionally, so
+        -- the first buff's attached VFX was never removed (self:RevertBuff() was only ever called
+        -- from OnUpdate's own-expiry check) and its stat change was never restored - reported as
+        -- "effects that should disappear after use are staying on screen." Revert whatever is
+        -- currently active first so every new cast starts from a clean state.
+        if skill.BuffActive then
+            self:RevertBuff(skill)
+        end
+
+        if def.inertNote ~= nil then
+            log("PlayerSkill: " .. def.name .. " partial effect inert - " .. def.inertNote)
+        end
+
+        local attack = skill.Entity:GetComponent("script.PlayerAttack")
+        local move = skill.Entity.MovementComponent
+        local player = skill.Entity.PlayerComponent
+        local statsComp = skill.Entity:GetComponent("script.PlayerStatsComponent")
+
+        -- 2026-09-08 QA - 포커스/님블바디의 evasionBonus(회피율 증가) 전용. testableEffect 슬롯과
+        -- 별개로 항상 병행 적용 - EvasionPercent는 PlayerHit.HandleHitEvent가 이미 소비하고 있다.
+        if def.evasionBonus ~= nil and isvalid(statsComp) then
+            statsComp.EvasionPercent = math.min(0.9, statsComp.EvasionPercent + def.evasionBonus)
+            skill.BuffEvasionBonus = def.evasionBonus
+        end
+
+        if def.testableEffect == "accuracy" and isvalid(attack) then
+            skill.BuffOriginalValue = attack.Accuracy
+            attack.Accuracy = attack.Accuracy + def.accuracyBonus
+        elseif def.testableEffect == "movespeed" and isvalid(move) then
+            skill.BuffOriginalValue = move.InputSpeed
+            move.InputSpeed = move.InputSpeed + def.moveSpeedBonus
+        elseif def.testableEffect == "atkspeed" and isvalid(attack) then
+            skill.BuffOriginalValue = attack.AttackCooldownSeconds
+            attack.AttackCooldownSeconds = attack.AttackCooldownSeconds * 0.4
+        elseif def.testableEffect == "critchance" and isvalid(attack) then
+            -- darksight (2026-08-16) - real Dark Sight is a stealth/evasion skill with no consumer
+            -- yet (no monster-attacks-player pipeline), reinterpreted as "strike from the shadows"
+            -- bonus crit chance instead - immediately observable via CalcCritical's real roll.
+            skill.BuffOriginalValue = attack.CriticalChance
+            attack.CriticalChance = math.min(1.0, attack.CriticalChance + def.critChanceBonus)
+        elseif def.testableEffect == "maxhp" and isvalid(player) then
+            -- ironbody (2026-08-16 completion) - real Iron Body's defense boost has no observable
+            -- effect yet (no monster-attacks-player pipeline), so this grants a temporary MaxHp
+            -- increase instead - "몸이 단단해진다" stays true to the theme and is immediately visible
+            -- on the HP bar. Store the bonus (not the pre-buff MaxHp) so a mid-buff level-up's MaxHp
+            -- change isn't clobbered by RevertBuff.
+            local bonus = math.floor(player.MaxHp * def.maxHpBonusPercent)
+            skill.BuffOriginalValue = bonus
+            player.MaxHp = player.MaxHp + bonus
+            player.Hp = player.Hp + bonus
+        elseif def.testableEffect == "mpfree" then
+            -- magicguard (2026-08-16 completion) - real Magic Guard converts incoming HP damage to MP
+            -- loss, same missing-pipeline blocker as ironbody. Reinterpreted as free skill MP cost for
+            -- the buff's duration ("마나가 보호막처럼 스킬 비용을 대신 막아준다") - see UseSkill's
+            -- mpFreeActive check. Nothing to store; RevertBuff just clears BuffType/BuffActive.
+            skill.BuffOriginalValue = 0
+        elseif def.testableEffect == "dmgreduction" and isvalid(statsComp) then
+            -- 2026-09-06 (M2 Phase D, 2/3차 신규) - powerguard/ironwill. Now that a monster->player hit
+            -- pipeline exists (Phase 3.5) and PlayerStatsComponent.DamageReductionPercent is a real,
+            -- observable channel (PlayerHit reads it), a temporary defense buff is fully testable -
+            -- unlike ironbody/magicguard's 2026-08-16 reinterpretation, no substitute effect needed.
+            -- Same "store the delta, add now, subtract on revert" pattern as maxhp below - a
+            -- RecalculateDerived mid-buff (level-up) will still reset the base value from scratch and
+            -- silently drop this addition, matching ironbody's known, accepted limitation.
+            skill.BuffOriginalValue = def.dmgReductionBonus
+            statsComp.DamageReductionPercent = statsComp.DamageReductionPercent + def.dmgReductionBonus
+        elseif def.testableEffect == "skilldmg" and isvalid(statsComp) then
+            -- meditation/magicbooster/infinity - adds directly onto PlayerStatsComponent.SkillDamageBonus
+            -- (the same field DoRanged's `magic` branch already reads), so a magic ranged_single/
+            -- ranged_pierce ability gets a real, observable temporary boost.
+            skill.BuffOriginalValue = def.skillDmgBonus
+            statsComp.SkillDamageBonus = statsComp.SkillDamageBonus + def.skillDmgBonus
+        elseif def.testableEffect == "atkbonus" and isvalid(attack) then
+            -- rage/markofassassin/battleship - flat delta on PlayerAttack.AttackDamage, same pattern as
+            -- ironbody's maxhp (store the bonus itself, not the pre-buff base, so a mid-buff stat
+            -- recompute doesn't get double-subtracted on revert).
+            local bonus = math.floor(attack.AttackDamage * def.atkBonusPercent)
+            skill.BuffOriginalValue = bonus
+            attack.AttackDamage = attack.AttackDamage + bonus
+        else
+            skill.BuffOriginalValue = 0
+        end
+
+        skill.BuffType = def.testableEffect
+        skill.BuffActive = true
+        skill.BuffExpireTime = _UtilLogic.ElapsedSeconds + def.duration
+
+        -- Real MapleStory skill clip (buffVfxRuid) takes priority and is looped+attached to the
+        -- caster for the whole buff duration via PlayEffectAttached(isLoop=true) - this is the
+        -- authentic per-skill visual (magic guard's shield swirl, haste's speed-lines, etc.), not a
+        -- generic shape. Only falls back to the native BasicParticleType aura (auraType/auraColor)
+        -- when no matching skill clip exists in the resource index at all (ironbody only, as of the
+        -- 2026-08-13 audit - see SkillCatalog comments). Using BOTH at once was the previous bug:
+        -- the flat-colored generic aura loop visually drowned out the one-shot real clip that used
+        -- to play under it, so every buff still read as "a random particle blob" even after the
+        -- correct RUID was wired in.
+        if def.buffVfxRuid ~= nil then
+            skill.BuffUsingSkillVfx = true
+            -- SyncFlip (not a manual dir snapshot) so the looped clip keeps following the caster's
+            -- facing for the whole buff duration, not just whichever way they faced at cast time -
+            -- same "player-attached effect must follow facing" rule as msw-combat-system SKILL.md §4.
+            skill.BuffParticleSerial = _EffectService:PlayEffectAttached(def.buffVfxRuid, skill.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), true, { SyncFlip = true })
+            log("PlayerSkill: " .. def.name .. " skill VFX (looped) serial=" .. tostring(skill.BuffParticleSerial))
+        elseif def.auraType ~= nil then
+            skill.BuffUsingSkillVfx = false
+            local particleType = self:ResolveBasicParticleType(def.auraType)
+            if particleType ~= nil then
+                skill.BuffParticleSerial = _ParticleService:PlayBasicParticleAttached(particleType, skill.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), true, { Color = def.auraColor })
+                log("PlayerSkill: " .. def.name .. " generic aura fallback serial=" .. tostring(skill.BuffParticleSerial))
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method any ResolveBasicParticleType(string key)
+        -- Converts the SkillCatalog string key back into the engine's BasicParticleType enum -
+        -- enums can't cross data tables/RPC boundaries directly (see msw-scripting §6), so each
+        -- buff's def just carries the enum's field name and this maps it back locally.
+        if key == "Aura" then return BasicParticleType.Aura
+        elseif key == "Enchant" then return BasicParticleType.Enchant
+        elseif key == "SpinField" then return BasicParticleType.SpinField
+        elseif key == "Buff" then return BasicParticleType.Buff
+        elseif key == "LightningOrbSoft" then return BasicParticleType.LightningOrbSoft
+        end
+        return nil
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RevertBuff(PlayerSkillComponent skill)
+        local attack = skill.Entity:GetComponent("script.PlayerAttack")
+        local move = skill.Entity.MovementComponent
+        local player = skill.Entity.PlayerComponent
+        local statsComp = skill.Entity:GetComponent("script.PlayerStatsComponent")
+
+        if skill.BuffType == "accuracy" and isvalid(attack) then
+            attack.Accuracy = skill.BuffOriginalValue
+        elseif skill.BuffType == "movespeed" and isvalid(move) then
+            move.InputSpeed = skill.BuffOriginalValue
+        elseif skill.BuffType == "atkspeed" and isvalid(attack) then
+            attack.AttackCooldownSeconds = skill.BuffOriginalValue
+        elseif skill.BuffType == "critchance" and isvalid(attack) then
+            attack.CriticalChance = skill.BuffOriginalValue
+        elseif skill.BuffType == "maxhp" and isvalid(player) then
+            player.MaxHp = math.max(1, player.MaxHp - skill.BuffOriginalValue)
+            player.Hp = math.min(player.Hp, player.MaxHp)
+        elseif skill.BuffType == "dmgreduction" and isvalid(statsComp) then
+            statsComp.DamageReductionPercent = math.max(0, statsComp.DamageReductionPercent - skill.BuffOriginalValue)
+        elseif skill.BuffType == "skilldmg" and isvalid(statsComp) then
+            statsComp.SkillDamageBonus = math.max(0, statsComp.SkillDamageBonus - skill.BuffOriginalValue)
+        elseif skill.BuffType == "atkbonus" and isvalid(attack) then
+            attack.AttackDamage = math.max(1, attack.AttackDamage - skill.BuffOriginalValue)
+        end
+        -- "mpfree" (magicguard) has no stat to restore - UseSkill's mpFreeActive check already
+        -- stops reading it the instant BuffActive/BuffType are cleared below.
+
+        -- 2026-09-08 QA - evasionBonus(포커스/님블바디) 복원. BuffType 슬롯과 독립적으로 병행
+        -- 적용됐으므로 여기서도 독립적으로 되돌린다.
+        if skill.BuffEvasionBonus > 0 and isvalid(statsComp) then
+            statsComp.EvasionPercent = math.max(0, statsComp.EvasionPercent - skill.BuffEvasionBonus)
+            skill.BuffEvasionBonus = 0
+        end
+
+        if skill.BuffParticleSerial ~= 0 then
+            if skill.BuffUsingSkillVfx then
+                _EffectService:RemoveEffect(skill.BuffParticleSerial)
+            else
+                _ParticleService:RemoveParticle(skill.BuffParticleSerial)
+            end
+            skill.BuffParticleSerial = 0
+            skill.BuffUsingSkillVfx = false
+        end
+
+        log("PlayerSkill: buff expired, reverted " .. skill.BuffType)
+        skill.BuffActive = false
+        skill.BuffType = ""
+    end
+
+end
