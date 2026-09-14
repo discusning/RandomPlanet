@@ -457,339 +457,50 @@ script PlayerSkillComponent extends Component
     end
 
     method void DispatchSkillEffect(table def)
-        -- def.kind에 따라 실제 판정 로직(Do*)으로 분기. UseSkillSlot 본 사용 + 느림보/산만함
-        -- 링크의 2연발 재사용 양쪽에서 호출되는 공용 진입점(MP/쿨다운 차감과는 독립).
-        if def.kind == "melee_single" then
-            -- 2026-09-06 (M2 Phase A) - VFX 타이밍 딜레이 적용(As-built 25차 "설계만 완료, 코드
-            -- 미적용" 항목 - DoDash 주석에 있던 "DispatchSkill의 impactDelay" 개념을 실제로 구현).
-            -- 지금까지 melee_single은 키 입력과 같은 프레임에 즉시 판정이 나가서, 스윙 모션의 초반
-            -- 프레임에 이미 데미지가 적용되는 것처럼 보였다(모션은 PlaySkillMotion으로 방금 시작했는데
-            -- 타격은 그 즉시 발생). def.impactDelay(SkillCatalog, 기본 0)만큼 실제 판정을 늦춰서
-            -- 스윙 애니메이션의 타격 프레임과 데미지 적용 시점을 맞춘다. dash는 의도적으로 제외(위
-            -- DoDash 주석 참고 - 돌진 자체가 스윙이라 즉시 판정이 맞음), multi_hit(럭키 세븐)은 이미
-            -- 투사체 비행시간으로 자연스러운 지연이 있어 별도 적용 불필요.
-            local impactDelay = def.impactDelay or 0
-            if impactDelay > 0 then
-                _TimerService:SetTimerOnce(function()
-                    if isvalid(self.Entity) then self:DoMeleeSingle(def) end
-                end, impactDelay)
-            else
-                self:DoMeleeSingle(def)
-            end
-        elseif def.kind == "ranged_single" or def.kind == "ranged_pierce" then
-            self:DoRanged(def, def.kind == "ranged_pierce")
-        elseif def.kind == "multi_hit" then
-            self:DoMultiHit(def)
-        elseif def.kind == "dash" then
-            self:DoDash(def)
-        elseif def.kind == "debuff" then
-            self:DoDisorder(def)
-        elseif def.kind == "buff" then
-            self:DoBuff(def)
-        end
-
-        -- 2026-09-10 QA - 명상가 링크("지혜의 등불": 스킬 사용 시 소형 범위 확산) 신규 연결. 순수
-        -- 버프(magicguard 등)는 대상이 없어 제외 - 실제 공격/디버프 종류 스킬에서만 발동.
-        if def.kind ~= "buff" then
-            local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
-            if isvalid(statsComp) then
-                local spreadSpec = _TraitEffectEngine:GetLinkWisdomSpread(statsComp.LinkTrait1)
-                if spreadSpec == nil and statsComp.LinkTrait2 ~= "" then spreadSpec = _TraitEffectEngine:GetLinkWisdomSpread(statsComp.LinkTrait2) end
-                if spreadSpec ~= nil then
-                    local attack = self.Entity:GetComponent("script.PlayerAttack")
-                    local transform = self.Entity.TransformComponent
-                    if isvalid(attack) and isvalid(transform) then
-                        local pos = transform.WorldPosition
-                        local shape = BoxShape(Vector2(pos.x, pos.y + 0.5), Vector2(2.0, 1.6), 0)
-                        local originalDamage = attack.AttackDamage
-                        attack.AttackDamage = math.floor(originalDamage * (spreadSpec.pct or 0.2))
-                        attack:AttackFast(shape, "skill.linkWisdomSpread", CollisionGroups.Monster)
-                        attack.AttackDamage = originalDamage
-                        log("PlayerSkill: 명상가 링크 - 지혜의 등불 소형 범위 확산 발동")
-                    end
-                end
-            end
-        end
+        -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
+        _PlayerSkillExecutionLogic:DispatchSkillEffect(self, def)
     end
 
     @ExecSpace("Client")
     method void PlaySkillMotion(string poseName)
-        -- Replays a built-in avatar body pose (Attack swing / Heal self-cast) via a fresh
-        -- BodyActionStateChangeEvent instead of StateComponent:ChangeState("ATTACK") - the latter
-        -- gets silently stomped because PlayerControllerComponent re-evaluates real held keys every
-        -- tick and would immediately transition back to IDLE/MOVE since Q isn't in its own action
-        -- set (see msw-avatar SKILL.md "14 states vs custom actions" + its ChangeState pitfall).
-        -- Called with no target from ServerOnly code, so it's a broadcast RPC every nearby client sees.
-        local actionState = MapleAvatarBodyActionState.Attack
-        if poseName == "Heal" then
-            actionState = MapleAvatarBodyActionState.Heal
-        end
-        local event = BodyActionStateChangeEvent()
-        event.ActionState = actionState
-        event.needResetAction = true
-        self.Entity:SendEvent(event)
+        -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
+        _PlayerSkillExecutionLogic:PlaySkillMotion(self, poseName)
     end
 
     @ExecSpace("ServerOnly")
     method void DoMeleeSingle(table def)
-        -- Reuses PlayerAttack's existing hitbox/crit pipeline - temporarily scales AttackDamage by
-        -- the skill coefficient, fires, then restores the base value in the same call.
-        local attack = self.Entity:GetComponent("script.PlayerAttack")
-        local transform = self.Entity.TransformComponent
-        local controller = self.Entity.PlayerControllerComponent
-        if not isvalid(attack) or not isvalid(transform) or not isvalid(controller) then return end
-        local dir = controller.LookDirectionX
-        if dir == 0 then dir = 1 end
-        local pos = transform.WorldPosition
-        -- def.wide (slashblast) uses a much wider frontal box than the default single-target zone -
-        -- AttackFast already resolves against every entity overlapping the shape (not just one), so
-        -- a plain wider BoxShape is enough to turn this into a real frontal AoE - no new "kind" needed.
-        local boxSize = def.wide and Vector2(2.6, 1.6) or Vector2(1.5, 1.4)
-        local shape = BoxShape(Vector2(pos.x + 0.7 * dir, pos.y + 0.5), boxSize, 0)
-
-        local originalDamage = attack.AttackDamage
-        attack.AttackDamage = math.floor(originalDamage * def.coef)
-        attack:AttackFast(shape, "skill." .. def.id, CollisionGroups.Monster)
-        attack.AttackDamage = originalDamage
-
-        if def.hitVfxRuid ~= nil then
-            -- FlipX must be set explicitly per cast - PlayEffect never inherits the caster's
-            -- current facing on its own (2026-08-17 user report: "매직 클로가 이상하게 날아다닌다"
-            -- traced to this exact gap on the ranged projectile below; melee hit clips have the same
-            -- gap even though it's less visible for a roughly-symmetric burst shape). Source art
-            -- faces left by default (msw-search convention), so dir>0 (facing right) needs FlipX=true.
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, Vector3(pos.x + 0.7 * dir, pos.y + 0.5, pos.z), 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
-            log("PlayerSkill: " .. def.name .. " hit VFX serial=" .. tostring(serial))
-        end
+        -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
+        _PlayerSkillExecutionLogic:DoMeleeSingle(self, def)
     end
 
     @ExecSpace("ServerOnly")
     method void DoMultiHit(table def)
-        -- Lucky Seven (currently the only multi_hit skill) - real classic MapleStory throws daggers a
-        -- short distance rather than swinging like a melee weapon (2026-08-16 usage-location audit:
-        -- the previous instant frontal-box version read identically to a sword swing). Spawns def.hits
-        -- real short-range projectiles staggered ~0.09s apart (a visible "rapid throw" instead of one
-        -- simultaneous flash) via FireThrownDagger, reusing DoRanged's spawn/override pattern but with
-        -- a short MaxLifetime so each dagger only travels a few units before disappearing.
-        local attack = self.Entity:GetComponent("script.PlayerAttack")
-        local transform = self.Entity.TransformComponent
-        local controller = self.Entity.PlayerControllerComponent
-        local map = self.Entity.CurrentMap
-        if not isvalid(attack) or not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
-        local dir = controller.LookDirectionX
-        if dir == 0 then dir = 1 end
-        local pos = transform.WorldPosition
-        local damage = math.floor(attack.AttackDamage * def.coef)
-        local critChance = attack.CriticalChance
-        local critMult = attack.CritDamageMultiplier
-
-        for i = 1, def.hits do
-            local delay = (i - 1) * 0.09
-            _TimerService:SetTimerOnce(function()
-                self:FireThrownDagger(def, dir, pos, map, damage, critChance, critMult)
-            end, delay)
-        end
+        -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
+        _PlayerSkillExecutionLogic:DoMultiHit(self, def)
     end
 
     @ExecSpace("ServerOnly")
     method void FireThrownDagger(table def, integer dir, Vector3 pos, Entity map, integer damage, number critChance, number critMult)
-        -- One thrown dagger for Lucky Seven's DoMultiHit above - short travel distance (Speed*MaxLifetime
-        -- ~= 3 units) so it visibly leaves the caster's hand and lands nearby instead of an instant hit.
-        self.ProjectileCount = self.ProjectileCount + 1
-        local name = "skillproj_" .. tostring(self.ProjectileCount)
-        -- 2026-08-19 유저 리포트("표창 나가는 위치가 애매하다") - 실제 Play 세션에서 스크린샷으로
-        -- 확인해보니 DoRanged와 똑같이 pos.y(캐릭터 발밑 높이)에서 스폰되어 표창이 손이 아니라
-        -- 바닥에서 튀어나오는 것처럼 보였다. HitRadius를 0.4->0.55로 함께 키워서 몬스터와의 세로
-        -- 판정 여유를 확보한 채로 +0.35 만큼 위로(허리~손 높이) 올렸다 - DoRanged(매직 클로/애로우
-        -- 블로우)는 이 세션에서 별도로 지적받은 적이 없어 그쪽 스폰 높이는 그대로 둔다.
-        local proj = _SpawnService:SpawnByModelId("projectile", name, Vector3(pos.x + 0.4 * dir, pos.y + 0.35, pos.z), map)
-        if not isvalid(proj) then return end
-
-        if def.projectileVfxRuid ~= nil and isvalid(proj.SpriteRendererComponent) then
-            proj.SpriteRendererComponent.SpriteRUID = def.projectileVfxRuid
-            -- Source art faces left by default - a projectile fired while facing right (dir>0)
-            -- renders backwards without this (2026-08-17 user report, same root cause as DoRanged).
-            proj.SpriteRendererComponent.FlipX = dir > 0
-        end
-
-        local projComp = proj:GetComponent("script.ProjectileComponent")
-        local projAttack = proj:GetComponent("script.ProjectileAttackComponent")
-        if isvalid(projAttack) then
-            projAttack.Damage = damage
-            projAttack.CriticalChance = critChance
-            projAttack.CritDamageMultiplier = critMult
-            -- 2026-09-13 QA(전반적 QA 4차 확장) - DoRanged와 동일한 이유로 발사자 기록.
-            projAttack:SetOwner(self.Entity)
-        end
-        if isvalid(projComp) then
-            projComp.Speed = 10
-            projComp.MaxLifetime = 0.3
-            projComp.HitRadius = 0.55
-            projComp.Pierce = false
-            projComp:Fire(dir, 0)
-        end
+        -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
+        _PlayerSkillExecutionLogic:FireThrownDagger(self, def, dir, pos, map, damage, critChance, critMult)
     end
 
     @ExecSpace("ServerOnly")
     method void DoRanged(table def, boolean pierce)
-        local attack = self.Entity:GetComponent("script.PlayerAttack")
-        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
-        local transform = self.Entity.TransformComponent
-        local controller = self.Entity.PlayerControllerComponent
-        local map = self.Entity.CurrentMap
-        if not isvalid(attack) or not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
-
-        local damage = attack.AttackDamage * def.coef
-        if def.magic and isvalid(statsComp) then
-            damage = damage * (1 + statsComp.SkillDamageBonus)
-        end
-        damage = math.floor(damage)
-
-        local dir = controller.LookDirectionX
-        if dir == 0 then dir = 1 end
-        local pos = transform.WorldPosition
-
-        self.ProjectileCount = self.ProjectileCount + 1
-        local name = "skillproj_" .. tostring(self.ProjectileCount)
-        -- Spawn at the caster's own Y (not offset up) - monsters are hit-checked against their own
-        -- WorldPosition (foot-anchor), and ProjectileComponent's HitRadius=0.4 circular check has no
-        -- vertical tolerance beyond that radius, so a +0.5 spawn offset flew every projectile clean
-        -- over the head of any monster at the same ground level as the caster (confirmed via a real
-        -- Play-session test: magicclaw/arrowblow both dealt 0 damage on a same-level dummy).
-        local proj = _SpawnService:SpawnByModelId("projectile", name, Vector3(pos.x + 0.5 * dir, pos.y, pos.z), map)
-        if not isvalid(proj) then return end
-
-        -- Overrides the projectile model's default sprite so each ranged skill actually looks like
-        -- itself (magic claw swipe / flying arrow) instead of every ranged_single/ranged_pierce
-        -- sharing the same generic placeholder bullet baked into Models/Skills/Projectile.model.
-        if def.projectileVfxRuid ~= nil and isvalid(proj.SpriteRendererComponent) then
-            proj.SpriteRendererComponent.SpriteRUID = def.projectileVfxRuid
-            -- Source art faces left by default (msw-search convention) - without this the
-            -- projectile always renders in its left-facing default regardless of travel
-            -- direction, so a right-facing cast (dir>0, the common case) looks backwards -
-            -- reported 2026-08-17 as "매직 클로가 병신같이 날아다닌다."
-            proj.SpriteRendererComponent.FlipX = dir > 0
-            log("PlayerSkill: " .. def.name .. " projectile sprite -> " .. def.projectileVfxRuid)
-            -- Color-multiply tint for a clip whose source art doesn't match this skill's real color
-            -- (e.g. magicclaw's closest-shape-match substitute is orange, real Magic Claw is
-            -- green/yellow - see SkillCatalog comment). Only applied when the def sets one.
-            if def.projectileTintColor ~= nil then
-                proj.SpriteRendererComponent.Color = def.projectileTintColor
-            end
-        end
-
-        local projComp = proj:GetComponent("script.ProjectileComponent")
-        local projAttack = proj:GetComponent("script.ProjectileAttackComponent")
-        if isvalid(projAttack) then
-            projAttack.Damage = damage
-            projAttack.CriticalChance = attack.CriticalChance
-            projAttack.CritDamageMultiplier = attack.CritDamageMultiplier
-            -- 2026-09-13 QA(전반적 QA 4차 확장) - 발사자를 기록해 크리 판정+온크리 트레잇 효과를
-            -- PlayerAttack.OnAttack/CalcCritical로 위임할 수 있게 한다(ProjectileAttackComponent
-            -- 주석 참고).
-            projAttack:SetOwner(self.Entity)
-        end
-        if isvalid(projComp) then
-            projComp.Speed = 12
-            projComp.MaxLifetime = 2
-            projComp.HitRadius = 0.4
-            projComp.Pierce = pierce
-            projComp:Fire(dir, 0)
-        end
+        -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
+        _PlayerSkillExecutionLogic:DoRanged(self, def, pierce)
     end
 
     @ExecSpace("ServerOnly")
     method void DoDash(table def)
-        local body = self.Entity.RigidbodyComponent
-        local controller = self.Entity.PlayerControllerComponent
-        local attack = self.Entity:GetComponent("script.PlayerAttack")
-        local transform = self.Entity.TransformComponent
-        if not isvalid(body) or not isvalid(controller) or not isvalid(attack) or not isvalid(transform) then return end
-        local dir = controller.LookDirectionX
-        if dir == 0 then dir = 1 end
-        body:AddForce(Vector2(dir * def.force, 0))
-
-        -- 2026-09-10 QA - 환영 교체 링크("잔상 지원": 대시 시 짧은 무적시간) 신규 연결. 본인 특성의
-        -- 분신 소환(선행 서브시스템 필요, 미착수)과 달리 링크는 무적시간 부여만 필요해 구현 가능.
-        local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
-        if isvalid(statsComp) then
-            local dashInvulnDuration = _TraitEffectEngine:GetLinkDashInvuln(statsComp.LinkTrait1)
-            if dashInvulnDuration == 0 and statsComp.LinkTrait2 ~= "" then dashInvulnDuration = _TraitEffectEngine:GetLinkDashInvuln(statsComp.LinkTrait2) end
-            if dashInvulnDuration > 0 then
-                statsComp.LinkDashInvulnUntilElapsed = _UtilLogic.ElapsedSeconds + dashInvulnDuration
-                log("PlayerSkill: 환영 교체 링크 - 잔상 지원 무적 발동")
-            end
-        end
-
-        -- 2026-08-25 밸런스 - 대시에 실제 돌진 판정 데미지 추가(SkillCatalog 주석 참고, 해적 1차
-        -- 공격 슬롯에 데미지 스킬이 하나도 없었던 문제 수정). AddForce와 같은 프레임에 즉시 판정 -
-        -- 다른 근접 스킬처럼 타격 지연(DispatchSkill의 impactDelay)을 주면 이미 몸으로 부딪혀
-        -- 지나간 뒤에 뒤늦게 맞는 것처럼 보여 "이펙트와 모션이 안 맞는다"는 지적을 그대로 재현하게
-        -- 된다 - 대시는 이동 자체가 곧 스윙이므로 즉시 판정이 맞다. 돌진 거리 전체를 덮도록 다른
-        -- 근접 스킬(1.5x1.4)보다 넓은 박스(2.4x1.4)를 사용.
-        local pos = transform.WorldPosition
-        local shape = BoxShape(Vector2(pos.x + 1.0 * dir, pos.y + 0.5), Vector2(2.4, 1.4), 0)
-        local originalDamage = attack.AttackDamage
-        attack.AttackDamage = math.floor(originalDamage * def.coef)
-        attack:AttackFast(shape, "skill." .. def.id, CollisionGroups.Monster)
-        attack.AttackDamage = originalDamage
-
-        if def.hitVfxRuid ~= nil then
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, Vector3(pos.x + 1.0 * dir, pos.y + 0.5, pos.z), 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
-            log("PlayerSkill: " .. def.name .. " hit VFX serial=" .. tostring(serial))
-        end
-
-        if def.dashVfxRuid ~= nil then
-            -- Attached (not a fixed-position PlayEffect) so the clip travels with the caster during
-            -- the dash impulse instead of being left behind at the cast position - a fixed-position
-            -- one-shot visibly failed to keep up the moment AddForce fired (2026-08-16, user report).
-            local serial = _EffectService:PlayEffectAttached(def.dashVfxRuid, self.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
-            log("PlayerSkill: " .. def.name .. " dash VFX serial=" .. tostring(serial))
-        end
+        -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
+        _PlayerSkillExecutionLogic:DoDash(self, def)
     end
 
     @ExecSpace("ServerOnly")
     method void DoDisorder(table def)
-        -- 도적 1차 액티브 "디스에이블" - 데미지 없이 전방 가장 가까운 몬스터 1체의 Evasion을 일시
-        -- 감소시킨다. AttackComponent 파이프라인을 타지 않고 직접 Monster 스크립트를 찾아 호출하는
-        -- 이유: Attack/AttackFast는 항상 HitEvent(데미지 0이라도)를 발생시켜 데미지 스킨에 "0"이
-        -- 뜨는 등 순수 디버프 스킬의 연출과 안 맞음 - ProjectileComponent 등에서 이미 쓰는
-        -- GetChildComponentsByTypeName 기반 근접 탐색 패턴을 재사용.
-        local transform = self.Entity.TransformComponent
-        local controller = self.Entity.PlayerControllerComponent
-        local map = self.Entity.CurrentMap
-        if not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
-        local dir = controller.LookDirectionX
-        if dir == 0 then dir = 1 end
-        local pos = transform.WorldPosition
-        local range = 3.0
-
-        local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
-        local nearest = nil
-        local nearestDist = range + 1
-        for _, m in ipairs(monsters) do
-            if isvalid(m) and isvalid(m.Entity) and not m.IsDead then
-                local mpos = m.Entity.TransformComponent.WorldPosition
-                local dx = mpos.x - pos.x
-                if dx * dir >= 0 and math.abs(dx) <= range and math.abs(dx) < nearestDist then
-                    nearestDist = math.abs(dx)
-                    nearest = m
-                end
-            end
-        end
-
-        if nearest == nil then
-            log("PlayerSkill: " .. def.name .. " no target in range")
-            return
-        end
-
-        nearest:ApplyDisorder(def.evasionReduction, def.duration)
-        log("PlayerSkill: " .. def.name .. " applied to " .. nearest.Entity.Name)
-        if def.hitVfxRuid ~= nil then
-            local mpos = nearest.Entity.TransformComponent.WorldPosition
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, self.Entity, mpos, 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
-            log("PlayerSkill: " .. def.name .. " VFX serial=" .. tostring(serial))
-        end
+        -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
+        _PlayerSkillExecutionLogic:DoDisorder(self, def)
     end
 
     @ExecSpace("ServerOnly")
