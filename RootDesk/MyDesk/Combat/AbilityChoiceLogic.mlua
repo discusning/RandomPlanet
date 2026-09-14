@@ -1,0 +1,191 @@
+@Logic
+script AbilityChoiceLogic extends Logic
+
+    -- 2026-09-15 코드 구조화(유저 요청 "코드 구분화 작업") - PlayerStatsComponent.mlua에서 레벨업
+    -- 이능 3택1 선택 플로우(팝업 큐잉/재추첨/확정 처리 + 재분배·추가스탯·특성변경 3가지 적용 로직)만
+    -- 순수하게 옮겼다. PlayerStatsComponent엔 같은 이름의 위임 래퍼만 남긴다. @ExecSpace("Server") RPC
+    -- 진입점(RequestRerollAbilityPreview/RequestResolveAbilityChoice)은 senderUserId 검증이 그
+    -- 메서드 스코프 밖으로 전달되지 않으므로, 검증 자체는 원래 자리(래퍼)에 남기고 검증 통과 후의
+    -- 로직만 여기로 위임한다. HasTrait/RecalculateDerived/OnAbilityPreviewRerolled는 이동 대상이
+    -- 아니라 PlayerStatsComponent에 그대로 남아있고, 여기선 stats:HasTrait(...) 식으로 호출한다.
+    -- 로직/수치 변경 없음.
+
+    @ExecSpace("ServerOnly")
+    method void GrantAbilityRerollTicket(PlayerStatsComponent stats)
+        -- 몬스터 게이트 클리어 보상 "이능 재선택권" (전체 기획서 §5-2) - FieldWaveSpawner.
+        -- GrantGateClearRewards에서 호출. 레벨업 이능 팝업과 동일한 큐에 1회 추가한다.
+        stats.PendingAbilityChoices = stats.PendingAbilityChoices + 1
+        self:MaybeOpenNextAbilityChoice(stats)
+        log("PlayerStats: GrantAbilityRerollTicket pending=" .. stats.PendingAbilityChoices)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantPremiumStatBonus(PlayerStatsComponent stats)
+        -- 몬스터 게이트 클리어 보상 "고급 스탯 구슬" (전체 기획서 §5-2 "스탯 구슬 획득량 토벌 전장
+        -- 대비 대폭 상승") - 레벨업 자동 증가(+1x4)보다 큰 고정 보너스를 4종 전부에 즉시 부여.
+        stats.Str = stats.Str + 3
+        stats.Dex = stats.Dex + 3
+        stats.Intel = stats.Intel + 3
+        stats.Luk = stats.Luk + 3
+        stats:RecalculateDerived()
+        log("PlayerStats: GrantPremiumStatBonus -> str=" .. stats.Str .. " dex=" .. stats.Dex .. " intel=" .. stats.Intel .. " luk=" .. stats.Luk)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void MaybeOpenNextAbilityChoice(PlayerStatsComponent stats)
+        -- 이미 팝업이 떠 있으면 스킵(한 번에 하나만) - RequestResolveAbilityChoice가 처리 후 다시 호출.
+        if stats.AbilityChoicePending then return end
+        if stats.PendingAbilityChoices <= 0 then return end
+        -- 직전 RequestResolveAbilityChoice 호출과 같은 프레임에 AbilityChoicePending을
+        -- false->true로 다시 뒤집으면 클라이언트에서 두 값이 하나의 @Sync 틱으로 합쳐질 위험이 있다
+        -- (이 프로젝트에 이미 여러 세션에 걸쳐 기록된 "같은 틱 @Sync 지연-가시성" 패턴 - 11차/17차
+        -- 세션 Gotchas 참고). 한 틱 늦춰서 별도 sync로 보낸다.
+        _TimerService:SetTimerOnce(function()
+            if not isvalid(stats.Entity) then return end
+            if stats.AbilityChoicePending or stats.PendingAbilityChoices <= 0 then return end
+            stats.PendingTraitPreview = self:RollDifferentTrait(stats)
+            stats.AbilityChoicePending = true
+            log("PlayerStats: MaybeOpenNextAbilityChoice pending=" .. stats.PendingAbilityChoices .. " traitPreview=" .. stats.PendingTraitPreview)
+        end, 0.1)
+    end
+
+    method string RollDifferentTrait(PlayerStatsComponent stats)
+        -- M2 Phase B(2026-09-06) - 축소 6종 풀 대신 TraitRollLogic(전체 115종, 5풀 가중치+천장)로
+        -- 이관. 현재 특성과 다른 것이 나올 때까지 재추첨하는 정책은 유지(RollDifferentTrait 내부에서
+        -- 처리).
+        return _TraitRollLogic:RollDifferentTrait(stats.Trait)
+    end
+
+    method void RequestRerollAbilityPreview(PlayerStatsComponent stats)
+        -- 큐브마스터(basicEffect.rerollChoice) - "이능/스킬 선택지 재추첨 가능"의 이능 팝업 쪽 절반.
+        -- 스킬 팝업(SkillChoiceUIController)은 이미 별도로 연결돼 있었고, 이능 팝업 쪽만 미구현으로
+        -- 남아있던 것을 2026-09-08에 마저 연결 - "특성 변경" 카드의 미리보기 대상만 다시 굴린다
+        -- (재분배/추가 스탯 카드는 굴려서 미리 보여주는 결과가 없는 일반 설명 카드라 재추첨 대상이
+        -- 아님). senderUserId 검증은 호출부(PlayerStatsComponent.RequestRerollAbilityPreview 래퍼)에서
+        -- 이미 끝난 뒤 위임된다.
+        if not stats.AbilityChoicePending then return end
+        if not (stats.Trait == "큐브마스터" or stats.Trait2 == "큐브마스터") then return end
+        -- 2026-09-12 QA - 운명론자(basicDesc "이능 재추첨·특성 변경 불가")는 RequestResolveAbilityChoice의
+        -- "trait" 분기에서 확정(선택)은 이미 막혀 있었지만, 이 메서드(재추첨=미리보기 재굴림)엔 그
+        -- 방어선이 없었다 - 운명론자+큐브마스터를 동시에 보유한 캐릭터(Trait/Trait2 조합으로 실제
+        -- 도달 가능)가 특성 변경 카드를 확정은 못 해도 재추첨만은 계속 할 수 있던 구멍이었음.
+        if stats.Trait == "운명론자" or stats.Trait2 == "운명론자" then
+            log("PlayerStats: 운명론자 - 이능 재추첨 거부")
+            return
+        end
+        stats.PendingTraitPreview = self:RollDifferentTrait(stats)
+        log("PlayerStats: 큐브마스터 재추첨 -> " .. stats.PendingTraitPreview)
+        stats:OnAbilityPreviewRerolled(stats.PendingTraitPreview)
+    end
+
+    method void RequestResolveAbilityChoice(PlayerStatsComponent stats, string choice)
+        -- 클라이언트(AbilityChoiceUIController)의 선택 버튼 클릭 → 서버 RPC. senderUserId 검증은
+        -- 호출부(PlayerStatsComponent.RequestResolveAbilityChoice 래퍼)에서 이미 끝난 뒤 위임된다.
+        if not stats.AbilityChoicePending then
+            return
+        end
+        -- 2026-09-08 QA - 미친 과학자(gmb) basicDesc("이능 효과 2배, 단 효과가 무작위로 결정(선택
+        -- 불가)")가 이능 선택 UI 흐름을 바꿔야 한다고 판단해 보류돼 있었으나, 팝업을 그대로 3택1로
+        -- 보여주되 여기서 클릭값을 무시하고 무작위로 덮어쓰는 방식(운명론자의 서버측 최종 방어선과
+        -- 동일한 패턴)으로 UI 변경 없이 구현 가능함을 재확인 - "2배"는 세 선택지 중 수치 배증이
+        -- 명확한 "추가 스탯"에만 적용(재분배/특성변경은 배증 개념이 성립하지 않아 그대로 1배 적용).
+        local isMadScientist = stats:HasTrait("미친 과학자")
+        if isMadScientist then
+            -- 2026-09-12 QA - 미친과학자+운명론자를 동시 보유한 캐릭터의 경우, 이 랜덤 결정이
+            -- "trait"를 뽑으면 아래 운명론자 방어선에서 조용히 거부돼(선택 미소모) 클릭이 아무
+            -- 효과 없이 사라지는 것처럼 보이는 버그였다(1/3 확률로 어떤 버튼을 눌러도 그 턴이
+            -- 그냥 날아감) - 운명론자면 애초에 "trait"를 후보에서 제외해 항상 진행되도록 수정.
+            local isFatalist = (stats.Trait == "운명론자" or stats.Trait2 == "운명론자")
+            local picked
+            if isFatalist then
+                picked = (_UtilLogic:RandomIntegerRange(1, 2) == 1) and "redistribute" or "bonus"
+            else
+                local roll = _UtilLogic:RandomIntegerRange(1, 3)
+                picked = (roll == 1) and "redistribute" or (roll == 2) and "bonus" or "trait"
+            end
+            log("PlayerStats: 미친 과학자 - 선택 무시, 무작위 결정=" .. picked)
+            choice = picked
+        end
+        if choice == "redistribute" then
+            self:ApplyStatRedistribute(stats)
+        elseif choice == "bonus" then
+            -- 2026-09-10 QA - 큐브마스터 링크("이능 지원": 이능 선택지가 낮은 확률로 상위 옵션)
+            -- 신규 연결. 미친 과학자와 동일한 "추가 스탯 2배" 배증 개념으로 근사, 확률 게이트만 다름.
+            local upgradeChance = _TraitEffectEngine:GetLinkAbilityUpgradeChance(stats.LinkTrait1)
+            if upgradeChance == 0 and stats.LinkTrait2 ~= "" then upgradeChance = _TraitEffectEngine:GetLinkAbilityUpgradeChance(stats.LinkTrait2) end
+            local linkUpgraded = upgradeChance > 0 and _UtilLogic:RandomDouble() < upgradeChance
+            if linkUpgraded then
+                log("PlayerStats: 큐브마스터 링크 - 이능 지원 발동(상위 옵션)")
+            end
+            self:ApplyBonusStats(stats, (isMadScientist or linkUpgraded) and 2 or 1)
+        elseif choice == "trait" then
+            -- 운명론자(hb) - basicDesc가 명시한 "특성 변경 불가"가 지금까지 실제로는 강제되지
+            -- 않았다(atk=0.15 등 시작 스탯+40% 보너스만 적용되고 페널티는 "선행 필요"로 미구현
+            -- 상태였음 - 2026-09-08 밸런스 점검에서 발견, 클라이언트 버튼도 함께 숨김 처리했으나
+            -- 여기가 최종 방어선). 팝업은 열어둔 채 그냥 무시(선택 소모 안 함) - 다른 두 옵션은
+            -- 여전히 정상 선택 가능해야 하므로.
+            if stats.Trait == "운명론자" or stats.Trait2 == "운명론자" then
+                log("PlayerStats: 운명론자 - 특성 변경 선택 거부")
+                return
+            end
+            self:ApplyTraitChange(stats)
+        else
+            log_warning("PlayerStats: RequestResolveAbilityChoice unknown choice=" .. tostring(choice))
+            return
+        end
+        stats.PendingAbilityChoices = math.max(0, stats.PendingAbilityChoices - 1)
+        stats.AbilityChoicePending = false
+        -- 2026-09-08 QA 발견 - 링크 마스터(hg)의 basicDesc("이능 획득 시 3초간 전 스탯 대폭 상승")가
+        -- 어디에도 구현돼 있지 않았다. "이능 획득"은 바로 이 메서드(이능 선택지 해소) 시점 - "전 스탯"은
+        -- 다른 임시버프와 동일하게 공격력 채널로 근사(+50%, 자체 근사치 "대폭"에 대응, 미검증).
+        if stats:HasTrait("링크 마스터") then
+            stats.LinkMasterBuffAtkPercent = 0.50
+            stats.LinkMasterBuffExpireElapsed = _UtilLogic.ElapsedSeconds + 3
+            log("PlayerStats: 링크 마스터 각성 발동 (3초간 공격력+50%)")
+        end
+        stats:RecalculateDerived()
+        log("PlayerStats: RequestResolveAbilityChoice choice=" .. choice .. " -> str=" .. stats.Str .. " dex=" .. stats.Dex .. " intel=" .. stats.Intel .. " luk=" .. stats.Luk .. " trait=" .. stats.Trait .. " remainingPending=" .. stats.PendingAbilityChoices)
+        self:MaybeOpenNextAbilityChoice(stats)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyStatRedistribute(PlayerStatsComponent stats)
+        -- "스탯 재분배" - 보유 스탯 총량은 유지한 채 4종에 무작위로 재분배(기획서 §2-5 원문 그대로).
+        -- 순수 변주용 선택지 - 순증가는 없지만 극단적인 몰빵 조합이 나올 수도 있는 도박성 옵션.
+        local total = stats.Str + stats.Dex + stats.Intel + stats.Luk
+        local vals = { 1, 1, 1, 1 }
+        local remaining = total - 4
+        for i = 1, remaining do
+            local idx = _UtilLogic:RandomIntegerRange(1, 4)
+            vals[idx] = vals[idx] + 1
+        end
+        stats.Str = vals[1]
+        stats.Dex = vals[2]
+        stats.Intel = vals[3]
+        stats.Luk = vals[4]
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyBonusStats(PlayerStatsComponent stats, integer multiplier)
+        -- "추가 스탯" - BonusStatPoints(3)를 4종 스탯에 1점씩 무작위로 배분(안전한 순증가 옵션).
+        -- multiplier는 미친 과학자(basicDesc "이능 효과 2배") 전용 - 그 외 호출은 항상 1.
+        for i = 1, stats.BonusStatPoints * multiplier do
+            local pick = _UtilLogic:RandomIntegerRange(1, 4)
+            if pick == 1 then stats.Str = stats.Str + 1
+            elseif pick == 2 then stats.Dex = stats.Dex + 1
+            elseif pick == 3 then stats.Intel = stats.Intel + 1
+            else stats.Luk = stats.Luk + 1
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyTraitChange(PlayerStatsComponent stats)
+        -- "특성 변경" - 팝업이 뜰 때 이미 굴려둔 PendingTraitPreview를 그대로 적용(블라인드 아님,
+        -- 유저가 미리 보고 고른 값과 실제 적용값이 항상 일치해야 하므로 여기서 다시 굴리지 않는다).
+        if stats.PendingTraitPreview ~= "" then
+            stats.Trait = stats.PendingTraitPreview
+        end
+    end
+
+end
