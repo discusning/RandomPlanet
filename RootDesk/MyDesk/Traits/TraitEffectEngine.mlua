@@ -200,106 +200,60 @@ script TraitEffectEngine extends Logic
     -- 필드 자체를 비워 정직하게 미구현으로 남긴다(115종 중 링크 효과 수치가 실제로 있는 것은 부분
     -- 집합 - Docs/RandomPlanet-M2-GDD.md Phase C 참고).
     method table GetLinkModifiers(string trait)
-        local def = _TraitCatalog:GetTraitDef(trait)
-        if not def or not def.linkEffect then return {} end
-        return def.linkEffect
+        -- 2026-09-15 코드 구조화 6/9 - 위임 래퍼, 본체는 Traits/LinkTraitEffectEngine.mlua.
+        return _LinkTraitEffectEngine:GetLinkModifiers(trait)
     end
 
     method number GetLinkPotionMult(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.potionMult or 0
+        return _LinkTraitEffectEngine:GetLinkPotionMult(trait)
     end
 
     method number GetLinkLifestealBonus(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.lifestealPct or 0
+        return _LinkTraitEffectEngine:GetLinkLifestealBonus(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 도박꾼 링크("재화 폭죽": 처치 시 낮은 확률 재화 즉시 획득) 전용.
-    -- linkEffect 필드 자체가 없어 "선행 필요"로 미구현이었으나, 계정 영구 재화(Phase G)가 이미
-    -- 존재함을 근거로 신규 연결.
     method number GetLinkOnKillCurrencyChance(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.onKillCurrencyChance or 0
+        return _LinkTraitEffectEngine:GetLinkOnKillCurrencyChance(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 불운 링크("후원": 파티 클리어 시 영구재화+20%) 전용. GetClearCurrencyBonus
-    -- (본인 특성용, 시간여행자)와 동일한 clearCurrencyBonus 키를 재사용하되 링크 슬롯 쪽만 읽는다.
     method number GetLinkClearCurrencyBonus(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.clearCurrencyBonus or 0
+        return _LinkTraitEffectEngine:GetLinkClearCurrencyBonus(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 회전룰렛 링크("돌아가는 운명": 파티 스킬 사용 시 낮은 확률로 쿨다운
-    -- 초기화/2배) 전용. 본인 특성용 GetOnSkillCooldownRoulette와 동일 키를 링크 슬롯에서 읽는다.
     method number GetLinkOnSkillCooldownRoulette(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.onSkillCooldownRoulette or 0
+        return _LinkTraitEffectEngine:GetLinkOnSkillCooldownRoulette(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 금욕 링크("재생 지원": 비전투 시 파티 회복 속도 증가) 전용. 마을
-    -- 자동회복(TownRegenPercent)은 "특성과 무관하게 전원 적용"이 기존 설계(유저 요청)라 그 값 자체는
-    -- 건드리지 않고, 링크로 받는 보너스만 별도로 얹는다.
     method number GetLinkTownRegenBonus(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.townRegenBonus or 0
+        return _LinkTraitEffectEngine:GetLinkTownRegenBonus(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 동전 던지기 사형집행인 링크("확정타": 체력10%↓ 적 공격 시 확정
-    -- 크리티컬) 전용. 본인 특성의 "크리 시 즉사"(onCritExecuteChance)와는 다른 발동 조건(체력 임계값)
-    -- 이라 별도 채널 - PlayerAttack.CalcCritical이 대상의 Hp 비율과 비교해 소비한다.
     method number GetLinkExecuteCritThreshold(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.executeCritThreshold or 0
+        return _LinkTraitEffectEngine:GetLinkExecuteCritThreshold(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 럭키 세븐/복불복 상자 링크("행운의 순환"/"행운 룰렛": 주기적 소형
-    -- 랜덤 버프) 전용. 본인 특성(periodicRandomBuff, 매 interval마다 확정 리롤+넓은 -10%~+15% 폭)과
-    -- 달리 링크는 "소형"이라 좁은 폭 + 확률 게이트가 있는 별도 채널 - PlayerStatsComponent.CombatTick
-    -- 이 소비한다. {interval, chance} 형태로 반환(chance 없으면 1.0=매번 확정 취급).
     method table GetLinkPeriodicBuff(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.periodicBuffLink
+        return _LinkTraitEffectEngine:GetLinkPeriodicBuff(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 순교자 링크("최후의 인연": 런당 1회 사망 시 HP10% 재기) 전용.
-    -- 부활자의 본인 효과(reviveOnce, Hp=1 고정)와는 부활 시 회복량이 달라 별도 채널로 구현 -
-    -- PlayerHit.HandleHitEvent가 동일한 ReviveUsedThisRun 플래그를 공유해서 소비한다(런당 부활은
-    -- 출처와 무관하게 총 1회로 제한 - 중첩 방지, 정직하게 문서화).
     method number GetLinkReviveHpPercent(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.reviveHpPercent or 0
+        return _LinkTraitEffectEngine:GetLinkReviveHpPercent(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 유리몸 링크("안전 확보": 파티 입장 후 첫 피격 무효) 전용.
     method boolean HasLinkFirstHitImmune(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.firstHitImmune == true
+        return _LinkTraitEffectEngine:HasLinkFirstHitImmune(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 거리의 방랑자 링크("탐험 지원": 몬스터 게이트에서 스탯 구슬 획득량
-    -- 대폭 증가) 전용. 이 프로젝트는 스탯 구슬을 경험치로 근사(§8-2 관행)하므로, 게이트 모드에서만
-    -- 적용되는 경험치 보너스로 구현 - 상시 exp 채널과 달리 소비처(Monster.GrantXpToAttacker)가
-    -- IsGateMode를 직접 확인해야 해서 범용 채널로 못 넣고 전용 게터로 분리.
     method number GetLinkGateDropBonus(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.gateDropBonus or 0
+        return _LinkTraitEffectEngine:GetLinkGateDropBonus(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 거울 갑옷 링크("반사의 축복": 파티가 받는 근접 피해 일부 반사) 전용.
-    -- 본인 특성의 mirrorDamage(100% 반사, GetMirrorDamagePct)와 독립된 채널로 가산 - 둘 다 활성이면
-    -- PlayerHit.HandleHitEvent에서 합산된 비율로 한 번에 반사한다.
     method number GetLinkMirrorDamagePct(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.mirrorDamageLink or 0
+        return _LinkTraitEffectEngine:GetLinkMirrorDamagePct(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 굶주린 살점 링크("고통 공유": 피격당할 때마다 낮은 확률로 짧은 공격력
-    -- 버프) 전용. 본인 특성(hitStackAtk, 확정 누적+런 종료까지 유지)과 달리 링크는 확률형 트리거+
-    -- 짧은 지속시간 버프 - PlayerHit.HandleHitEvent가 소비한다. {chance, duration} 형태로 반환.
     method table GetLinkOnHitBuff(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.onHitBuffLink
+        return _LinkTraitEffectEngine:GetLinkOnHitBuff(trait)
     end
 
     -- M2 Phase C(2026-09-08) - 느림보(bad)의 basicDesc "낮은 확률로 스킬 2연발"이 basicEffect에
@@ -310,105 +264,52 @@ script TraitEffectEngine extends Logic
         return mod.doubleCastChance or 0
     end
 
-    -- M2 Phase C(2026-09-08) - 산만함 링크("재시전 지원": 낮은 확률로 파티 스킬 2연발) 전용.
-    -- 본인판(느림보, GetDoubleCastChance)과 독립된 채널로 가산.
     method number GetLinkDoubleCastChance(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.doubleCastLink or 0
+        return _LinkTraitEffectEngine:GetLinkDoubleCastChance(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 유리대포 링크("수호 기도": 25초마다 파티 치명타 무효) 전용. 이
-    -- 프로젝트엔 몬스터 공격에 "치명타" 개념이 없어 수호자의 basicEffect(periodicShield)와 동일한
-    -- 원칙으로 방어막 생성으로 근사 - PlayerStatsComponent.CombatTick의 기존 방어막 블록 직후,
-    -- 별도 틱 카운터로 소비한다. {interval, pct} 형태로 반환.
     method table GetLinkPeriodicShield(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.periodicShieldLink
+        return _LinkTraitEffectEngine:GetLinkPeriodicShield(trait)
     end
 
-    -- M2 Phase C(2026-09-08) - 영혼 포획자 링크("포획 지원": 낮은 확률로 처치 시 파티에게 짧은
-    -- 무적 프레임) 전용. Monster.GrantXpToAttacker(처치 지점)가 확률을 굴리고,
-    -- PlayerHit.HandleHitEvent가 무적 시간대인지 확인해 소비한다. {chance, duration} 형태로 반환.
     method table GetLinkCaptureInvuln(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.captureInvulnLink
+        return _LinkTraitEffectEngine:GetLinkCaptureInvuln(trait)
     end
 
-    -- M2 Phase C(2026-09-10) - 부활자 링크("재림의 축복": 파티 중 위기(HP10%↓) 캐릭터에게 낮은
-    -- 확률로 짧은 무적) 전용. 이 프로젝트엔 링크 캐릭터가 실제 엔티티로 존재하지 않아 "파티 중"을
-    -- 액티브(플레이어블) 캐릭터 본인 기준으로 근사(다른 위기감지형 링크와 동일 원칙) - 본인 HP가
-    -- threshold 이하로 내려갈 때마다 PlayerStatsComponent.CombatTick이 확률을 굴린다.
-    -- {threshold, chance, duration} 형태로 반환.
     method table GetLinkLowHpInvuln(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.lowHpInvulnLink
+        return _LinkTraitEffectEngine:GetLinkLowHpInvuln(trait)
     end
 
-    -- M2 Phase C(2026-09-10) - 마나실드 링크("방어막 나눔": 판 시작 시 파티 전원에게 1회성 소형
-    -- 방어막) 전용. "판 시작"은 LinkTrait1/2가 최초로 채워지는 PlayerStatsComponent.UpdateSquadLinks
-    -- 호출 시점으로 근사(런당 1회만 지급 - LinkShieldGrantUsedThisRun으로 재편성 시 중복 방지).
     method number GetLinkShieldGrant(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.shieldGrantPct or 0
+        return _LinkTraitEffectEngine:GetLinkShieldGrant(trait)
     end
 
-    -- M2 Phase C(2026-09-10) - 환영 교체 링크("잔상 지원": 대시/회피 시 짧은 무적시간 부여) 전용.
-    -- 본인 특성(환영 교체, 분신 소환 선행 서브시스템 필요로 미착수)과 달리 링크는 "무적시간 부여"만
-    -- 필요해 신규 서브시스템 없이 구현 가능 - PlayerSkillComponent.DoDash가 소비한다. 초 단위 duration.
     method number GetLinkDashInvuln(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.dashInvulnLink or 0
+        return _LinkTraitEffectEngine:GetLinkDashInvuln(trait)
     end
 
-    -- M2 Phase C(2026-09-10) - 시간을 거스르는 자 링크("인연의 메아리": 런당 1회 사망 직전 0.5초
-    -- 무적) 전용. 본인 특성(3초 전 위치+체력 스냅샷 복구, 스냅샷 버퍼 선행 필요로 미착수)과 달리
-    -- 링크는 "사망을 막는다"는 결과만 필요해, 부활자/순교자 링크와 동일하게 ReviveUsedThisRun
-    -- 예산을 공유하는 "Hp=1로 버팀" 근사로 구현 - PlayerHit.HandleHitEvent가 소비한다.
     method boolean HasLinkDeathPrevent(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.deathPreventLink == true
+        return _LinkTraitEffectEngine:HasLinkDeathPrevent(trait)
     end
 
-    -- M2 Phase C(2026-09-10) - 운명의 동전 링크("동전의 양면": 파티가 받는 피해 낮은 확률로 무효,
-    -- 낮은 확률로 2배) 전용. 본인판(coinFlipDefense, 매 피격마다 확정 50/50)과 달리 링크는 "낮은
-    -- 확률로" 게이트가 먼저 있고, 그 게이트를 통과해야 동일한 50/50이 발동 - PlayerHit이 소비한다.
     method number GetLinkCoinFlipChance(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.coinFlipLink or 0
+        return _LinkTraitEffectEngine:GetLinkCoinFlipChance(trait)
     end
 
-    -- M2 Phase C(2026-09-10) - 변덕 링크("불확실한 운": 처치 시 낮은 확률로 드랍 2배, 낮은 확률로
-    -- 드랍 없음) 전용. 도박꾼의 본인판(dropGamble, 확정 50/50)과 동일한 소비처(Monster.TryDropPotion)를
-    -- 공유하되 "낮은 확률로" 게이트가 먼저 있다.
     method number GetLinkDropGambleChance(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.dropGambleLink or 0
+        return _LinkTraitEffectEngine:GetLinkDropGambleChance(trait)
     end
 
-    -- M2 Phase C(2026-09-10) - 차원의 틈 링크("중력 지원": 크리 시 낮은 확률로 적 이동속도 감소)
-    -- 전용. 본인 특성(onCritPullChance, 몬스터 물리 pull - AI 충돌 리스크로 보류)과 달리 링크는
-    -- 이동속도 감소만 필요해 몬스터 MovementComponent.InputSpeed 직접 조정으로 구현 가능.
-    -- PlayerAttack.CalcCritical이 소비한다. {chance, pct, duration} 형태로 반환.
     method table GetLinkGravitySupport(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.gravitySupportLink
+        return _LinkTraitEffectEngine:GetLinkGravitySupport(trait)
     end
 
-    -- M2 Phase C(2026-09-10) - 명상가 링크("지혜의 등불": 스킬 사용 시 소형 범위 확산) 전용.
-    -- 모든 스킬 종류(근접/원거리/버프 등)에 공통 적용되는 효과라 PlayerSkillComponent.
-    -- DispatchSkillEffect가 킨드 분기와 무관하게 캐스터 주변에 소형 범위 추가 피해를 발동한다.
-    -- {pct} 형태로 반환(현재 AttackDamage 대비 배율).
     method table GetLinkWisdomSpread(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.wisdomSpreadLink
+        return _LinkTraitEffectEngine:GetLinkWisdomSpread(trait)
     end
 
-    -- M2 Phase C(2026-09-10) - 저주의 표식 링크("표식의 저주": 파티 공격이 적에게 표식 부여, 표식
-    -- 대상 피해+8%) 전용. PlayerAttack.CalcDamage가 매 타격마다 대상에 표식을 갱신하고, 이미
-    -- 표식이 있는 대상에게는 가산 피해를 적용한다. {duration, dmgBonus} 형태로 반환.
     method table GetLinkMarkSupport(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.markSupportLink
+        return _LinkTraitEffectEngine:GetLinkMarkSupport(trait)
     end
 
     -- M2 Phase C(2026-09-10) - 저주의 표식(bad)의 basicDesc "타격 시 적 이동속도 감소" 본인판이
@@ -463,22 +364,12 @@ script TraitEffectEngine extends Logic
         return mod.killExplosion
     end
 
-    -- M2 Phase C(2026-09-10) - 폭탄 돌리기 링크("폭심 지원": 크리 시 낮은 확률로 소형 폭발) 전용.
-    -- 본인판(처치 시 확정)과 발동 조건이 다른 별도 채널 - PlayerAttack.OnAttack이 소비한다.
     method table GetLinkKillExplosion(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.killExplosionLink
+        return _LinkTraitEffectEngine:GetLinkKillExplosion(trait)
     end
 
-    -- M2 Phase C(2026-09-10) - 큐브마스터 링크("이능 지원": 이능 선택지가 낮은 확률로 상위 옵션)
-    -- 전용. "상위 옵션"을 미친 과학자(선택 시 수치 2배)와 동일한 배증 개념으로 근사 - "추가 스탯"
-    -- 선택지에만 적용 가능(재분배/특성변경은 배증 개념이 성립하지 않는다는 기존 원칙 그대로).
-    -- PlayerStatsComponent.RequestResolveAbilityChoice가 소비한다.
-    -- M2 Phase C(2026-09-10) - 큐브마스터 링크("이능 지원")와 부패한 계약서 링크("계약 지원":
-    -- 이능 선택지가 낮은 확률로 상위 등급으로 대체)가 문구상 사실상 동일 효과라 같은 채널을 공유.
     method number GetLinkAbilityUpgradeChance(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.abilityUpgradeLink or 0
+        return _LinkTraitEffectEngine:GetLinkAbilityUpgradeChance(trait)
     end
 
     -- M2 Phase C(2026-09-10) - 변덕(bad)의 basicDesc "처치 시 낮은 확률로 드랍 2배" 본인판이
@@ -489,53 +380,22 @@ script TraitEffectEngine extends Logic
         return mod.dropGambleChance or 0
     end
 
-    -- M2 Phase C(2026-09-08) - 신중함 링크("신중한 조언": 런당 1회 파티 첫 피격 피해 20% 경감) 전용.
-    -- 유리몸 링크(firstHitImmune, 전액 무효 + "입장 후"마다 재사용)와 달리 부분 경감 + "런당" 1회.
     method number GetLinkFirstHitReduction(string trait)
-        local mod = self:GetLinkModifiers(trait)
-        return mod.firstHitReduction or 0
+        return _LinkTraitEffectEngine:GetLinkFirstHitReduction(trait)
     end
 
-    -- 링크 효율 보정계수(전체 기획서 §2-6) - 액티브(플레이어블) 캐릭터 본인이 보유한 특성이 자신이
-    -- "받는" 링크 효과 전체에 곱연산으로 적용된다. 링크 캐릭터 쪽 특성이 아니라 본인 특성 기준.
     method number GetLinkEfficiencyMultiplier(string trait, string trait2)
-        if trait == "고독" or trait2 == "고독" then return 0 end
-        if trait == "박애주의자" or trait2 == "박애주의자" then return 3.0 end
-        if trait == "링크 마스터" or trait2 == "링크 마스터" then return 1.2 end
-        if trait == "외골수" or trait2 == "외골수" then return 0.5 end
-        if trait == "친화력" or trait2 == "친화력" then return 1.1 end
-        return 1.0
+        return _LinkTraitEffectEngine:GetLinkEfficiencyMultiplier(trait, trait2)
     end
 
-    -- M2 Phase C(2026-09-08) - 고독의 링크 텍스트("다른 슬롯 링크효율+15%")는 본인 특성이 아니라
-    -- "링크 캐릭터로 편성됐을 때" 발동하는 교차-슬롯 효과라 GetLinkEfficiencyMultiplier(본인 특성
-    -- 기준)와는 다른 입력을 받는다 - 반대편 링크 슬롯의 특성을 확인해서 있으면 곱연산으로 얹는다.
     method number GetLinkEfficiencyMultiplierForSlot(string trait, string trait2, string otherSlotTrait)
-        local base = self:GetLinkEfficiencyMultiplier(trait, trait2)
-        if otherSlotTrait == "고독" then
-            base = base * 1.15
-        end
-        -- M2 Phase C(2026-09-08) - 미친 과학자 링크("공명의 유대": 다른 슬롯 링크효율+10%) 신규
-        -- 연결. 고독 링크와 정확히 같은 메커니즘(다른 슬롯에 편성됐을 때 반대편 슬롯 효율 보정)이라
-        -- 신규 게터/필드 없이 이 함수에 케이스만 추가.
-        if otherSlotTrait == "미친 과학자" then
-            base = base * 1.10
-        end
-        -- M2 Phase C(2026-09-10) - 럭키/언럭키 데이 링크("증폭기": 파티 스탯 계열 링크효과+20%)
-        -- 신규 연결. "스탯 계열"만 분리하려면 ApplyModifiersToStats 구조 변경이 필요해, 고독/미친
-        -- 과학자와 동일하게 링크효율 보정계수 전체에 적용하는 근사로 통일(기존 확립된 원칙).
-        if otherSlotTrait == "럭키/언럭키 데이" then
-            base = base * 1.20
-        end
-        return base
+        return _LinkTraitEffectEngine:GetLinkEfficiencyMultiplierForSlot(trait, trait2, otherSlotTrait)
     end
 
     @ExecSpace("ServerOnly")
     method void ApplyLinkToStats(PlayerStatsComponent stats, string trait, number scale)
-        -- 링크 캐릭터 1명분의 linkEffect를 액티브 캐릭터에게 적용. scale은
-        -- GetLinkEfficiencyMultiplier(본인 특성 기준)가 곱해진 값 - 호출부(RecalculateDerived)에서
-        -- 이미 계산해 넘긴다.
-        self:ApplyModifiersToStats(stats, self:GetLinkModifiers(trait), scale)
+        -- 2026-09-15 코드 구조화 6/9 - 위임 래퍼, 본체는 Traits/LinkTraitEffectEngine.mlua.
+        _LinkTraitEffectEngine:ApplyLinkToStats(stats, trait, scale)
     end
 
     @ExecSpace("ServerOnly")
