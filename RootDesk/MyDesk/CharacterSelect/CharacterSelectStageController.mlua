@@ -210,10 +210,13 @@ script CharacterSelectStageController extends Component
         if roster[idx] ~= nil then
             return
         end
-        if _CharacterRosterLogic:GetDailyRemaining() <= 0 then
-            log("CharacterSelectStage: daily creation limit reached")
-            return
-        end
+        -- 2026-09-14 QA 요청("현재 게임 QA 진행중이니, 캐릭터 생성 제한을 걸어놓지 말고") - 일일
+        -- 생성 제한 게이트를 QA 기간 동안 비활성화. 카운터 자체(dailyRemaining)는 계속 추적·표시되고
+        -- 로직도 그대로 남아있어, QA가 끝나면 아래 if를 다시 활성화하기만 하면 원래 제한으로 복귀.
+        -- if _CharacterRosterLogic:GetDailyRemaining() <= 0 then
+        --     log("CharacterSelectStage: daily creation limit reached")
+        --     return
+        -- end
 
         local stats = self:RollStats()
         -- M2 Phase B(2026-09-06) - 축소 풀(6종)에서 전체 특성 풀(115종, TraitRollLogic의 5풀
@@ -239,7 +242,9 @@ script CharacterSelectStageController extends Component
         -- Starter equipment kit (one of every catalog item, unequipped) - the only item source
         -- for now since there's no shop/loot system yet. See EquipmentLogic.GrantStarterKit.
         _EquipmentLogic:GrantStarterKit(roster[idx])
-        _CharacterRosterLogic:SetDailyRemaining(_CharacterRosterLogic:GetDailyRemaining() - 1)
+        -- 2026-09-14 QA - 위 게이트 비활성화로 QA 중엔 6회를 넘겨도 계속 생성 가능해진 만큼, 카운터가
+        -- 음수로 표시되는 것만 막아둔다(0 하한) - 게이트를 다시 켜면 이 clamp는 그대로 둬도 무해.
+        _CharacterRosterLogic:SetDailyRemaining(math.max(0, _CharacterRosterLogic:GetDailyRemaining() - 1))
         self._T.justCreatedIndex = idx
 
         -- roster[idx].equipment is nil at this point (nothing equipped yet, everything just
