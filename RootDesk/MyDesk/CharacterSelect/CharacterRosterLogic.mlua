@@ -242,38 +242,14 @@ script CharacterRosterLogic extends Logic
 
     @ExecSpace("ClientOnly")
     method void ApplyLookToStandee(Entity standee, table look, table equipment)
-        -- Equips a rolled look onto a standee's AvatarBody child - shared by choice_map's creation
-        -- flow and the Lobby's "other owned characters standing around" display. `equipment` may
-        -- be nil (nothing equipped yet) - forwarded to EquipmentLogic either way, see that
-        -- method's own nil handling.
-        if not isvalid(standee) then
-            return
-        end
-        local avatarBody = standee:GetChildByName("AvatarBody")
-        if not isvalid(avatarBody) then
-            return
-        end
-        local costume = avatarBody.CostumeManagerComponent
-        costume:SetEquip(MapleAvatarItemCategory.Body, look.body)
-        costume:SetEquip(MapleAvatarItemCategory.Hair, look.hair)
-        costume:SetEquip(MapleAvatarItemCategory.Face, look.face)
-        _EquipmentLogic:ApplyEquipmentToAvatar(avatarBody, equipment)
+        -- 2026-09-15 코드 구조화 7/9 - 위임 래퍼, 본체는 CharacterSelect/AvatarLookLogic.mlua.
+        _AvatarLookLogic:ApplyLookToStandee(standee, look, equipment)
     end
 
     @ExecSpace("ServerOnly")
     method void ApplyLookToPlayer(Entity player, table look, table equipment)
-        -- Equips a rolled look onto the real player entity's CostumeManagerComponent. Shared by the
-        -- initial choice_map PLAY entry and the Lobby's character-swap - both just re-skin the same
-        -- player entity, only PLAY additionally teleports.
-        local costume = player.CostumeManagerComponent
-        if not isvalid(costume) then
-            return
-        end
-        costume.UseCustomEquipOnly = true
-        costume:SetEquip(MapleAvatarItemCategory.Body, look.body)
-        costume:SetEquip(MapleAvatarItemCategory.Hair, look.hair)
-        costume:SetEquip(MapleAvatarItemCategory.Face, look.face)
-        _EquipmentLogic:ApplyEquipmentToAvatar(player, equipment)
+        -- 2026-09-15 코드 구조화 7/9 - 위임 래퍼, 본체는 CharacterSelect/AvatarLookLogic.mlua.
+        _AvatarLookLogic:ApplyLookToPlayer(player, look, equipment)
     end
 
     @ExecSpace("Server")
@@ -435,17 +411,14 @@ script CharacterRosterLogic extends Logic
 
     @ExecSpace("Server")
     method void RequestApplyEquipmentToPlayer(table equipment)
-        -- Client->server: re-applies the active character's current equipment onto the real
-        -- player's CostumeManagerComponent after an equip/unequip/scroll change from the
-        -- Equipment UI (see EquipmentUIController). Same ServerOnly-costume-write requirement as
-        -- ApplyLookToPlayer - a ClientOnly SetEquip on the local player would only be a local
-        -- visual override that never reaches the server's authoritative synced value (see
-        -- ShowLocalPlayer's comment above for the same class of Sync-property pitfall).
+        -- 2026-09-15 코드 구조화 7/9 - senderUserId 검증+조회는 RPC가 실제로 도착하는 이 메서드
+        -- 스코프에 남기고(델리게이션에 전달되지 않음), 조회된 player만 넘겨 본체(AvatarLookLogic)를
+        -- 호출한다.
         local player = _UserService:GetUserEntityByUserId(senderUserId)
         if not isvalid(player) then
             return
         end
-        _EquipmentLogic:ApplyEquipmentToAvatar(player, equipment)
+        _AvatarLookLogic:ApplyEquipmentToPlayer(player, equipment)
     end
 
     @ExecSpace("Server")
