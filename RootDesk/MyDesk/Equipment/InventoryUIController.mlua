@@ -149,11 +149,8 @@ script InventoryUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void OnDrag(UITouchDragEvent event)
-        -- Moves the whole window panel by the drag delta - only the title-bar strip
-        -- (dragHandle) generates this event, so clicks inside the item grid are unaffected.
-        if not isvalid(self.cardTransform) then return end
-        local pos = self.cardTransform.anchoredPosition
-        self.cardTransform.anchoredPosition = Vector2(pos.x + event.TouchDelta.x, pos.y + event.TouchDelta.y)
+        -- 2026-09-15 코드 최적화 - 위임, 본체는 UI/WindowHotkeyLogic.ApplyDragDelta.
+        _WindowHotkeyLogic:ApplyDragDelta(self.cardTransform, event)
     end
 
     @ExecSpace("ClientOnly")
