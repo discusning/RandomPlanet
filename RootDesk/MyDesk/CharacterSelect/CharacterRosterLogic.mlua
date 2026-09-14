@@ -351,62 +351,23 @@ script CharacterRosterLogic extends Logic
 
     @ExecSpace("Server")
     method void RequestEnterBattlefield(integer fieldIndex, integer difficultyTier)
-        -- Called from BattlefieldSelectController when the player picks a battlefield from the
-        -- Lobby's field-select popup (1st-floor portal, up-arrow). fieldIndex 1~3 maps to a real
-        -- map's {name, spawn pos}.
-        local fields = {
-            [1] = { name = "토벌전장1", pos = Vector3(0, -2.9, 0) },
-            [2] = { name = "토벌전장2", pos = Vector3(0, 4.68, 0) },
-            [3] = { name = "토벌전장3", pos = Vector3(0, 5.34, 0) },
-        }
-        local field = fields[fieldIndex]
-        if field == nil then
-            log_warning("CharacterRoster: RequestEnterBattlefield, no map wired for fieldIndex=" .. tostring(fieldIndex))
-            return
-        end
+        -- 2026-09-15 코드 구조화 9/9 - senderUserId 검증+조회는 RPC가 실제로 도착하는 이 메서드
+        -- 스코프에 남기고, 조회된 player만 넘겨 본체(Field/FieldTravelLogic.mlua)를 호출한다.
         local player = _UserService:GetUserEntityByUserId(senderUserId)
         if not isvalid(player) then
             return
         end
-        -- 카오스 던전 휴식 보너스와 동일하게 입장 시점에 자동 소모(선택 토글 없음).
-        local profileCode = player.PlayerComponent.ProfileCode
-        local rewardBonus = _RestGaugeLogic:TryConsumeForEntry(profileCode)
-        -- 2026-09-08 QA - 토벌전장 보상 시스템(런종료 재화 등)이 이미 구축된 상태라 신규 연결.
-        local rewardStatsComp = player:GetComponent("script.PlayerStatsComponent")
-        if isvalid(rewardStatsComp) then
-            rewardStatsComp.RestBonusActive = rewardBonus
-            -- 2026-09-08 QA - 유리몸 링크("안전 확보": 파티 입장 후 첫 피격 무효) 신규 연결.
-            -- "입장 후"이므로 런당이 아니라 전장 진입마다 다시 사용 가능해야 한다.
-            rewardStatsComp.FirstHitImmuneUsedThisVisit = false
-        end
-        -- M2 Phase F(2026-09-08) - 난이도 4단계(전체 기획서 §5-1). 목적지 맵의 FieldWaveSpawner가
-        -- 아직 로드/생성되지 않았을 수도 있는 인스턴스 맵 구조가 아니라 항상 존재하는 정적 맵이므로,
-        -- 텔레포트 직전에 tier를 미리 세팅해두면 도착 시점 스폰부터 바로 그 tier로 나간다.
-        local tier = math.max(1, math.min(4, difficultyTier or 1))
-        local targetMap = _EntityService:GetEntityByPath("/maps/" .. field.name)
-        if isvalid(targetMap) then
-            local spawner = targetMap:GetComponent("script.FieldWaveSpawner")
-            if isvalid(spawner) then
-                spawner.DifficultyTier = tier
-            end
-        end
-        log("CharacterRoster: RequestEnterBattlefield fieldIndex=" .. fieldIndex .. " tier=" .. tier .. " rewardBonus=" .. tostring(rewardBonus))
-        _TeleportService:TeleportToMapPosition(player, field.pos, field.name)
+        _FieldTravelLogic:EnterBattlefield(player, fieldIndex, difficultyTier)
     end
 
     @ExecSpace("Server")
     method void RequestReturnToSelect()
-        -- Called from the Lobby's return portal (up-arrow near portal-3, see LobbyStageController).
-        -- Implemented as a direct teleport rather than the native PortalComponent/PortalEntityRef
-        -- pairing - linking a portal's destination through the Maker Property Editor is a manual
-        -- step neither builder can perform (no EntityRef serialization support in either .cjs, see
-        -- Archive/As-built.md Gotchas), and that manual step was missed twice in practice. A custom
-        -- key-check + teleport keeps the whole flow inside AI-editable files.
+        -- 2026-09-15 코드 구조화 9/9 - 위와 동일한 이유로 senderUserId 조회는 여기 남기고 위임.
         local player = _UserService:GetUserEntityByUserId(senderUserId)
         if not isvalid(player) then
             return
         end
-        _TeleportService:TeleportToMapPosition(player, Vector3(-0.276143551, 1.86000013, 0), "choice_map")
+        _FieldTravelLogic:ReturnToSelect(player)
     end
 
     @ExecSpace("Client")
