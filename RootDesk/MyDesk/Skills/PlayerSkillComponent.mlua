@@ -426,6 +426,17 @@ script PlayerSkillComponent extends Component
             attackComp.LastAttackTime = _UtilLogic.ElapsedSeconds
         end
 
+        -- 2026-09-15 버그 수정(유저 리포트 "스킬 사용 직후 후딜레이가 심해서 피격을 피할 수 없다") -
+        -- 스킬 사용 순간에도 일반 피격 무적시간(PlayerHit.IFrameSeconds)과 동일한 창을 부여한다.
+        -- 자세한 근거는 PlayerHit.GrantIFrame의 주석 참고 - 실측으로 이동 자체를 막는 코드는 없음을
+        -- 확인했지만, 이 프로젝트 몬스터가 무제한 추격 범위로 항상 접촉 거리를 유지하다 보니 스킬
+        -- 사용 순간이 하필 몬스터 공격과 겹쳐 "피할 수 없다"고 체감되는 문제를 액션 게임의 표준
+        -- 해법(스킬 사용 시 짧은 무적)으로 해결.
+        local hitComp = self.Entity:GetComponent("script.PlayerHit")
+        if isvalid(hitComp) then
+            hitComp:GrantIFrame()
+        end
+
         -- dash already reads as a motion via its own AddForce impulse - every other kind gets a
         -- body pose here since the "Skill"(Q) action isn't part of PlayerControllerComponent's
         -- auto-state set (only "Attack"/LeftControl is - see msw-avatar SKILL.md), so without this

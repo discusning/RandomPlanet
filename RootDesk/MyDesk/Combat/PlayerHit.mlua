@@ -309,4 +309,21 @@ script PlayerHit extends Component
         end
     end
 
+    @ExecSpace("ServerOnly")
+    method void GrantIFrame()
+        -- 2026-09-15 버그 수정(유저 리포트 "스킬 사용 직후 후딜레이가 심해서 피격을 피할 수 없다") -
+        -- 실측(maker_execute_script로 스킬 사용 직전/직후 같은 프레임에 PlayerControllerComponent.
+        -- Enable / MovementComponent.InputSpeed를 확인): 스킬 시스템 어디에도 이동/입력을 실제로
+        -- 막는 코드가 없음을 확인(둘 다 스킬 사용 전후로 변화 없음) - "몸이 경직된다"는 체감은
+        -- 실제 입력 차단이 아니라, 이 프로젝트 몬스터 AI(FieldMonsterAI.ChaseDetectionRange=999,
+        -- 이전 세션 "마을 복귀 버그" 조사에서 실측 확인 - 몬스터가 거리 무관 플레이어와 동일 속도로
+        -- 영구 추격)가 거의 항상 접촉 거리를 유지해서, 스킬을 쓰는 그 순간 하필 몬스터 공격 주기가
+        -- 겹치는 것 - 즉 스킬을 안 쓰고 가만히 있었어도 마찬가지로 맞았을 상황이 "스킬 탓"으로
+        -- 체감되는 것에 가깝다. 액션 게임의 표준 해법(짧은 스킬 후 무적)을 그대로 적용 - 기존 피격
+        -- 무적시간(IFrameSeconds/LastHitElapsed)을 스킬 사용 시점에도 동일하게 갱신해, "스킬을 쓰는
+        -- 순간만큼은 안전하다"는 손맛과 실제 회피 가능성을 함께 준다. PlayerSkillComponent.
+        -- UseSkillSlot에서 스킬 발동이 확정된 시점에 호출.
+        self.LastHitElapsed = _UtilLogic.ElapsedSeconds
+    end
+
 end
