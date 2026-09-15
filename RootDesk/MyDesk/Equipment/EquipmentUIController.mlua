@@ -89,6 +89,10 @@ script EquipmentUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void Hide()
+        -- 2026-09-15 버그 수정(유저 리포트 "아이템을 다 입고 나서도 아이템 설명 UI가 보이는 현상") -
+        -- Inventory/InventoryUIController.Hide()와 동일한 이유 - 공유 툴팁은 UITouchExitEvent로만
+        -- 닫히는데 창을 닫을 때 커서가 슬롯 밖으로 안 나가면 그 이벤트가 안 떠 툴팁만 남는다.
+        _ItemStatTooltipController:Hide()
         self.Entity.Enable = false
     end
 
@@ -111,6 +115,10 @@ script EquipmentUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void Refresh()
+        -- 2026-09-15 버그 수정(유저 리포트 "아이템을 다 입고 나서도 아이템 설명 UI가 보이는 현상") -
+        -- Inventory/InventoryUIController.Refresh()와 동일한 이유(장비 해제 등으로 슬롯 내용이
+        -- 바뀔 때 커서가 안 움직였으면 UITouchExitEvent가 안 떠 이전 아이템 툴팁이 남는다).
+        _ItemStatTooltipController:Hide()
         local data = self:GetActiveCharacterData()
         if data == nil then
             self:Hide()

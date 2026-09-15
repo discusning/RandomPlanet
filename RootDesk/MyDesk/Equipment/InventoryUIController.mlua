@@ -170,6 +170,12 @@ script InventoryUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void Hide()
+        -- 2026-09-15 버그 수정(유저 리포트 "아이템을 다 입고 나서도 아이템 설명 UI가 보이는 현상") -
+        -- 마우스오버 툴팁(ItemStatTooltipController)은 UITouchExitEvent로만 닫히는데, 이 창 자체를
+        -- 닫을 때(장착 완료 후 자동/수동으로 인벤토리 창을 닫는 경우 등) 커서가 실제로 슬롯 밖으로
+        -- 나가지 않으면 그 이벤트가 안 뜬다 - 창이 사라져도 툴팁만 화면에 남아있던 원인. 창을 닫을
+        -- 때 툴팁도 함께 정리한다.
+        _ItemStatTooltipController:Hide()
         self.Entity.Enable = false
     end
 
@@ -245,6 +251,13 @@ script InventoryUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void Refresh()
+        -- 2026-09-15 버그 수정(유저 리포트 "아이템을 다 입고 나서도 아이템 설명 UI가 보이는 현상") -
+        -- 슬롯 목록이 갱신될 때(장착/사용으로 인벤토리 내용이 바뀔 때)마다 툴팁을 먼저 닫는다.
+        -- 장착 직후 OnSlotClicked가 이 메서드를 호출하는데, 커서가 실제로 그 슬롯 밖으로 나간 게
+        -- 아니라서 UITouchExitEvent가 안 뜬 채 슬롯 내용만 바뀌어(또는 목록이 당겨져 슬롯이 아예
+        -- 비어) 이전 아이템의 스탯 툴팁이 그대로 남아있던 것 - 다시 마우스를 올리면 정확한 내용으로
+        -- 재생성되므로 안전하게 지울 수 있다.
+        _ItemStatTooltipController:Hide()
         local data = self:GetActiveCharacterData()
         if data == nil then
             self:Hide()
