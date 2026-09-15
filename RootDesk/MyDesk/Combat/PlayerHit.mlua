@@ -84,10 +84,13 @@ script PlayerHit extends Component
             return
         end
 
-        -- Interrupts an in-progress battlefield-return channel (Field/BattlefieldReturnLogic) -
-        -- taking a hit cancels the "return scroll" so it can't be used to panic-escape a losing
-        -- fight risk-free.
-        _BattlefieldReturnLogic:CancelChannel("피격")
+        -- Delays an in-progress battlefield-return channel (Field/BattlefieldReturnLogic) - taking
+        -- a hit pushes its completion back rather than aborting it outright, so it can't be used to
+        -- panic-escape a losing fight risk-free, but a real (if imperfect) retreat still eventually
+        -- gets there. See BattlefieldReturnLogic.ChannelSeconds's comment for why a hard cancel-on-
+        -- any-hit made the feature nearly impossible to complete once 2+ monsters were in contact
+        -- range (measured live: monsters chase with unlimited range and match the player's speed).
+        _BattlefieldReturnLogic:InterruptChannel("피격")
         local reduction = isvalid(statsComp) and statsComp.DamageReductionPercent or 0
         local dmg = math.floor(event.TotalDamage * (1 - reduction))
 

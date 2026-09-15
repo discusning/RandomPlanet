@@ -1,7 +1,29 @@
 @Logic
 script BattlefieldReturnLogic extends Logic
 
-    property number ChannelSeconds = 3.0
+    -- 2026-09-15 버그 수정(유저 리포트 "마을 복귀 안 됨") - 실측(maker_execute_script/keyboard_input로
+    -- 여러 차례 재현): 주변 몬스터를 스크립트로 전부 정리한 직후에는 채널이 정상적으로 완료되어
+    -- Lobby로 귀환됨을 확인(코드 경로 자체는 정상 동작) - 하지만 실제 전투 중(몬스터 2~4마리가
+    -- 붙어있는 상태)에는 채널이 시작되자마자(같은 초 안에) 거의 매번 "피격"으로 즉시 취소됐다.
+    -- 근본 원인: FieldMonsterAI.ChaseDetectionRange=999(2026-08-19 유저 요청으로 무제한 추격이라
+    -- 플레이어가 거리를 벌려도 몬스터가 계속 같은 속도로 따라붙음, 실측으로 확인) + MonsterAttack.
+    -- AttackInterval=1.5초 몬스터가 여러 마리 서로 다른 위상으로 공격하면서 "합쳐진 피격 빈도"가
+    -- PlayerHit.IFrameSeconds(0.7초) 바닥에 가깝게 수렴 - 채널 시간을 3.0→1.2초로 줄여도 여전히
+    -- 거의 매번 즉시 취소됨을 재실측으로 확인(몬스터 3~4마리 상시 접촉 상황에서는 1.2초 연속
+    -- 무피격 구간도 사실상 안 나옴). 단순히 채널 시간을 더 줄이는 접근은 한계가 있다고 판단해 -
+    -- 피격 시 "즉시 전체 취소"가 아니라 "완료까지 남은 시간에 페널티를 더하는" 방식으로 변경
+    -- (아래 InterruptChannel). "피격 시 위험 신호"라는 설계 의도(패닉성 즉시 탈출 방지)는
+    -- 그대로 유지하면서도, 실제 시간이 페널티보다 빠르게 흐르는 한(HitPenaltySeconds < 몬스터군의
+    -- 평균 피격 간격) 통계적으로 언젠가 완료 가능해진다 - 완전히 안전해야만 하는 3초 연속 구간을
+    -- 요구하던 기존 방식과 달리, "대체로 안전한" 시도를 누적해서 성공할 수 있다.
+    property number ChannelSeconds = 2.0
+    -- 피격 1회당 남은 시간에 더해지는 페널티. 1차로 1.0초를 넣고 실측했더니 몬스터 3~4마리가
+    -- 상시 접촉한 채로는 "합쳐진" 피격 빈도가 PlayerHit.IFrameSeconds(0.7초) 바닥에 거의 그대로
+    -- 수렴해(초당 약 1회) 페널티(+1.0/hit)와 실제 시간 흐름(-1.0/s)이 거의 상쇄돼 제자리걸음하는
+    -- 것을 확인(ChannelRemaining이 줄지 않고 오히려 소폭 상승) - 최악의 경우(상시 접촉)에도 실제
+    -- 시간이 페널티보다 확실히 더 빨리 흐르도록 0.4로 낮춤(순 감소량 약 -0.6/s로 재실측 확인,
+    -- 완료까지 도달).
+    property number HitPenaltySeconds = 0.4
     property Entity hudGroup = "43095031-9b38-47a9-959b-80a2d79f7c1e"
     property TextGUIRendererComponent hudText = "c1b57bb2-304f-40d6-a3a0-20013efbcfab"
 
@@ -64,7 +86,7 @@ script BattlefieldReturnLogic extends Logic
         -- local reads only.
         self.hudGroup.Enable = self.IsChanneling
         if self.IsChanneling then
-            self.hudText.Text = "귀환 중... " .. string.format("%.1f", math.max(0, self.ChannelRemaining)) .. "초  (피격 시 취소)"
+            self.hudText.Text = "귀환 중... " .. string.format("%.1f", math.max(0, self.ChannelRemaining)) .. "초  (피격 시 지연)"
         end
     end
 
@@ -119,14 +141,28 @@ script BattlefieldReturnLogic extends Logic
 
     @ExecSpace("ServerOnly")
     method void CancelChannel(string reason)
-        -- Called both for voluntary re-press cancellation and for the on-hit interrupt
-        -- (Combat/PlayerHit.mlua's HandleHitEvent).
+        -- Full stop - only for the player's own voluntary re-press (RequestToggleReturn). The
+        -- on-hit interrupt uses InterruptChannel below instead (see the ChannelSeconds comment for
+        -- why a full cancel-on-any-hit made the feature practically unusable).
         if self._T.channeling ~= true then
             return
         end
         self._T.channeling = false
         self.IsChanneling = false
         log("BattlefieldReturn: cancelled (" .. reason .. ")")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void InterruptChannel(string reason)
+        -- Called from Combat/PlayerHit.mlua's HandleHitEvent on every hit that lands during a
+        -- channel. Pushes the completion time back instead of aborting outright - see the
+        -- ChannelSeconds comment above for the measured reasoning (a hard cancel-on-any-hit meant
+        -- the channel almost never survived to completion once 2+ monsters were in contact range).
+        if self._T.channeling ~= true then
+            return
+        end
+        self.ChannelRemaining = self.ChannelRemaining + self.HitPenaltySeconds
+        log("BattlefieldReturn: delayed (" .. reason .. "), remaining=" .. string.format("%.1f", self.ChannelRemaining))
     end
 
 end
