@@ -193,6 +193,14 @@ script EquipmentLogic extends Logic
             table.insert(characterData.inventory, { scrollId = tpl.id })
             table.insert(characterData.inventory, { scrollId = tpl.id })
         end
+        -- 2026-09-15 유저 요청 - 신규 캐릭터가 물약 하나 없이 시작해서(드랍 확률 12%) 포션 시스템을
+        -- 아예 못 만나보는 경우가 많다는 QA 피드백 - HP/MP 물약을 각각 20개씩 기본 지급. 인스턴스
+        -- 구조는 GrantPotionDrop과 동일(1인스턴스=count 필드로 스택), potionId/count 짝만 직접 채워
+        -- 넣는다 - 아직 캐릭터가 로스터에 저장되기 전(SaveRoster 이전) 시점이라 그 RPC를 타지 않고
+        -- 인벤토리 배열에 바로 추가.
+        for _, tpl in ipairs(self:ListPotionTemplates()) do
+            table.insert(characterData.inventory, { potionId = tpl.id, count = 20 })
+        end
     end
 
     @ExecSpace("ClientOnly")
