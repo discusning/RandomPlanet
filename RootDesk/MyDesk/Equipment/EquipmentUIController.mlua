@@ -50,6 +50,14 @@ script EquipmentUIController extends Component
             local capturedSlot = slot
             local h = btn:ConnectEvent(ButtonClickEvent, function() self:OnSlotClicked(capturedSlot) end)
             table.insert(self._T.handlers, { entity = btn, eventType = ButtonClickEvent, eventHandler = h })
+            -- 2026-09-15 유저 요청 - "장비마다 오르는 STR/DEX/INT/LUK가 옛날 메이플스토리에서처럼
+            -- 보일 수 있는 UI" - 장비창 슬롯에 마우스오버하면 클래식 메이플스토리류 아이템 스탯
+            -- 툴팁을 띄운다(ItemStatTooltipController, 인벤토리 창과 공유). UITouchEnter/ExitEvent는
+            -- add_tooltip_touch_receivers.cjs가 각 슬롯에 추가한 UITouchReceiveComponent가 쏜다.
+            local hEnter = btn:ConnectEvent(UITouchEnterEvent, function(event) self:OnSlotHoverEnter(capturedSlot, event) end)
+            table.insert(self._T.handlers, { entity = btn, eventType = UITouchEnterEvent, eventHandler = hEnter })
+            local hExit = btn:ConnectEvent(UITouchExitEvent, function() _ItemStatTooltipController:Hide() end)
+            table.insert(self._T.handlers, { entity = btn, eventType = UITouchExitEvent, eventHandler = hExit })
         end
 
         if isvalid(self.dragHandle) then
@@ -138,6 +146,19 @@ script EquipmentUIController extends Component
                 text.Text = slotLabels[slot]
             end
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotHoverEnter(string slot, UITouchEnterEvent event)
+        local data = self:GetActiveCharacterData()
+        if data == nil then return end
+        local inst = (data.equipment or {})[slot]
+        if inst == nil then
+            -- 빈 슬롯(장착된 장비 없음) - 보여줄 스탯이 없으므로 그냥 무시.
+            return
+        end
+        local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
+        _ItemStatTooltipController:ShowForItem(tpl, inst, event.TouchPoint)
     end
 
     @ExecSpace("ClientOnly")

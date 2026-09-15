@@ -124,6 +124,15 @@ script InventoryUIController extends Component
             local capturedIndex = i
             local h = btn:ConnectEvent(ButtonClickEvent, function() self:OnSlotClicked(capturedIndex) end)
             table.insert(self._T.handlers, { entity = btn, eventType = ButtonClickEvent, eventHandler = h })
+            -- 2026-09-15 유저 요청 - "장비마다 오르는 STR/DEX/INT/LUK가 옛날 메이플스토리에서처럼
+            -- 보일 수 있는 UI" - 장비 슬롯에 마우스오버하면 클래식 메이플스토리류 아이템 스탯
+            -- 툴팁을 띄운다(ItemStatTooltipController, 인벤토리/장비 두 창이 공유). UITouchEnter/
+            -- ExitEvent는 add_tooltip_touch_receivers.cjs가 각 슬롯에 추가한 UITouchReceiveComponent가
+            -- 쏜다 - 기존 ButtonComponent 클릭 동작과는 별개 이벤트라 클릭 로직은 그대로 유지된다.
+            local hEnter = btn:ConnectEvent(UITouchEnterEvent, function(event) self:OnSlotHoverEnter(capturedIndex, event) end)
+            table.insert(self._T.handlers, { entity = btn, eventType = UITouchEnterEvent, eventHandler = hEnter })
+            local hExit = btn:ConnectEvent(UITouchExitEvent, function() _ItemStatTooltipController:Hide() end)
+            table.insert(self._T.handlers, { entity = btn, eventType = UITouchExitEvent, eventHandler = hExit })
         end
 
         for _, tab in ipairs(self._T.tabs) do
@@ -298,6 +307,22 @@ script InventoryUIController extends Component
                 end
             end
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotHoverEnter(integer visualIndex, UITouchEnterEvent event)
+        -- 장비(itemId) 슬롯만 클래식 메이플스토리류 스탯 툴팁 대상 - 주문서/물약/기타는 스탯을
+        -- 올려주지 않으므로 대상 아님(마우스오버해도 아무 반응 없음, 장비만 반응).
+        local data = self:GetActiveCharacterData()
+        if data == nil then return end
+        local inventory = data.inventory or {}
+        local categoryItems = self:GetCategoryItems(inventory, self._T.activeCategory)
+        local entry = categoryItems[visualIndex]
+        if entry == nil or entry.inst.itemId == nil then
+            return
+        end
+        local tpl = _EquipmentLogic:GetItemTemplate(entry.inst.itemId)
+        _ItemStatTooltipController:ShowForItem(tpl, entry.inst, event.TouchPoint)
     end
 
     @ExecSpace("ClientOnly")

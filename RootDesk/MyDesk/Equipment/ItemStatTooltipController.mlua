@@ -1,0 +1,85 @@
+@Logic
+script ItemStatTooltipController extends Logic
+    -- 2026-09-15 유저 요청 - "장비마다 오르는 STR/DEX/INT/LUK가 옛날 메이플스토리에서처럼 보일 수
+    -- 있는 UI" - 인벤토리/장비 창에서 장비 아이템 슬롯에 마우스오버(UITouchEnterEvent)하면 클래식
+    -- 메이플스토리류(메이플랜드/메이플플래닛) 아이템 툴팁 스타일로 이름 + 보너스 스탯을 보여준다.
+    -- 두 창(InventoryUIController/EquipmentUIController)이 공유하는 단일 오버레이라 @Logic으로
+    -- 분리 - 어느 창에서 호출해도 동일한 툴팁 인스턴스 하나만 존재.
+    property UITransformComponent panelTransform = "52cf684b-c931-4d02-8df2-f9249df65335"
+    property SpriteGUIRendererComponent iconSprite = "e55bfc00-1941-4736-ae04-742f4bce8a28"
+    property TextGUIRendererComponent nameText = "b177f097-2911-4c35-a043-b5a3d47ddd32"
+    property TextGUIRendererComponent statStrText = "af3ef5aa-a246-4ab3-88be-aaff1f0be0cf"
+    property TextGUIRendererComponent statDexText = "4123c04f-7cfc-4c0f-9b61-2a5bef5c8084"
+    property TextGUIRendererComponent statIntText = "5c173158-cf61-404e-b0eb-ca57d564e771"
+    property TextGUIRendererComponent statLukText = "67de74d9-67b6-4368-8d1d-89c9e06c730e"
+    property TextGUIRendererComponent upgradeText = "0222a7cc-3e11-4e05-a1c6-bf6c39a87091"
+
+    -- Panel pivot은 top-left라 anchoredPosition이 곧 툴팁의 좌상단 모서리 - 스탯 라인은 이 값
+    -- 기준 로컬 좌표. statStartY/lineSpacing은 .ui 빌드 시 배치한 첫 스탯 줄 위치와 반드시 맞춰야
+    -- 한다(빌드 스크립트: build_item_tooltip.cjs 참고).
+    property number statStartY = -58
+    property number lineSpacing = 22
+    property number statX = 14
+    property number panelWidth = 210
+    property number panelHeight = 190
+    -- 커서 위치에서 살짝 떨어뜨려 표시(오른쪽 아래로) - 커서에 완전히 가려지지 않도록.
+    property number offsetX = 18
+    property number offsetY = -8
+
+    @ExecSpace("ClientOnly")
+    method void ShowForItem(table tpl, table inst, Vector2 touchPoint)
+        -- tpl = EquipmentLogic.GetItemTemplate(...) 결과(name/ruid/bonusStr.../maxUpgradeSlots).
+        -- inst = 인벤토리/장비의 실제 인스턴스(upgradesUsed 표시용, nil이면 강화 줄 생략).
+        if tpl == nil or not isvalid(self.panelTransform) then
+            return
+        end
+        self.nameText.Text = tpl.name or "?"
+        if tpl.ruid ~= nil and tpl.ruid ~= "" then
+            self.iconSprite.ImageRUID = DataRef("thumbnail://" .. tpl.ruid)
+        end
+
+        -- 0인 스탯 라인은 숨기고, 보이는 라인끼리는 빈 줄 없이 위로 당겨 붙인다(진짜 메이플스토리
+        -- 툴팁처럼 "이 장비가 실제로 올려주는 스탯만" 보이도록).
+        local lines = {
+            { label = "STR", value = tpl.bonusStr or 0, text = self.statStrText },
+            { label = "DEX", value = tpl.bonusDex or 0, text = self.statDexText },
+            { label = "INT", value = tpl.bonusInt or 0, text = self.statIntText },
+            { label = "LUK", value = tpl.bonusLuk or 0, text = self.statLukText },
+        }
+        local y = self.statStartY
+        for _, line in ipairs(lines) do
+            if line.value > 0 then
+                line.text.Text = line.label .. " : +" .. line.value
+                line.text.Entity.UITransformComponent.anchoredPosition = Vector2(self.statX, y)
+                line.text.Entity.Enable = true
+                y = y - self.lineSpacing
+            else
+                line.text.Entity.Enable = false
+            end
+        end
+
+        if inst ~= nil and tpl.maxUpgradeSlots ~= nil then
+            self.upgradeText.Text = "강화 가능: " .. (inst.upgradesUsed or 0) .. " / " .. tpl.maxUpgradeSlots
+            self.upgradeText.Entity.UITransformComponent.anchoredPosition = Vector2(self.statX, y - 6)
+            self.upgradeText.Entity.Enable = true
+        else
+            self.upgradeText.Entity.Enable = false
+        end
+
+        -- 커서 근처에 배치하되, 화면 오른쪽/아래 경계를 넘지 않도록 클램프(패널 pivot이 top-left라
+        -- 우측/하단 경계 체크만으로 충분 - 좌측/상단으로 넘어갈 일은 사실상 없음).
+        local uiPos = _UILogic:ScreenToUIPosition(touchPoint)
+        local x = math.min(uiPos.x + self.offsetX, 960 - self.panelWidth)
+        local posY = math.max(uiPos.y + self.offsetY, -540 + self.panelHeight)
+        self.panelTransform.anchoredPosition = Vector2(x, posY)
+        self.panelTransform.Entity.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        if isvalid(self.panelTransform) then
+            self.panelTransform.Entity.Enable = false
+        end
+    end
+
+end
