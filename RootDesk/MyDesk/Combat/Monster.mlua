@@ -95,13 +95,17 @@ script Monster extends Component
         -- Client RPC로 분리.
         local burstType = self.IsBoss and BasicParticleType.BigExplosion or BasicParticleType.SmallExplosion
         _ParticleService:PlayBasicParticle(burstType, self.Entity, Vector3(worldPos.x, worldPos.y, 0), 0, Vector3.one, false)
-        if isvalid(event.AttackerEntity) then
-            local attackerPlayer = event.AttackerEntity.PlayerComponent
+        -- 2026-09-16 버그 수정(유저 리포트 "원거리 스킬로 몬스터를 처치 시 경험치가 오르지 않는
+        -- 버그") - 아래 ResolveAttackerPlayer 참고. event.AttackerEntity를 그대로 쓰면 원거리/투사체
+        -- 스킬 처치는 XP도, 처치 카메라 셰이크(PlayKillImpact)도 전부 조용히 빠졌다.
+        local resolvedAttacker = self:ResolveAttackerPlayer(event.AttackerEntity)
+        if isvalid(resolvedAttacker) then
+            local attackerPlayer = resolvedAttacker.PlayerComponent
             if isvalid(attackerPlayer) then
                 _CombatFeelLogic:PlayKillImpact(self.IsBoss, attackerPlayer.UserId)
             end
         end
-        self:GrantXpToAttacker(event.AttackerEntity)
+        self:GrantXpToAttacker(resolvedAttacker)
         self:Dead()
         if self.RespawnOn then
             _TimerService:SetTimerOnce(function() self:Respawn() end, self.RespawnDelay)
@@ -140,14 +144,39 @@ script Monster extends Component
         -- 여기선 항상 일반(non-boss) 변주만 재생.
         local pos = self.Entity.TransformComponent.WorldPosition
         _ParticleService:PlayBasicParticle(BasicParticleType.SmallExplosion, self.Entity, Vector3(pos.x, pos.y, 0), 0, Vector3.one, false)
-        if isvalid(attacker) then
-            local attackerPlayer = attacker.PlayerComponent
+        -- attacker is already the real player entity here (PlayerAttack.OnAttack calls this with
+        -- self.Entity, and ProjectileAttackComponent.OnAttack delegates to the OWNER's PlayerAttack
+        -- so self.Entity resolves to the owner there too) - still routed through
+        -- ResolveAttackerPlayer for defense-in-depth/consistency with HandleHitEvent above.
+        local resolvedAttacker = self:ResolveAttackerPlayer(attacker)
+        if isvalid(resolvedAttacker) then
+            local attackerPlayer = resolvedAttacker.PlayerComponent
             if isvalid(attackerPlayer) then
                 _CombatFeelLogic:PlayKillImpact(false, attackerPlayer.UserId)
             end
         end
-        self:GrantXpToAttacker(attacker)
+        self:GrantXpToAttacker(resolvedAttacker)
         self:Dead()
+    end
+
+    @ExecSpace("ServerOnly")
+    method Entity ResolveAttackerPlayer(Entity attacker)
+        -- 2026-09-16 버그 수정(유저 리포트 "원거리 스킬로 몬스터를 처치 시 경험치가 오르지 않는
+        -- 버그") - 근접 스킬은 플레이어 본인의 PlayerAttack이 직접 AttackFast를 쏘므로 HitEvent의
+        -- 공격자가 항상 플레이어 엔티티다. 하지만 원거리/투사체 스킬은 ProjectileComponent.OnHit이
+        -- "투사체 자신의" AttackComponent로 AttackFrom을 쏘기 때문에, HitEvent.AttackerEntity가
+        -- 플레이어가 아니라 투사체 엔티티 자체로 채워진다(실측: maker_execute_script로 확인, 로그에
+        -- "attackerName=skillproj_3"). 투사체 엔티티에는 PlayerComponent/PlayerStatsComponent가
+        -- 없어 XP 지급(GrantXpToAttacker)과 처치 카메라 셰이크(PlayKillImpact) 모두 조용히
+        -- 스킵됐다 - ProjectileAttackComponent가 스폰 시점에 기록해둔 실제 발사자(GetOwner)로
+        -- 되돌린다.
+        if not isvalid(attacker) then return nil end
+        if isvalid(attacker.PlayerComponent) then return attacker end
+        local projAttack = attacker:GetComponent("script.ProjectileAttackComponent")
+        if isvalid(projAttack) then
+            return projAttack:GetOwner()
+        end
+        return attacker
     end
 
     @ExecSpace("ServerOnly")

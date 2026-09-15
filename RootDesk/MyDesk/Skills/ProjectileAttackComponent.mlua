@@ -22,6 +22,17 @@ script ProjectileAttackComponent extends AttackComponent
         self._T.owner = owner
     end
 
+    method Entity GetOwner()
+        -- 2026-09-16 버그 수정(유저 리포트 "원거리 스킬로 몬스터를 처치 시 경험치가 오르지 않는
+        -- 버그") - Monster.GrantXpToAttacker(아래)가 event.AttackerEntity에서 PlayerStatsComponent를
+        -- 찾을 때 쓴다. 원거리 판정은 ProjectileComponent.OnHit이 자기 자신(투사체 엔티티)의
+        -- AttackComponent로 AttackFrom을 쏘기 때문에, HitEvent.AttackerEntity가 실제 플레이어가
+        -- 아니라 투사체 엔티티 자체로 채워진다(근접 스킬은 플레이어 본인의 PlayerAttack이 직접
+        -- AttackFast를 쏘므로 이 문제가 없다) - 투사체 엔티티에는 PlayerStatsComponent가 없어
+        -- GrantXpToAttacker가 조용히 아무것도 지급하지 않고 리턴했다.
+        return self._T.owner
+    end
+
     method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
         -- 위임하지 않음 - self.Damage는 스폰 시점에 이미 스킬 계수(coef)까지 반영된 값이라,
         -- PlayerAttack.CalcDamage(self.AttackDamage 기준)로 위임하면 그 계수 스케일링이 깨진다.
