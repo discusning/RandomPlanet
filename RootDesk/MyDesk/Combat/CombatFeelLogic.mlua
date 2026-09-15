@@ -28,6 +28,17 @@ script CombatFeelLogic extends Logic
     property number KillShakeDuration = 0.12
     property number BossKillShakeIntensity = 0.9
     property number BossKillShakeDuration = 0.4
+    -- 2026-09-15 버그 수정(유저 리포트 "몬스터 처치 시 캐릭터가 잠시 움직이지 않는 것처럼 보임") -
+    -- PlayerAttack의 한 번의 AttackFast 스윙이 겹쳐 있는 몬스터 여러 마리를 동시에 처치할 수 있다
+    -- (실측: maker_execute_script로 폭 4칸 박스 공격 1회에 몬스터 6마리 동시 처치 확인). 처치마다
+    -- Monster.HandleHitEvent -> PlayKillImpact가 개별 호출되면서 같은 프레임에 ShakeCamera가
+    -- 여러 번 겹쳐 걸린다 - 매번 새 셰이크가 재시작되며 화면이 계속 흔들리는 상태가 이어져, 실제로는
+    -- 캐릭터가 정상 이동 중이어도 카메라가 한자리에서 떠는 것처럼 보여 "움직이지 않는 것" 같은
+    -- 착시를 만든다. 크리티컬 히트스탑(위 CritTimeScale)과 동일한 부류의 "짧은 시간 내 중복 트리거"
+    -- 문제라, 같은 해결 패턴(쿨다운 게이트)을 재사용 - 이 짧은 윈도우 안의 후속 처치는 셰이크를
+    -- 생략(파티클/XP 등 나머지 처치 피드백은 그대로 유지, 카메라 연출만 1회로 묶는다).
+    property number KillShakeCooldownSeconds = 0.15
+    @HideFromInspector property number LastKillShakeTime = -999
     -- 2026-09-12 추가 업그레이드 - 피격 플래시(Zelda/Hollow Knight류 관행). 지속시간을 i-frame
     -- (PlayerHit.IFrameSeconds=0.5)보다 훨씬 짧게 잡아 같은 피격 안에서 여러 색이 겹치지 않게 한다.
     property number HitFlashDuration = 0.12
@@ -96,6 +107,10 @@ script CombatFeelLogic extends Logic
         -- 몬스터 처치 순간 처치자 클라이언트에게만 짧은 카메라 셰이크를 준다(처치 파티클 자체는
         -- Monster.HandleHitEvent가 ServerOnly에서 직접 _ParticleService로 재생 - 모든 클라이언트에
         -- 보여야 하는 월드 이펙트라 굳이 개별 RPC 불필요, 여기서는 "손맛" 담당인 카메라 셰이크만).
+        if _UtilLogic.ElapsedSeconds - self.LastKillShakeTime < self.KillShakeCooldownSeconds then
+            return
+        end
+        self.LastKillShakeTime = _UtilLogic.ElapsedSeconds
         local intensity = isBossKill and self.BossKillShakeIntensity or self.KillShakeIntensity
         local duration = isBossKill and self.BossKillShakeDuration or self.KillShakeDuration
         log("CombatFeel: 처치 임팩트 발동 (boss=" .. tostring(isBossKill) .. ")")

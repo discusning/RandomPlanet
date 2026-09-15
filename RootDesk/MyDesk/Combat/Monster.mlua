@@ -76,18 +76,25 @@ script Monster extends Component
         -- Applies incoming damage and triggers death once HP reaches 0.
         local originalHp = self.Hp
         self.Hp = self.Hp - event.TotalDamage
+        -- 2026-09-15 버그 수정(유저 리포트 "처치 시 맵 중앙 상단에서 이펙트 터짐") - HitEvent.AttackCenter는
+        -- 생성자 기본값이 Vector2(0,0)이고, HitComponent.OnHit의 기본 동작(HitEvent 발생)에는 공격
+        -- 위치를 넘겨받는 파라미터 자체가 없다 - 즉 AttackFast 경로로는 실제 공격 좌표가 채워지지
+        -- 않고 항상 (0,0)으로 남는다. 실측(maker_execute_script로 몬스터 6마리를 동시에 처치)으로
+        -- 확인: 서로 다른 월드 좌표의 몬스터 6마리 모두 AttackCenter=(0.0,0.0)으로 동일하게 로그됨.
+        -- 월드 원점(0,0)이 실제 플레이 영역(y≈-5.5 부근)보다 한참 위쪽이라 "맵 중앙 상단에 고정된
+        -- 위치에서 이펙트가 터지는" 증상과 정확히 일치. 고정: AttackCenter 대신 몬스터 자신의 실제
+        -- 월드 좌표(TransformComponent.WorldPosition)를 이펙트/파티클 위치로 사용한다.
+        local worldPos = self.Entity.TransformComponent.WorldPosition
         if self.HitVfxRuid ~= "" then
-            _EffectService:PlayEffect(self.HitVfxRuid, self.Entity, Vector3(event.AttackCenter.x, event.AttackCenter.y, 0), 0, Vector3(1, 1, 1), false)
+            _EffectService:PlayEffect(self.HitVfxRuid, self.Entity, Vector3(worldPos.x, worldPos.y, 0), 0, Vector3(1, 1, 1), false)
         end
         if self.Hp > 0 or originalHp <= 0 then return end
         -- 2026-09-12 시스템 업그레이드 - 처치 임팩트("킬 피드백", RoR2/Hades류 액션 게임 관행).
         -- 파티클 버스트는 모든 관전자에게 보여야 하는 월드 이펙트라 서버(ServerOnly인 이 핸들러)가
-        -- 직접 재생 - 위의 HitVfxRuid 히트 스파크와 동일한 호출 패턴(_EffectService:PlayEffect가
-        -- 이미 이 자리에서 서버 사이드로 정상 동작 중이므로 같은 계열인 _ParticleService도 동일하게
-        -- 동작할 것으로 판단, 실측으로 확정 예정). 카메라 셰이크만 처치자 본인에게 국한되는 개인
-        -- 연출이라 CombatFeelLogic의 Client RPC로 분리.
+        -- 직접 재생. 카메라 셰이크만 처치자 본인에게 국한되는 개인 연출이라 CombatFeelLogic의
+        -- Client RPC로 분리.
         local burstType = self.IsBoss and BasicParticleType.BigExplosion or BasicParticleType.SmallExplosion
-        _ParticleService:PlayBasicParticle(burstType, self.Entity, Vector3(event.AttackCenter.x, event.AttackCenter.y, 0), 0, Vector3.one, false)
+        _ParticleService:PlayBasicParticle(burstType, self.Entity, Vector3(worldPos.x, worldPos.y, 0), 0, Vector3.one, false)
         if isvalid(event.AttackerEntity) then
             local attackerPlayer = event.AttackerEntity.PlayerComponent
             if isvalid(attackerPlayer) then
