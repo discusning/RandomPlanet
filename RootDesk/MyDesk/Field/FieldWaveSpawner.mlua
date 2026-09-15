@@ -42,7 +42,11 @@ script FieldWaveSpawner extends Component
     -- 스폰(모델 자체의 기본값은 전장1 기준, 전장2/3은 이 프로퍼티들을 배치 시 오버라이드).
     property string MiniBossModelId = "fieldminiboss"
     property number MiniBossMaxHp = 400
-    property number MiniBossAttackDamage = 16
+    -- 2026-09-15 몬스터 밸런스 조율(유저 리포트 "플레이어 대비 몬스터가 너무 강력함") - 레벨1
+    -- 캐릭터가 전장1에 진입해 가만히 서 있기만 해도 ~11초 만에 킬 0회로 사망하는 것을 실측
+    -- 확인(FieldMonster1.AttackDamage=8 기준) - 일반 몹 공격력을 티어별로 약 33~38% 인하하면서
+    -- 미니보스도 동일 비율로 함께 인하해 상대적 난이도 곡선은 유지한다.
+    property number MiniBossAttackDamage = 11
     property number MiniBossInputSpeed = 0.9
     property integer MiniBossXpReward = 250
     property string MiniBossName = "킹 슬라임"

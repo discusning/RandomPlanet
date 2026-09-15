@@ -11,7 +11,11 @@ script PlayerHit extends Component
     -- routinely produce as waves escalate. A short shared i-frame after any hit caps burst damage
     -- from simultaneous attackers to roughly one hit's worth, independent of how many monsters are
     -- touching the player - the standard fix for this class of problem in action games.
-    property number IFrameSeconds = 0.5
+    -- 2026-09-15 몬스터 밸런스 조율 - 개별 몬스터 공격력 인하(FieldMonster1~3.model,
+    -- FieldWaveSpawner.MiniBossAttackDamage)와 별개로, 여러 몬스터가 동시에 접촉했을 때의 순간
+    -- 화력총량도 함께 낮추기 위해 0.5 -> 0.7로 소폭 확대(3마리 이상이 몰리는 후반 웨이브에서 특히
+    -- 체감 차이가 큼).
+    property number IFrameSeconds = 0.7
     @HideFromInspector property number LastHitElapsed = -999
 
     @ExecSpace("ServerOnly")
