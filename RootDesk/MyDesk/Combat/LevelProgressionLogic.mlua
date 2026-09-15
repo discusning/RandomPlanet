@@ -57,7 +57,7 @@ script LevelProgressionLogic extends Logic
             levelsGained = levelsGained + 1
         end
         if leveledUp then
-            stats:RecalculateDerived()
+            stats:RecalculateDerived(true)
             -- 2026-09-12 시스템 업그레이드 - 레벨업 임팩트(Diablo/WoW류 "레벨업 발광" 관행). 지금까지
             -- 레벨업은 숫자 텍스트가 바뀌는 것 말고는 화면상 아무 반응이 없었다. 여러 레벨을 한 번에
             -- 얻어도(다중 처치 XP 몰림 등) 한 번만 재생 - 몬스터 처치 파티클(Monster.HandleHitEvent)과
@@ -184,7 +184,7 @@ script LevelProgressionLogic extends Logic
                 stats.Trait2 = _TraitRollLogic:RollDifferentTrait(stats.Trait)
             end
             log("PlayerStats: 3차 전직 추가 특성 획득 -> " .. stats.Trait2)
-            stats:RecalculateDerived()
+            stats:RecalculateDerived(true)
         end
     end
 

@@ -350,15 +350,17 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("Server")
-    method void RequestApplyEquipmentToPlayer(table equipment)
+    method void RequestApplyEquipmentToPlayer(table equipment, integer str, integer dex, integer intel, integer luk)
         -- 2026-09-15 코드 구조화 7/9 - senderUserId 검증+조회는 RPC가 실제로 도착하는 이 메서드
         -- 스코프에 남기고(델리게이션에 전달되지 않음), 조회된 player만 넘겨 본체(AvatarLookLogic)를
         -- 호출한다.
+        -- 2026-09-15 - 장비 변경 후 전투 스탯 미반영 버그 수정 계기로 str/dex/intel/luk(장비 보너스
+        -- 포함 유효 스탯, 호출부가 EquipmentLogic:GetEffectiveStat으로 계산) 파라미터 추가.
         local player = _UserService:GetUserEntityByUserId(senderUserId)
         if not isvalid(player) then
             return
         end
-        _AvatarLookLogic:ApplyEquipmentToPlayer(player, equipment)
+        _AvatarLookLogic:ApplyEquipmentToPlayer(player, equipment, str, dex, intel, luk)
     end
 
     @ExecSpace("Server")

@@ -41,7 +41,7 @@ script AvatarLookLogic extends Logic
     end
 
     @ExecSpace("ServerOnly")
-    method void ApplyEquipmentToPlayer(Entity player, table equipment)
+    method void ApplyEquipmentToPlayer(Entity player, table equipment, integer str, integer dex, integer intel, integer luk)
         -- Post-validation body of CharacterRosterLogic.RequestApplyEquipmentToPlayer - the
         -- senderUserId check + player lookup stays in that wrapper (senderUserId is only valid in
         -- the method the RPC actually lands on, not in a delegated call - see this project's
@@ -52,6 +52,15 @@ script AvatarLookLogic extends Logic
         -- a ClientOnly SetEquip on the local player would only be a local visual override that
         -- never reaches the server's authoritative synced value.
         _EquipmentLogic:ApplyEquipmentToAvatar(player, equipment)
+        -- 2026-09-15 유저 리포트 "장비 착용해도 전투력 반영 안 됨" 수정 - 지금까지 이 메서드는
+        -- 코스튬(겉모습)만 갱신하고 전투 스탯은 전혀 재계산하지 않았다. 인벤토리(로스터)가 전부
+        -- ClientOnly라 서버는 장비 보너스를 직접 알 수 없으므로, 호출부(InventoryUIController/
+        -- EquipmentUIController)가 EquipmentLogic:GetEffectiveStat으로 미리 계산해 보낸 유효 스탯을
+        -- PlayerStatsComponent에 반영해 공격력/명중 등 파생 스탯도 함께 갱신한다.
+        local statsComp = player:GetComponent("script.PlayerStatsComponent")
+        if isvalid(statsComp) then
+            statsComp:RefreshEquipmentStats(str, dex, intel, luk)
+        end
     end
 
 end

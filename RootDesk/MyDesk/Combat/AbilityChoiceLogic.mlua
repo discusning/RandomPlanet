@@ -27,7 +27,7 @@ script AbilityChoiceLogic extends Logic
         stats.Dex = stats.Dex + 3
         stats.Intel = stats.Intel + 3
         stats.Luk = stats.Luk + 3
-        stats:RecalculateDerived()
+        stats:RecalculateDerived(true)
         log("PlayerStats: GrantPremiumStatBonus -> str=" .. stats.Str .. " dex=" .. stats.Dex .. " intel=" .. stats.Intel .. " luk=" .. stats.Luk)
     end
 
@@ -143,7 +143,7 @@ script AbilityChoiceLogic extends Logic
             stats.LinkMasterBuffExpireElapsed = _UtilLogic.ElapsedSeconds + 3
             log("PlayerStats: 링크 마스터 각성 발동 (3초간 공격력+50%)")
         end
-        stats:RecalculateDerived()
+        stats:RecalculateDerived(true)
         log("PlayerStats: RequestResolveAbilityChoice choice=" .. choice .. " -> str=" .. stats.Str .. " dex=" .. stats.Dex .. " intel=" .. stats.Intel .. " luk=" .. stats.Luk .. " trait=" .. stats.Trait .. " remainingPending=" .. stats.PendingAbilityChoices)
         self:MaybeOpenNextAbilityChoice(stats)
     end

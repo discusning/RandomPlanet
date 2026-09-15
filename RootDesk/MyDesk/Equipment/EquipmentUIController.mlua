@@ -183,7 +183,12 @@ script EquipmentUIController extends Component
         end
 
         if changed then
-            _CharacterRosterLogic:RequestApplyEquipmentToPlayer(data.equipment)
+            -- 2026-09-15 - 장비 변경 후 전투 스탯 미반영 버그 수정 계기로 유효 스탯(기본값+장비
+            -- 보너스)도 함께 서버에 전달(코스튬만 갱신되고 공격력 등은 그대로였던 문제). 이 창의
+            -- "changed"는 장착/해제/주문서 강화 세 경로를 모두 포괄하므로 한 곳에서 처리 충분.
+            _CharacterRosterLogic:RequestApplyEquipmentToPlayer(data.equipment,
+                _EquipmentLogic:GetEffectiveStat(data, "str"), _EquipmentLogic:GetEffectiveStat(data, "dex"),
+                _EquipmentLogic:GetEffectiveStat(data, "int"), _EquipmentLogic:GetEffectiveStat(data, "luk"))
             _CharacterRosterLogic:SaveRoster()
         end
         self:Refresh()
