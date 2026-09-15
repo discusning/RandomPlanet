@@ -36,6 +36,14 @@ script KeyBindingLogic extends Logic
         --     These have no native action-key equivalent - WindowHotkeyLogic polls
         --     GetUiToggleActionForKey() on every KeyDownEvent instead of going through
         --     PlayerControllerComponent, since that pipeline is combat-action-only.
+        --   "itemAction" (2026-09-15 유저 요청 - "소비아이템 중 사용 가능 아이템은 키보드 세팅에
+        --     들어갈 수 있게") - 물약처럼 "즉시 사용" 소비아이템 전용. 실제 메이플스토리 키 설정도
+        --     아이템(물약) 단축키와 스킬/기능 단축키를 같은 창에서 드래그로 배정하는 방식이라 동일
+        --     구조로 확장 - WindowHotkeyLogic이 GetItemActionForKey()로 폴링해
+        --     EquipmentLogic:UseFirstPotionOfType(...)을 호출한다. 주문서(scrollId)는 장비에 직접
+        --     부여하는 강화 아이템이라 "즉시 사용" 개념 자체가 없어 - 실제 메이플스토리에서도
+        --     주문서는 인벤토리에서 장비에 드래그해 적용하지 키 단축키로 쓰지 않는다 - 의도적으로
+        --     itemAction에 넣지 않는다.
         return {
             { actionName = "Attack", displayName = "공격", defaultKey = KeyboardKey.LeftControl, kind = "controllerAction" },
             { actionName = "Skill", displayName = "스킬1", defaultKey = KeyboardKey.Q, kind = "controllerAction" },
@@ -44,6 +52,8 @@ script KeyBindingLogic extends Logic
             { actionName = "Equipment", displayName = "장비", defaultKey = KeyboardKey.E, kind = "uiToggle" },
             { actionName = "CharacterInfo", displayName = "캐릭터정보", defaultKey = KeyboardKey.C, kind = "uiToggle" },
             { actionName = "SkillWindow", displayName = "스킬창", defaultKey = KeyboardKey.K, kind = "uiToggle" },
+            { actionName = "UseHpPotion", displayName = "HP 포션", defaultKey = KeyboardKey.Alpha1, kind = "itemAction" },
+            { actionName = "UseMpPotion", displayName = "MP 포션", defaultKey = KeyboardKey.Alpha2, kind = "itemAction" },
             -- "fieldAction" - not a controllerAction (no PlayerControllerComponent equivalent) and
             -- not a uiToggle (doesn't open a bottom-bar window) - Field/BattlefieldReturnLogic reads
             -- GetKeyForAction("ReturnToLobby") directly instead of going through
@@ -78,6 +88,22 @@ script KeyBindingLogic extends Logic
         end
         for _, entry in ipairs(self._T.registry) do
             if entry.kind == "uiToggle" and self._T.currentKeys[entry.actionName] == key then
+                return entry.actionName
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetItemActionForKey(any key)
+        -- GetUiToggleActionForKey와 동일 패턴 - WindowHotkeyLogic이 KeyDownEvent마다 폴링해
+        -- itemAction(HP/MP 포션) 바인딩과 일치하는지 확인한다.
+        self:EnsureInitialized()
+        if key == nil or key == KeyboardKey.None then
+            return nil
+        end
+        for _, entry in ipairs(self._T.registry) do
+            if entry.kind == "itemAction" and self._T.currentKeys[entry.actionName] == key then
                 return entry.actionName
             end
         end

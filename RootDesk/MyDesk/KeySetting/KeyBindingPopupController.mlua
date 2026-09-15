@@ -19,6 +19,10 @@ script KeyBindingPopupController extends Component
     property Entity iconEquipment = "c16dcab1-1061-4651-b64c-34c6306027cc"
     property Entity iconCharacterInfo = "00cb1532-63ec-4bfd-b8bb-788bec66d2b7"
     property Entity iconSkillWindow = "4b24521f-fcef-4de0-a2e0-d97f6f321a6b"
+    -- 2026-09-15 유저 요청 - HP/MP 포션 즉시사용 단축키(KeyBindingLogic.BuildRegistry의
+    -- itemAction 항목). UUID는 UIBuilder write({bind})로 주입.
+    property Entity iconUseHpPotion = "02d349cb-e431-4ec0-a195-06b58d701b0e"
+    property Entity iconUseMpPotion = "209da69d-ebf6-4ec6-a018-de0f90a6cf2c"
 
     property any keyToggleHandler = nil
     property any closeHandler = nil
@@ -51,6 +55,8 @@ script KeyBindingPopupController extends Component
             { actionName = "Equipment", entity = self.iconEquipment },
             { actionName = "CharacterInfo", entity = self.iconCharacterInfo },
             { actionName = "SkillWindow", entity = self.iconSkillWindow },
+            { actionName = "UseHpPotion", entity = self.iconUseHpPotion },
+            { actionName = "UseMpPotion", entity = self.iconUseMpPotion },
         }
         for _, icon in ipairs(self._T.icons) do
             if isvalid(icon.entity) then

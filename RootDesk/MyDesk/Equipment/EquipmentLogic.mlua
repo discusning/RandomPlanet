@@ -79,13 +79,84 @@ script EquipmentLogic extends Logic
     end
 
     method table GetPotionTemplate(string potionId)
-        -- 물약 시스템 (M2 Phase A, 2026-09-06) - 아직 단일 종류뿐이라 아이템/주문서처럼 별도
-        -- UserDataSet을 만들지 않고 하드코딩(불필요한 인프라 회피, 종류가 늘어나면 그때 이관).
-        -- RUID는 msw-search로 확보한 실제 클래식 메이플스토리 "빨간 포션" 스프라이트.
+        -- 물약 시스템 (M2 Phase A, 2026-09-06 / 2026-09-15 HP+MP 확장) - 종류가 2개뿐이라
+        -- 아이템/주문서처럼 별도 UserDataSet을 만들지 않고 하드코딩(불필요한 인프라 회피, 종류가
+        -- 더 늘어나면 그때 이관). RUID는 둘 다 msw-search로 확보한 실제 클래식 메이플스토리
+        -- 스프라이트(같은 포션 실루엣, 색만 다름 - 동일 pivot/28x28). restoreType으로 HP/MP
+        -- 어느 쪽을 회복하는지 구분 - PlayerStatsComponent.RequestUsePotion이 소비.
         if potionId == "hppotion" then
-            return { id = "hppotion", name = "빨간 포션", ruid = "234aca1a4ce946119b68e3717991e775", healPercent = 0.3 }
+            return { id = "hppotion", name = "빨간 포션", ruid = "234aca1a4ce946119b68e3717991e775", restoreType = "hp", restorePercent = 0.3 }
+        elseif potionId == "mppotion" then
+            return { id = "mppotion", name = "파란 포션", ruid = "7e9b39b73f4945b1a8d77db6c99a6946", restoreType = "mp", restorePercent = 0.3 }
         end
         return nil
+    end
+
+    method table ListPotionTemplates()
+        return { self:GetPotionTemplate("hppotion"), self:GetPotionTemplate("mppotion") }
+    end
+
+    @ExecSpace("ClientOnly")
+    method any FindPotionIndexByType(table characterData, string restoreType)
+        -- 인벤토리에서 restoreType("hp"/"mp")과 일치하는 첫 물약 인스턴스의 인덱스를 찾는다.
+        -- 키보드 단축키 경로(WindowHotkeyLogic)가 인벤토리 창을 열지 않고도 물약을 찾을 때 쓴다.
+        local inv = characterData.inventory
+        if inv == nil then return nil end
+        for index, inst in ipairs(inv) do
+            if inst.potionId ~= nil then
+                local tpl = self:GetPotionTemplate(inst.potionId)
+                if tpl ~= nil and tpl.restoreType == restoreType then
+                    return index
+                end
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean UsePotionAtIndex(integer index)
+        -- 물약 사용 본체 (2026-09-15 최적화 - InventoryUIController.UsePotion에서 이동, 인벤토리
+        -- 클릭 경로와 키보드 단축키 경로가 동일 로직을 공유하도록 통합). 버서크 특성(전체 기획서
+        -- §2-3 "회복 아이템 적용 불가")은 소모 자체를 막아 아이템 낭비를 방지 - 서버 쪽
+        -- PlayerStatsComponent.RequestUsePotion도 동일 조건을 한 번 더 검사하지만(방어적
+        -- 이중 체크), 클릭/단축키 시점에 바로 막아주는 게 UX상 더 낫다.
+        local data = _CharacterRosterLogic:GetActiveCharacterData()
+        if data == nil or data.inventory == nil or data.inventory[index] == nil then return false end
+        local inst = data.inventory[index]
+        if inst.potionId == nil then return false end
+
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return false end
+        local stats = localPlayer:GetComponent("script.PlayerStatsComponent")
+        -- 2026-09-12 QA - Trait2에 버서크를 보유한 캐릭터가 이 체크를 통과해 물약이 실제로
+        -- 소모(로스터 저장까지)된 뒤에야 서버가 회복만 거부하던 버그 - Trait2도 함께 검사.
+        if isvalid(stats) and (stats.Trait == "버서크" or stats.Trait2 == "버서크") then
+            log("EquipmentLogic: potion use blocked - 버서크 특성은 회복 아이템 적용 불가")
+            return false
+        end
+
+        local potionId = inst.potionId
+        inst.count = (inst.count or 1) - 1
+        if inst.count <= 0 then
+            table.remove(data.inventory, index)
+        end
+        _CharacterRosterLogic:SaveRoster()
+        if isvalid(stats) then
+            stats:RequestUsePotion(potionId)
+        end
+        _CharacterRosterLogic:RefreshUIWindowIfOpen("/ui/InventoryGroup", "script.InventoryUIController")
+        return true
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean UseFirstPotionOfType(string restoreType)
+        -- 키보드 단축키(KeyBindingLogic itemAction) 경로 전용 진입점 - 인벤토리 창을 열지 않고도
+        -- 보유한 첫 물약을 바로 사용한다. WindowHotkeyLogic이 호출한다.
+        local data = _CharacterRosterLogic:GetActiveCharacterData()
+        if data == nil then return false end
+        local index = self:FindPotionIndexByType(data, restoreType)
+        if index == nil then return false end
+        return self:UsePotionAtIndex(index)
     end
 
     method table ListItemTemplates()

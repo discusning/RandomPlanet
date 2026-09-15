@@ -335,41 +335,12 @@ script InventoryUIController extends Component
             end
             self:Refresh()
         elseif inst.potionId ~= nil then
-            self:UsePotion(index, inst)
+            -- 2026-09-15 최적화 - 위임, 본체는 EquipmentLogic.UsePotionAtIndex(키보드 단축키
+            -- 경로와 공유). 그쪽이 이미 RefreshUIWindowIfOpen으로 이 창을 갱신하므로 별도
+            -- self:Refresh() 불필요.
+            _EquipmentLogic:UsePotionAtIndex(index)
         end
         -- Misc items have no click behavior yet - nothing in the catalog produces one.
-    end
-
-    @ExecSpace("ClientOnly")
-    method void UsePotion(integer index, table inst)
-        -- 물약 사용 (M2 Phase A, 2026-09-06). 버서크 특성(전체 기획서 §2-3 "회복 아이템 적용 불가")은
-        -- 소모 자체를 막아 아이템 낭비를 방지 - 서버 쪽 PlayerStatsComponent.RequestUsePotion도 동일
-        -- 조건을 한 번 더 검사하지만(방어적 이중 체크), 클릭 시점에 바로 막아주는 게 UX상 더 낫다.
-        local localPlayer = _UserService.LocalPlayer
-        if not isvalid(localPlayer) then return end
-        local stats = localPlayer:GetComponent("script.PlayerStatsComponent")
-        -- 2026-09-12 QA - 아래 소모 처리(인벤토리 카운트 감소)는 이 이른 return 이전엔 실행되지
-        -- 않는데, Trait2에 버서크를 보유한 캐릭터는 이 체크를 그냥 통과해 물약이 실제로
-        -- 소모(로스터 저장까지)된 뒤에야 서버가 회복만 거부해 - 아이템이 통째로 낭비되던 버그.
-        -- 다른 버서크 체크(UpdateZoneState 등)와 동일하게 Trait2도 함께 검사하도록 수정.
-        if isvalid(stats) and (stats.Trait == "버서크" or stats.Trait2 == "버서크") then
-            log("Inventory: potion use blocked - 버서크 특성은 회복 아이템 적용 불가")
-            return
-        end
-        local data = self:GetActiveCharacterData()
-        if data == nil then return end
-        local inv = data.inventory
-        if inv == nil or inv[index] == nil then return end
-
-        inst.count = (inst.count or 1) - 1
-        if inst.count <= 0 then
-            table.remove(inv, index)
-        end
-        _CharacterRosterLogic:SaveRoster()
-        if isvalid(stats) then
-            stats:RequestUsePotion()
-        end
-        self:Refresh()
     end
 
     @ExecSpace("ClientOnly")

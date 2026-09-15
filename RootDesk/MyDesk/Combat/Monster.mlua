@@ -337,8 +337,12 @@ script Monster extends Component
             log("Monster: 도박꾼 dropGamble -> 0 (drop denied)")
             return
         end
-        _CharacterRosterLogic:GrantPotionDrop("hppotion", dropCount, attacker.PlayerComponent.UserId)
-        log("Monster: potion drop -> hppotion x" .. dropCount .. " to userId=" .. tostring(attacker.PlayerComponent.UserId))
+        -- 2026-09-15 - HP/MP 물약 중 무작위 1종 드랍(클래식 메이플스토리처럼 빨간/파란 포션이
+        -- 섞여 나오도록). ListPotionTemplates 기반이라 물약 종류가 늘어도 수정 불필요.
+        local potionTemplates = _EquipmentLogic:ListPotionTemplates()
+        local chosenTpl = potionTemplates[_UtilLogic:RandomIntegerRange(1, #potionTemplates)]
+        _CharacterRosterLogic:GrantPotionDrop(chosenTpl.id, dropCount, attacker.PlayerComponent.UserId)
+        log("Monster: potion drop -> " .. chosenTpl.id .. " x" .. dropCount .. " to userId=" .. tostring(attacker.PlayerComponent.UserId))
     end
 
 end

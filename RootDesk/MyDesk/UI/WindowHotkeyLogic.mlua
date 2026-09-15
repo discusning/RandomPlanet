@@ -1,11 +1,14 @@
 @Logic
 script WindowHotkeyLogic extends Logic
-    -- Global listener for the uiToggle-kind actions in KeyBindingLogic's registry (Inventory/
-    -- Equipment/CharacterInfo/SkillWindow). These have no native PlayerControllerComponent action -
-    -- that pipeline is combat-action-only (Attack/Skill) - so this Logic is the single place that
-    -- turns "a rebindable key was pressed" into "toggle the matching bottom-bar window", routed
-    -- through BottomBarController so the existing CloseOtherWindows mutual-exclusivity still applies
-    -- whether the window was opened by mouse click or by hotkey.
+    -- Global listener for the uiToggle/itemAction-kind actions in KeyBindingLogic's registry
+    -- (Inventory/Equipment/CharacterInfo/SkillWindow window toggles + HP/MP 포션 즉시 사용). These
+    -- have no native PlayerControllerComponent action - that pipeline is combat-action-only
+    -- (Attack/Skill) - so this Logic is the single place that turns "a rebindable key was pressed"
+    -- into either "toggle the matching bottom-bar window" (routed through BottomBarController so the
+    -- existing CloseOtherWindows mutual-exclusivity still applies whether the window was opened by
+    -- mouse click or by hotkey) or "use the matching potion" (2026-09-15 유저 요청, routed through
+    -- EquipmentLogic so the click-driven Inventory path and the hotkey path share one consumption
+    -- method).
 
     property any keyHandler = nil
 
@@ -24,6 +27,11 @@ script WindowHotkeyLogic extends Logic
         end
         if event.key == KeyboardKey.Escape then
             self:CloseAnyOpenWindow()
+            return
+        end
+        local itemAction = _KeyBindingLogic:GetItemActionForKey(event.key)
+        if itemAction ~= nil then
+            self:TriggerItemAction(itemAction)
             return
         end
         local actionName = _KeyBindingLogic:GetUiToggleActionForKey(event.key)
@@ -46,6 +54,18 @@ script WindowHotkeyLogic extends Logic
             return
         end
         bar:CloseOtherWindows("")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void TriggerItemAction(string actionName)
+        -- 2026-09-15 유저 요청 - HP/MP 포션을 인벤토리 창을 열지 않고 단축키로 즉시 사용.
+        -- 실제 소모 로직은 EquipmentLogic이 소유(인벤토리 클릭 경로와 공유) - 여기서는 단순히
+        -- actionName -> restoreType 매핑만 한다.
+        if actionName == "UseHpPotion" then
+            _EquipmentLogic:UseFirstPotionOfType("hp")
+        elseif actionName == "UseMpPotion" then
+            _EquipmentLogic:UseFirstPotionOfType("mp")
+        end
     end
 
     @ExecSpace("ClientOnly")

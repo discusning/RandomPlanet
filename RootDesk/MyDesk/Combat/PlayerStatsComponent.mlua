@@ -452,13 +452,13 @@ script PlayerStatsComponent extends Component
     end
 
     @ExecSpace("Server")
-    method void RequestUsePotion()
-        -- 물약 사용 (M2 Phase A, 2026-09-06 - 전체 기획서 §3-3). 인벤토리 자체는 ClientOnly라
-        -- 아이템 소모는 InventoryUIController.UsePotion이 이미 처리했고(클릭 시점에 버서크 특성도
-        -- 한 번 걸러짐), 여기서는 실제 HP 회복(서버 권한 필요)만 담당 - 이중 방어로 버서크를 한 번
-        -- 더 검사(클라이언트 우회로 이 RPC만 직접 호출해도 회복은 막힘, 다만 이미 소모된 물약
-        -- 자체는 이 프로젝트의 다른 인벤토리 조작(장비/주문서)과 동일하게 클라이언트 신뢰 기반이라
-        -- 되돌리지 않음 - 솔로 PvE라 악용 실익이 없다고 판단).
+    method void RequestUsePotion(string potionId)
+        -- 물약 사용 (M2 Phase A, 2026-09-06 - 전체 기획서 §3-3 / 2026-09-15 HP+MP 확장). 인벤토리
+        -- 자체는 ClientOnly라 아이템 소모는 EquipmentLogic.UsePotionAtIndex가 이미 처리했고(클릭/
+        -- 단축키 시점에 버서크 특성도 한 번 걸러짐), 여기서는 실제 HP/MP 회복(서버 권한 필요)만
+        -- 담당 - 이중 방어로 버서크를 한 번 더 검사(클라이언트 우회로 이 RPC만 직접 호출해도 회복은
+        -- 막힘, 다만 이미 소모된 물약 자체는 이 프로젝트의 다른 인벤토리 조작(장비/주문서)과 동일하게
+        -- 클라이언트 신뢰 기반이라 되돌리지 않음 - 솔로 PvE라 악용 실익이 없다고 판단).
         if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
             return
         end
@@ -466,22 +466,39 @@ script PlayerStatsComponent extends Component
             log("PlayerStats: RequestUsePotion rejected - " .. self.Trait .. "/" .. self.Trait2 .. " 특성")
             return
         end
+        -- 2026-09-15 - restorePercent를 EquipmentLogic의 물약 템플릿에서 직접 읽도록 변경(이전엔
+        -- 여기 0.3이 하드코딩돼 있어 EquipmentLogic.GetPotionTemplate의 값과 별개로 관리되던 중복
+        -- 이었음). potionId로 HP/MP 어느 쪽인지 분기.
+        local tpl = _EquipmentLogic:GetPotionTemplate(potionId)
+        if tpl == nil then return end
         local player = self.Entity.PlayerComponent
-        if not isvalid(player) or player.MaxHp <= 0 then return end
+        if not isvalid(player) then return end
         -- M2 Phase B - 먹보를 포함한 potionMult 계열 전부 TraitCatalog/TraitEffectEngine 경유(먹보의
         -- 예전 하드코딩 x1.5는 여기서 제거 - basicEffect={potionMult=0.5}로 동일 수치 이전, 중복 적용 방지).
         -- M2 Phase C(2026-09-06) - Trait2(3차 전직 추가 특성)와 링크 패시브(LinkPotionMultBonus)의
         -- potionMult도 함께 합산(기존엔 self.Trait만 읽어 Trait2/링크 쪽 회복 보너스가 누락돼 있었음).
         local trait2Mult = (self.Trait2 ~= "") and _TraitEffectEngine:GetPotionEffectMult(self.Trait2) or 0
-        local healPercent = 0.3 * (1 + _TraitEffectEngine:GetPotionEffectMult(self.Trait) + trait2Mult + self.LinkPotionMultBonus)
-        local healAmount = math.floor(player.MaxHp * healPercent)
-        local before = player.Hp
-        player.Hp = math.min(player.MaxHp, player.Hp + healAmount)
-        local actualHealed = player.Hp - before
-        log("PlayerStats: RequestUsePotion healed " .. actualHealed .. " -> Hp=" .. player.Hp .. "/" .. player.MaxHp)
-        -- 2026-09-12 시스템 업그레이드(인벤토리/장비) - 지금까지 물약 회복이 log()에만 찍히고 화면엔
-        -- HP 바가 조용히 늘어나는 것 말고 아무 숫자 표시가 없었다.
-        _CombatFeelLogic:PlayHealNumber(self.Entity, actualHealed, player.UserId)
+        local restorePercent = tpl.restorePercent * (1 + _TraitEffectEngine:GetPotionEffectMult(self.Trait) + trait2Mult + self.LinkPotionMultBonus)
+
+        if tpl.restoreType == "hp" then
+            if player.MaxHp <= 0 then return end
+            local healAmount = math.floor(player.MaxHp * restorePercent)
+            local before = player.Hp
+            player.Hp = math.min(player.MaxHp, player.Hp + healAmount)
+            local actualHealed = player.Hp - before
+            log("PlayerStats: RequestUsePotion(hp) healed " .. actualHealed .. " -> Hp=" .. player.Hp .. "/" .. player.MaxHp)
+            -- 2026-09-12 시스템 업그레이드(인벤토리/장비) - 지금까지 물약 회복이 log()에만 찍히고
+            -- 화면엔 HP 바가 조용히 늘어나는 것 말고 아무 숫자 표시가 없었다.
+            _CombatFeelLogic:PlayHealNumber(self.Entity, actualHealed, player.UserId)
+        elseif tpl.restoreType == "mp" then
+            if self.MaxMp <= 0 then return end
+            local restoreAmount = math.floor(self.MaxMp * restorePercent)
+            local before = self.CurrentMp
+            self.CurrentMp = math.min(self.MaxMp, self.CurrentMp + restoreAmount)
+            local actualRestored = self.CurrentMp - before
+            log("PlayerStats: RequestUsePotion(mp) restored " .. actualRestored .. " -> Mp=" .. self.CurrentMp .. "/" .. self.MaxMp)
+            _CombatFeelLogic:PlayHealNumber(self.Entity, actualRestored, player.UserId)
+        end
     end
 
     @ExecSpace("Server")
