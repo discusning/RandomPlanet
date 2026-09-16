@@ -189,8 +189,8 @@ script PlayerAttack extends AttackComponent
         if cdResetChance > 0 and _UtilLogic:RandomDouble() < cdResetChance then
             local skillComp = self.Entity:GetComponent("script.PlayerSkillComponent")
             if isvalid(skillComp) then
-                skillComp.LastUseTime = -999
-                skillComp.LastUseTime2 = -999
+                -- 2026-09-16 - 8슬롯 확장 이후 두 슬롯만 리셋하던 걸 전체 슬롯 리셋으로 통합.
+                skillComp:ResetAllCooldowns()
                 log("PlayerAttack: 메아리 무영창 - 쿨다운 초기화")
             end
         end
@@ -215,8 +215,7 @@ script PlayerAttack extends AttackComponent
             if critCdResetChance > 0 and _UtilLogic:RandomDouble() < critCdResetChance then
                 local skillComp2 = self.Entity:GetComponent("script.PlayerSkillComponent")
                 if isvalid(skillComp2) then
-                    skillComp2.LastUseTime = -999
-                    skillComp2.LastUseTime2 = -999
+                    skillComp2:ResetAllCooldowns()
                     log("PlayerAttack: 박복 - 즉시 재행동 발동")
                 end
             end
