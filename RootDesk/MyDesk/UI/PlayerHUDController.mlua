@@ -13,6 +13,33 @@ script PlayerHUDController extends Logic
     -- 2번 스킬 슬롯(W) HUD 표시 - skillNameText/skillStatusText와 동일 패턴 (M2 Phase A, 2026-09-06)
     property TextGUIRendererComponent skillName2Text = "9ab9ecdc-497c-488c-a586-da3d00eb28a5"
     property TextGUIRendererComponent skillStatus2Text = "9215ef8a-8938-4436-9b37-09a4278301cb"
+    -- 2026-09-16 유저 요청("메이플처럼 우측 상단에 스킬 쿨타임 UI") - 기존 하단 skillNameText/
+    -- skillName2Text(2슬롯 전용)는 Enable=false로 고정하고, 보유 스킬 최대 8개를 전부 보여주는
+    -- 우측 상단 바로 대체한다. 빈 슬롯(미보유)은 topSkillSlotEntityN 자체를 숨긴다.
+    property Entity topSkillSlotEntity1 = "21a28001-3f0d-48ff-a2f4-794756438d43"
+    property TextGUIRendererComponent topSkillName1 = "950c0b25-4b3b-43ca-ad24-9aa8e8ca9333"
+    property TextGUIRendererComponent topSkillStatus1 = "c18dd625-3fa8-46f5-afb6-9577d55f134b"
+    property Entity topSkillSlotEntity2 = "df159909-69bb-48cd-8795-486481e02241"
+    property TextGUIRendererComponent topSkillName2 = "ff4ac057-ee17-4c1f-8e00-13614df416d1"
+    property TextGUIRendererComponent topSkillStatus2 = "04acaf1e-e986-40c3-aea6-7f12e3b79c2b"
+    property Entity topSkillSlotEntity3 = "0e9c72ae-8e9b-4dc5-92c0-c5b9a1d3aa75"
+    property TextGUIRendererComponent topSkillName3 = "08173709-d74b-489b-95f5-45ae435d8d51"
+    property TextGUIRendererComponent topSkillStatus3 = "62750971-6d15-4227-b47e-dfe522cb5807"
+    property Entity topSkillSlotEntity4 = "87598429-8290-4ac6-9e80-6652ce3f0304"
+    property TextGUIRendererComponent topSkillName4 = "4a234b6f-766a-4eb2-b67d-1e51be035dd2"
+    property TextGUIRendererComponent topSkillStatus4 = "2a6c11a0-f6bf-4600-9aa7-c972fd2678d8"
+    property Entity topSkillSlotEntity5 = "e4a48994-a3e8-4813-951d-b386c10ed931"
+    property TextGUIRendererComponent topSkillName5 = "48a29dad-78aa-49d4-9186-35982b3395fc"
+    property TextGUIRendererComponent topSkillStatus5 = "39104284-908f-4ffd-9325-ef63519c7660"
+    property Entity topSkillSlotEntity6 = "8d5dfcd1-a336-4c8f-a546-5f345a0d7b7e"
+    property TextGUIRendererComponent topSkillName6 = "fa98c060-08d1-4c30-837c-acd0a8384215"
+    property TextGUIRendererComponent topSkillStatus6 = "bd4649d6-8d2e-461f-bc09-a612a21af7c9"
+    property Entity topSkillSlotEntity7 = "c23bf254-08c6-499f-ad3b-cdf38b2f1fbb"
+    property TextGUIRendererComponent topSkillName7 = "c822bdfd-b53e-46f6-aa29-bfa7bf751aad"
+    property TextGUIRendererComponent topSkillStatus7 = "3a090384-4209-48bf-8887-3151810f6a29"
+    property Entity topSkillSlotEntity8 = "cee3f594-387d-4d1c-8020-2d29cf5d8050"
+    property TextGUIRendererComponent topSkillName8 = "14e7347e-4416-400a-8cd2-52afbf1d4796"
+    property TextGUIRendererComponent topSkillStatus8 = "2b1c306a-9c2a-4535-a17e-5b911d3ffaaf"
     -- 2026-08-19 유저 요청 - "버프 스킬 유지 시간이 전혀 안 보인다". PlayerSkillComponent에 이미
     -- 있던 BuffActive/BuffExpireTime/BuffType은 @Sync가 없어 클라이언트가 애초에 읽을 수 없었다
     -- (그 자체가 진짜 원인) - 함께 @Sync 추가.
@@ -92,15 +119,38 @@ script PlayerHUDController extends Logic
 
         local skill = localPlayer:GetComponent("script.PlayerSkillComponent")
         if isvalid(skill) then
-            -- 2026-09-15 코드 최적화 - 1번(Q)/2번(W) 슬롯 표시 블록이 필드명만 다르고 완전히
-            -- 동일했던 것을 UpdateSkillSlotDisplay로 통합.
-            -- 2026-09-15 코드 최적화(보류 항목 판단) - 라벨이 "[Q] "/"[W] "로 하드코딩돼 있어서
-            -- KeyBindingPopupController에서 드래그로 리바인드해도 HUD 표시는 그대로 남아있던
-            -- 버그 수정. KeyBindingLogic.GetSymbol(죽은 코드였음)을 실제 바인딩 조회에 연결.
-            local skillKeyLabel = "[" .. _KeyBindingLogic:GetSymbol(_KeyBindingLogic:GetKeyForAction("Skill")) .. "] "
-            local skill2KeyLabel = "[" .. _KeyBindingLogic:GetSymbol(_KeyBindingLogic:GetKeyForAction("Skill2")) .. "] "
-            self:UpdateSkillSlotDisplay(skill.EquippedSkillId, skill.LastUseTime, skillKeyLabel, self.skillNameText, self.skillStatusText, "skill1WasReady", "skill1FlashUntil")
-            self:UpdateSkillSlotDisplay(skill.EquippedSkillId2, skill.LastUseTime2, skill2KeyLabel, self.skillName2Text, self.skillStatus2Text, "skill2WasReady", "skill2FlashUntil")
+            -- 2026-09-16 유저 요청("메이플처럼 우측 상단에 스킬 쿨타임 UI") - 하단 1/2번 슬롯
+            -- 전용 표시를 8슬롯 우측 상단 바로 교체. UpdateSkillSlotDisplay는 이미 슬롯 하나를
+            -- 완전히 매개변수화해서 그리므로 수정 없이 8번 호출한다. 빈 슬롯(미보유)은 위젯
+            -- 자체를 숨겨 레벨 낮은 캐릭터에서 빈 칸이 죽 늘어서지 않게 한다.
+            local topSlotEntities = {
+                self.topSkillSlotEntity1, self.topSkillSlotEntity2, self.topSkillSlotEntity3, self.topSkillSlotEntity4,
+                self.topSkillSlotEntity5, self.topSkillSlotEntity6, self.topSkillSlotEntity7, self.topSkillSlotEntity8,
+            }
+            local topNameTexts = {
+                self.topSkillName1, self.topSkillName2, self.topSkillName3, self.topSkillName4,
+                self.topSkillName5, self.topSkillName6, self.topSkillName7, self.topSkillName8,
+            }
+            local topStatusTexts = {
+                self.topSkillStatus1, self.topSkillStatus2, self.topSkillStatus3, self.topSkillStatus4,
+                self.topSkillStatus5, self.topSkillStatus6, self.topSkillStatus7, self.topSkillStatus8,
+            }
+            local slotActionNames = { "Skill", "Skill2", "Skill3", "Skill4", "Skill5", "Skill6", "Skill7", "Skill8" }
+            local wasReadyKeys = { "topSkill1WasReady", "topSkill2WasReady", "topSkill3WasReady", "topSkill4WasReady", "topSkill5WasReady", "topSkill6WasReady", "topSkill7WasReady", "topSkill8WasReady" }
+            local flashUntilKeys = { "topSkill1FlashUntil", "topSkill2FlashUntil", "topSkill3FlashUntil", "topSkill4FlashUntil", "topSkill5FlashUntil", "topSkill6FlashUntil", "topSkill7FlashUntil", "topSkill8FlashUntil" }
+            for slot = 1, 8 do
+                local equippedId = skill:GetEquippedSkillId(slot)
+                local slotEntity = topSlotEntities[slot]
+                if isvalid(slotEntity) then
+                    if equippedId == "" then
+                        slotEntity.Enable = false
+                    else
+                        slotEntity.Enable = true
+                        local keyLabel = "[" .. _KeyBindingLogic:GetSymbol(_KeyBindingLogic:GetKeyForAction(slotActionNames[slot])) .. "] "
+                        self:UpdateSkillSlotDisplay(equippedId, skill:GetLastUseTime(slot), keyLabel, topNameTexts[slot], topStatusTexts[slot], wasReadyKeys[slot], flashUntilKeys[slot])
+                    end
+                end
+            end
 
             -- 유저 요청(2026-08-19) "버프 유지 시간이 전혀 안 적혀있다" - 스킬 쿨다운 표시와 같은
             -- 패턴으로 ServerElapsedSeconds 기준 남은 시간을 보여준다.
