@@ -3,8 +3,10 @@ script SkillUIController extends Component
     -- Skill window ("스킬창") - classic MapleStory-style 1~4차 탭 브라우저. Each tab shows the
     -- player's buff/attack slot for that job-promotion tier (Docs/랜덤 플래닛 전체 기획서.md §04) -
     -- owned skills render as clickable icons, an un-promoted tier shows a locked placeholder.
-    -- Clicking an owned skill fills the detail panel; "장착" binds it to the "Skill"(Q) action key
-    -- (PlayerSkillComponent.EquippedSkillId). Data source: PlayerSkillComponent.GetOwnedSkillIds().
+    -- 2026-09-16 유저 요청("메이플처럼 보유 스킬 전부를 원하는 키에 자유 배치") - 보유 스킬은 이제
+    -- PlayerSkillComponent.RefillEquipSlots()가 자동으로 8개 슬롯에 전부 배치하므로 "장착" 개념이
+    -- 사라졌다. 클릭한 스킬은 항상 이미 사용 가능 상태이고, 상세 패널은 그 스킬이 배정된 실제
+    -- 키(KeyBindingLogic)를 "배치: [키]"로 보여주기만 한다. Data source: GetOwnedSkillIds().
     property Entity btnClose = "62504d0c-23e7-439a-ad42-96b9f58f202c"
     property Entity dragHandle = "f4765af0-287e-4d2b-b094-f816fce08c62"
     property UITransformComponent cardTransform = "a576b606-5c3b-4ffa-bcd8-7c202695b3b0"
@@ -38,6 +40,7 @@ script SkillUIController extends Component
         self._T.handlers = {}
         self._T.selectedTier = 1
         self._T.selectedSkillId = ""
+        self._T.selectedCategory = ""
 
         local hClose = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
         table.insert(self._T.handlers, { entity = self.btnClose, eventType = ButtonClickEvent, eventHandler = hClose })
@@ -61,8 +64,11 @@ script SkillUIController extends Component
         table.insert(self._T.handlers, { entity = self.buffSlotEntity, eventType = ButtonClickEvent, eventHandler = hBuff })
         local hAtk = self.atkSlotEntity:ConnectEvent(ButtonClickEvent, function() self:OnSlotClicked("attack") end)
         table.insert(self._T.handlers, { entity = self.atkSlotEntity, eventType = ButtonClickEvent, eventHandler = hAtk })
-        local hEquip = self.btnEquipEntity:ConnectEvent(ButtonClickEvent, self.OnEquipClicked)
-        table.insert(self._T.handlers, { entity = self.btnEquipEntity, eventType = ButtonClickEvent, eventHandler = hEquip })
+        -- 2026-09-16 - "장착" 버튼은 더 이상 없다(보유 스킬은 자동으로 전부 배정됨) - btnEquipEntity는
+        -- 항상 숨김으로 고정하고(RefreshDetailText) 클릭 핸들러를 연결하지 않는다.
+        if isvalid(self.btnEquipEntity) then
+            self.btnEquipEntity.Enable = false
+        end
 
         -- Hover preview (메이플식 툴팁) - separate from the click-to-select/equip flow below. Only
         -- overwrites the 3 text fields, never btnEquipEntity/equippedBadgeEntity, so it can never
@@ -111,6 +117,7 @@ script SkillUIController extends Component
     method void OnTabClicked(integer tier)
         self._T.selectedTier = tier
         self._T.selectedSkillId = ""
+        self._T.selectedCategory = ""
         self:Refresh()
     end
 
@@ -120,6 +127,7 @@ script SkillUIController extends Component
         local skillId = owned[category]
         if skillId == nil or skillId == "" then return end
         self._T.selectedSkillId = skillId
+        self._T.selectedCategory = category
         self:Refresh()
     end
 
@@ -149,21 +157,11 @@ script SkillUIController extends Component
     end
 
     @ExecSpace("ClientOnly")
-    method void OnEquipClicked()
-        if self._T.selectedSkillId == "" then return end
-        local localPlayer = _UserService.LocalPlayer
-        if not isvalid(localPlayer) then return end
-        local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
-        if not isvalid(skillComp) then return end
-        skillComp:RequestSetEquippedSkill(self._T.selectedSkillId)
-        self:Refresh()
-    end
-
-    @ExecSpace("ClientOnly")
     method void Show()
         self.Entity.Enable = true
         self._T.selectedTier = 1
         self._T.selectedSkillId = ""
+        self._T.selectedCategory = ""
         self:Refresh()
     end
 
@@ -226,14 +224,17 @@ script SkillUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void RefreshDetailText()
-        -- Renders the click-selected skill (self._T.selectedSkillId) into the detail panel,
-        -- including the equip button/badge. Separate from PreviewSkill (hover) so a hover-exit can
-        -- restore this exact state without re-deriving tab/slot data.
+        -- Renders the click-selected skill (self._T.selectedSkillId) into the detail panel.
+        -- Separate from PreviewSkill (hover) so a hover-exit can restore this exact state without
+        -- re-deriving tab/slot data. btnEquipEntity always stays hidden (no more manual "equip" -
+        -- RefillEquipSlots auto-assigns every owned skill) - equippedBadgeEntity instead shows the
+        -- physical key this skill is bound to via KeyBindingLogic.
+        self.btnEquipEntity.Enable = false
+
         if self._T.selectedSkillId == "" then
             self.detailName.Text = "스킬을 선택하세요"
             self.detailInfo.Text = ""
             self.detailDesc.Text = ""
-            self.btnEquipEntity.Enable = false
             self.equippedBadgeEntity.Enable = false
             return
         end
@@ -243,7 +244,6 @@ script SkillUIController extends Component
             self.detailName.Text = "알 수 없는 스킬"
             self.detailInfo.Text = ""
             self.detailDesc.Text = ""
-            self.btnEquipEntity.Enable = false
             self.equippedBadgeEntity.Enable = false
             return
         end
@@ -252,20 +252,32 @@ script SkillUIController extends Component
         self.detailInfo.Text = self:KindLabel(def.kind) .. "  ·  재사용 " .. tostring(def.cooldown) .. "초  ·  MP " .. tostring(def.mpCost)
         self.detailDesc.Text = def.desc or ""
 
-        local localPlayer = _UserService.LocalPlayer
-        local isEquipped = false
-        if isvalid(localPlayer) then
-            local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
-            if isvalid(skillComp) then
-                -- 2026-09-10 QA - 버프 스킬(2번 슬롯/EquippedSkillId2)을 선택했을 때 여기서 1번 슬롯
-                -- (EquippedSkillId)만 비교해 "이미 장착됨" 뱃지가 영원히 안 뜨던 버그 수정 - 실제로
-                -- 장착돼 있어도 매번 "장착" 버튼만 보여 사용자가 장착 여부를 확인할 수 없었다.
-                isEquipped = (skillComp.EquippedSkillId == self._T.selectedSkillId)
-                    or (skillComp.EquippedSkillId2 == self._T.selectedSkillId)
-            end
+        local slot = self:SlotForTierCategory(self._T.selectedTier, self._T.selectedCategory)
+        if slot == nil then
+            self.equippedBadgeEntity.Enable = false
+            return
         end
-        self.btnEquipEntity.Enable = not isEquipped
-        self.equippedBadgeEntity.Enable = isEquipped
+        local actionName = (slot == 1) and "Skill" or ("Skill" .. tostring(slot))
+        local key = _KeyBindingLogic:GetKeyForAction(actionName)
+        local symbol = _KeyBindingLogic:GetSymbol(key)
+        if isvalid(self.equippedBadgeEntity) then
+            local badgeText = self.equippedBadgeEntity.TextGUIRendererComponent
+            if isvalid(badgeText) then
+                badgeText.Text = "배치: " .. symbol
+            end
+            self.equippedBadgeEntity.Enable = true
+        end
+    end
+
+    method any SlotForTierCategory(integer tier, string category)
+        -- RefillEquipSlots()가 채우는 순서(Atk1,Buff1,Atk2,Buff2,...,Atk4,Buff4 -> 슬롯1~8)와
+        -- 동일한 매핑을 클라이언트에서 재계산 - 서버 왕복 없이 "배치: [키]" 표시에 쓴다.
+        if category == "attack" then
+            return (tier - 1) * 2 + 1
+        elseif category == "buff" then
+            return (tier - 1) * 2 + 2
+        end
+        return nil
     end
 
     method void RefreshSlot(SpriteGUIRendererComponent sprite, TextGUIRendererComponent text, string skillId)
