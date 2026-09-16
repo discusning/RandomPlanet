@@ -20,6 +20,20 @@ script PlayerSkillComponent extends Component
     @Sync property string AtkSkill2 = ""
     @Sync property string AtkSkill3 = ""
     @Sync property string AtkSkill4 = ""
+    -- 2026-09-17 유저 요청("1~4차 중 공격 스킬은 1~2개만 쓰고 싶다") - 보유(Skill1~4)와 별개로
+    -- "이 보유 스킬을 실제로 슬롯에 채울지" 여부를 슬롯별로 켜고 끌 수 있어야 한다. 기본값 true라
+    -- 기존 캐릭터(전부 상시 사용)는 동작이 그대로 유지되고, 스킬창의 "사용/해제" 버튼으로 유저가
+    -- 원하는 것만 골라 끌 수 있다. 티어/카테고리 고정 위치(RefillEquipSlots와 동일 순서)라 꺼도
+    -- 그 물리 키 배정 자체는 유지되고(EquippedSkillId만 비워짐) 다른 스킬이 그 자리를 차지하지 않음 -
+    -- 키 배치가 토글할 때마다 밀리지 않아 예측 가능하다.
+    @Sync property boolean AtkEquipped1 = true
+    @Sync property boolean BuffEquipped1 = true
+    @Sync property boolean AtkEquipped2 = true
+    @Sync property boolean BuffEquipped2 = true
+    @Sync property boolean AtkEquipped3 = true
+    @Sync property boolean BuffEquipped3 = true
+    @Sync property boolean AtkEquipped4 = true
+    @Sync property boolean BuffEquipped4 = true
     -- 2026-09-16 유저 요청("메이플처럼 스킬창에서 키보드 세팅으로 자유 배치, 보유 스킬 전부 동시
     -- 사용 가능") - 기존엔 "장착" 버튼으로 딱 2개(공격 1/버프 1, Q/W 고정)만 동시 사용 가능했다.
     -- 이제 보유한 스킬(최대 8개, 위 BuffSkill1~4/AtkSkill1~4) 전부가 항상 자기 슬롯에 상시
@@ -289,19 +303,68 @@ script PlayerSkillComponent extends Component
 
     @ExecSpace("ServerOnly")
     method void RefillEquipSlots()
-        -- 2026-09-16 유저 요청 - 보유한 모든 스킬(최대 8개)이 항상 상시 사용 가능해야 한다("장착"
-        -- 개념 폐지). 결정론적 순서(1차 공격->슬롯1, 1차 버프->슬롯2, 2차 공격->슬롯3, 2차 버프->
-        -- 슬롯4, ... 4차까지)로 8슬롯을 다시 채운다 - 기존 Q=공격/W=버프 관례와 하위호환되도록 1차는
-        -- 그대로 슬롯1/2에 온다. 어느 물리 키가 슬롯 N을 누르는지는 KeyBindingLogic이 별도로 관리.
+        -- 2026-09-16 유저 요청 - 보유한 스킬 중 "사용" 상태인 것만 상시 사용 가능해야 한다("장착"
+        -- 버튼 개념 폐지, 대신 슬롯별 사용/해제 토글). 결정론적 순서(1차 공격->슬롯1, 1차 버프->슬롯2,
+        -- 2차 공격->슬롯3, 2차 버프->슬롯4, ... 4차까지)로 8슬롯을 다시 채운다 - 기존 Q=공격/W=버프
+        -- 관례와 하위호환되도록 1차는 그대로 슬롯1/2에 온다. 어느 물리 키가 슬롯 N을 누르는지는
+        -- KeyBindingLogic이 별도로 관리.
+        -- 2026-09-17 - AtkEquippedN/BuffEquippedN이 false인 슬롯은 보유하고 있어도 빈 슬롯으로
+        -- 채운다(슬롯 위치는 고정 - 해제해도 다른 스킬이 그 자리로 밀려오지 않음).
         local orderedIds = {
-            self.AtkSkill1, self.BuffSkill1,
-            self.AtkSkill2, self.BuffSkill2,
-            self.AtkSkill3, self.BuffSkill3,
-            self.AtkSkill4, self.BuffSkill4,
+            self.AtkEquipped1 and self.AtkSkill1 or "", self.BuffEquipped1 and self.BuffSkill1 or "",
+            self.AtkEquipped2 and self.AtkSkill2 or "", self.BuffEquipped2 and self.BuffSkill2 or "",
+            self.AtkEquipped3 and self.AtkSkill3 or "", self.BuffEquipped3 and self.BuffSkill3 or "",
+            self.AtkEquipped4 and self.AtkSkill4 or "", self.BuffEquipped4 and self.BuffSkill4 or "",
         }
         for slot = 1, 8 do
             self:SetEquippedSkillId(slot, orderedIds[slot] or "")
         end
+    end
+
+    method boolean GetEquippedFlag(integer tier, string category)
+        -- 스킬창(SkillUIController)이 "사용"/"해제" 버튼 라벨을 그리는 데 쓰는 순수 조회 - ExecSpace
+        -- 지정 없음(양쪽에서 로컬로 호출되는 공유 함수, RequestSetSkillEquipped와 짝).
+        if category == "attack" then
+            if tier == 1 then return self.AtkEquipped1
+            elseif tier == 2 then return self.AtkEquipped2
+            elseif tier == 3 then return self.AtkEquipped3
+            elseif tier == 4 then return self.AtkEquipped4
+            end
+        else
+            if tier == 1 then return self.BuffEquipped1
+            elseif tier == 2 then return self.BuffEquipped2
+            elseif tier == 3 then return self.BuffEquipped3
+            elseif tier == 4 then return self.BuffEquipped4
+            end
+        end
+        return false
+    end
+
+    @ExecSpace("Server")
+    method void RequestSetSkillEquipped(string category, integer tier, boolean equipped)
+        -- 스킬창 "사용/해제" 버튼의 서버 핸들러 - senderUserId로 본인 캐릭터인지 확인 후 해당
+        -- 티어/카테고리 슬롯의 사용 여부만 바꾸고 RefillEquipSlots로 8슬롯을 다시 채운다.
+        if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
+            return
+        end
+        if tier < 1 or tier > 4 then return end
+        if category == "attack" then
+            if tier == 1 then self.AtkEquipped1 = equipped
+            elseif tier == 2 then self.AtkEquipped2 = equipped
+            elseif tier == 3 then self.AtkEquipped3 = equipped
+            elseif tier == 4 then self.AtkEquipped4 = equipped
+            end
+        elseif category == "buff" then
+            if tier == 1 then self.BuffEquipped1 = equipped
+            elseif tier == 2 then self.BuffEquipped2 = equipped
+            elseif tier == 3 then self.BuffEquipped3 = equipped
+            elseif tier == 4 then self.BuffEquipped4 = equipped
+            end
+        else
+            return
+        end
+        self:RefillEquipSlots()
+        log("PlayerSkill: RequestSetSkillEquipped tier=" .. tier .. " category=" .. category .. " equipped=" .. tostring(equipped))
     end
 
     method string GetEquippedSkillId(integer slot)
