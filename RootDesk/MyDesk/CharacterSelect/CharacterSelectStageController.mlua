@@ -374,7 +374,7 @@ script CharacterSelectStageController extends Component
     end
 
     @ExecSpace("Server")
-    method void RequestEnterGame(table look, table equipment, table stats, string atkSkillId, string buffSkillId)
+    method void RequestEnterGame(table look, table equipment, table stats, string atkSkillId, string buffSkillId, table tierSkills)
         -- Client (the character card's PLAY button) asked to enter the village lobby. Applies the
         -- chosen slot's rolled look + equipped gear onto the actual player entity via the shared
         -- roster logic - the player's own MSW-account avatar is never shown (DefaultPlayer.model
@@ -399,6 +399,18 @@ script CharacterSelectStageController extends Component
         local skillComp = player:GetComponent("script.PlayerSkillComponent")
         if isvalid(skillComp) then
             skillComp:GrantInitialSkill(atkSkillId, buffSkillId)
+            -- 버그 수정(2026-09-17, 유저 리포트 "레벨 도달 시 자동 전직 시스템이 막혀있다") - 로스터에
+            -- 저장된 티어2~4 스킬을 복원한다(GrantInitialSkill은 1차만 다룸 - PlayerSkillComponent.
+            -- RestoreTierSkills 주석 참고).
+            if tierSkills ~= nil then
+                skillComp:RestoreTierSkills(tierSkills.atk2 or "", tierSkills.buff2 or "", tierSkills.atk3 or "", tierSkills.buff3 or "", tierSkills.atk4 or "", tierSkills.buff4 or "")
+            end
+        end
+        if isvalid(statsComp) then
+            -- 레벨 요건은 채웠지만(로스터에 저장된 Level) 위에서 복원해보니 여전히 없는 티어가
+            -- 있으면 전직 퀘스트 보스 대기 상태를 다시 세운다(LevelProgressionLogic.
+            -- ReconcilePendingPromotions 주석 참고).
+            statsComp:ReconcilePendingPromotions()
         end
 
         -- NOTE: undoing HideLocalPlayer's visibility hide does NOT happen here. Component.Enable is

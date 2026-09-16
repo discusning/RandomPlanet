@@ -144,6 +144,18 @@ script LobbyStageController extends Component
             if isvalid(outgoingStats) then
                 _CharacterRosterLogic:UpdateActiveLevel(outgoingStats.Level)
             end
+            -- 버그 수정(2026-09-17) - 위 Level과 동일한 레이스 컨디션 보호를, 교체 직전 나가는
+            -- 캐릭터의 티어2~4 스킬에도 적용한다(늦게 도착하는 @Sync가 이미 바뀐 활성 인덱스에 잘못
+            -- 반영되는 것을 막기 위해, 인덱스를 바꾸기 전에 동기적으로 지금 값을 로스터에 반영).
+            local outgoingSkill = isvalid(localPlayer) and localPlayer:GetComponent("script.PlayerSkillComponent") or nil
+            if isvalid(outgoingSkill) then
+                if outgoingSkill.AtkSkill2 ~= "" then _CharacterRosterLogic:UpdateActiveTierSkill("AtkSkill2", outgoingSkill.AtkSkill2) end
+                if outgoingSkill.BuffSkill2 ~= "" then _CharacterRosterLogic:UpdateActiveTierSkill("BuffSkill2", outgoingSkill.BuffSkill2) end
+                if outgoingSkill.AtkSkill3 ~= "" then _CharacterRosterLogic:UpdateActiveTierSkill("AtkSkill3", outgoingSkill.AtkSkill3) end
+                if outgoingSkill.BuffSkill3 ~= "" then _CharacterRosterLogic:UpdateActiveTierSkill("BuffSkill3", outgoingSkill.BuffSkill3) end
+                if outgoingSkill.AtkSkill4 ~= "" then _CharacterRosterLogic:UpdateActiveTierSkill("AtkSkill4", outgoingSkill.AtkSkill4) end
+                if outgoingSkill.BuffSkill4 ~= "" then _CharacterRosterLogic:UpdateActiveTierSkill("BuffSkill4", outgoingSkill.BuffSkill4) end
+            end
         end
         -- Effective (base + equipment bonus) stats - see CharacterCardController.OnPlayClicked's
         -- comment for why this is computed here (ClientOnly GetEffectiveStat) rather than server-side.
@@ -155,8 +167,13 @@ script LobbyStageController extends Component
             level = data.level,
             trait = data.trait,
         }
+        local tierSkills = {
+            atk2 = data.atkSkillId2 or "", buff2 = data.buffSkillId2 or "",
+            atk3 = data.atkSkillId3 or "", buff3 = data.buffSkillId3 or "",
+            atk4 = data.atkSkillId4 or "", buff4 = data.buffSkillId4 or "",
+        }
         _CharacterRosterLogic:SetActiveIndex(idx)
-        _CharacterRosterLogic:SwapActiveCharacter(data.look, data.equipment, stats, standeePos, data.atkSkillId, data.buffSkillId)
+        _CharacterRosterLogic:SwapActiveCharacter(data.look, data.equipment, stats, standeePos, data.atkSkillId, data.buffSkillId, tierSkills)
         -- M2 Phase C(2026-09-06) - 캐릭터 교체 직후 새 활성 캐릭터 기준으로 공격대 링크 패시브 재반영.
         _CharacterRosterLogic:PushSquadLinksToServer()
         self:RefreshLobbyStandees()

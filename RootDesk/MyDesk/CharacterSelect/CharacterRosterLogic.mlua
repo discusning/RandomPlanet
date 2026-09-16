@@ -260,7 +260,7 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("Server")
-    method void SwapActiveCharacter(table look, table equipment, table stats, Vector3 standeePos, string atkSkillId, string buffSkillId)
+    method void SwapActiveCharacter(table look, table equipment, table stats, Vector3 standeePos, string atkSkillId, string buffSkillId, table tierSkills)
         -- Called from the Lobby when the player clicks a different owned character's standee.
         -- Re-skins the player AND moves them to the clicked standee's spot - the character you just
         -- took control of should be movable from where it was standing, not from wherever the
@@ -277,6 +277,14 @@ script CharacterRosterLogic extends Logic
         local skillComp = player:GetComponent("script.PlayerSkillComponent")
         if isvalid(skillComp) then
             skillComp:GrantInitialSkill(atkSkillId, buffSkillId)
+            -- 버그 수정(2026-09-17) - 로스터에 저장된 티어2~4 스킬 복원 + 레벨 요건은 채웠지만 아직
+            -- 못 받은 티어가 있으면 재판정(RequestEnterGame과 동일한 순서 - 아래 참고).
+            if tierSkills ~= nil then
+                skillComp:RestoreTierSkills(tierSkills.atk2 or "", tierSkills.buff2 or "", tierSkills.atk3 or "", tierSkills.buff3 or "", tierSkills.atk4 or "", tierSkills.buff4 or "")
+            end
+        end
+        if isvalid(statsComp) then
+            statsComp:ReconcilePendingPromotions()
         end
         _TeleportService:TeleportToMapPosition(player, standeePos, "Lobby")
     end
@@ -303,6 +311,29 @@ script CharacterRosterLogic extends Logic
         if data == nil or data.level == level then return end
         data.level = level
         self:SaveRoster()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void UpdateActiveTierSkill(string propertyName, string skillId)
+        -- 버그 수정(2026-09-17, 유저 리포트 "레벨 도달 시 자동 전직 시스템이 막혀있다") - 위
+        -- UpdateActiveLevel과 정확히 같은 이유(캐릭터별 필드가 생성 시점 이후 갱신되지 않음)로,
+        -- 전직 퀘스트 보스를 처치해 얻은 티어2~4 스킬이 지금까지 로스터에 전혀 저장되지 않았다 -
+        -- PlayerSkillComponent.OnSyncProperty가 AtkSkill2~4/BuffSkill2~4 중 하나가 바뀔 때마다
+        -- 이 메서드를 호출한다.
+        local idx = self:GetActiveIndex()
+        if idx == nil then return end
+        local data = self._T.data[idx]
+        if data == nil then return end
+        local fieldMap = {
+            AtkSkill2 = "atkSkillId2", BuffSkill2 = "buffSkillId2",
+            AtkSkill3 = "atkSkillId3", BuffSkill3 = "buffSkillId3",
+            AtkSkill4 = "atkSkillId4", BuffSkill4 = "buffSkillId4",
+        }
+        local field = fieldMap[propertyName]
+        if field == nil or data[field] == skillId then return end
+        data[field] = skillId
+        self:SaveRoster()
+        log("CharacterRoster: UpdateActiveTierSkill " .. field .. " -> " .. skillId)
     end
 
     @ExecSpace("ClientOnly")

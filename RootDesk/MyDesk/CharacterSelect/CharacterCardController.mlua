@@ -213,7 +213,14 @@ script CharacterCardController extends Component
                 -- 기존 캐릭터도 곧바로 더 높은 만렙 혜택을 받는다).
                 upgradeLevel = _AccountCurrencyLogic:GetUpgradeLevel(),
             }
-            controller:RequestEnterGame(self._T.look, self._T.equipment, stats, self._T.characterData.atkSkillId, self._T.characterData.buffSkillId)
+            -- 버그 수정(2026-09-17) - 로스터에 저장된 티어2~4 스킬(전직 퀘스트 보스를 이미 클리어해
+            -- 얻은 것)을 함께 넘긴다 - CharacterSelectStageController.RequestEnterGame 주석 참고.
+            local tierSkills = {
+                atk2 = self._T.characterData.atkSkillId2 or "", buff2 = self._T.characterData.buffSkillId2 or "",
+                atk3 = self._T.characterData.atkSkillId3 or "", buff3 = self._T.characterData.buffSkillId3 or "",
+                atk4 = self._T.characterData.atkSkillId4 or "", buff4 = self._T.characterData.buffSkillId4 or "",
+            }
+            controller:RequestEnterGame(self._T.look, self._T.equipment, stats, self._T.characterData.atkSkillId, self._T.characterData.buffSkillId, tierSkills)
             -- M2 Phase C(2026-09-06) - 진입 직후 현재 공격대 편성의 링크 패시브를 서버에 반영.
             _CharacterRosterLogic:PushSquadLinksToServer()
         end

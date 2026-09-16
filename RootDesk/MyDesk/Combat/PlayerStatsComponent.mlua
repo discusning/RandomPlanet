@@ -428,6 +428,16 @@ script PlayerStatsComponent extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void ReconcilePendingPromotions()
+        -- 위임 래퍼(위 GrantSkillTierIfMilestone과 동일 패턴), 본체는 LevelProgressionLogic.mlua.
+        -- player:GetComponent(...)로 얻은 값은 제네릭 Component 타입이라 LEA-1103(타입 불일치)이
+        -- 나므로, PlayerStatsComponent로 정적 타입이 확정된 self를 여기서 넘긴다 - 호출부
+        -- (CharacterSelectStageController.RequestEnterGame/CharacterRosterLogic.SwapActiveCharacter)는
+        -- statsComp:ReconcilePendingPromotions()로 호출.
+        _LevelProgressionLogic:ReconcilePendingPromotions(self)
+    end
+
+    @ExecSpace("ServerOnly")
     method void RecordBossKillForPromotion()
         -- 2026-09-15 코드 구조화 - 위임 래퍼, 본체는 LevelProgressionLogic.mlua.
         _LevelProgressionLogic:RecordBossKillForPromotion(self)

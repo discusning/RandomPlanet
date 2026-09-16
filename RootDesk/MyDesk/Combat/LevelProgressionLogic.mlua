@@ -110,6 +110,47 @@ script LevelProgressionLogic extends Logic
     end
 
     @ExecSpace("ServerOnly")
+    method void ReconcilePendingPromotions(PlayerStatsComponent stats)
+        -- 버그 수정(2026-09-17, 유저 리포트 "레벨 도달 시 자동 전직 시스템이 막혀있다") - PromotionPending
+        -- 2~4는 세션 전용 값이라 재입장/캐릭터 교체마다 false로 초기화됐고, 티어2~4 스킬 자체도
+        -- 지금까지 로스터에 저장되지 않아(RestoreTierSkills 도입 전) 재진입마다 함께 소실됐다. 레벨은
+        -- 이미 저장돼 있어 GrantSkillTierIfMilestone은 "레벨이 방금 그 문턱을 넘는 순간"에만 발동하는
+        -- 일회성 트리거라, 한 번이라도 그 세션 안에 전직 퀘스트 보스를 못 잡으면 그 캐릭터는 해당
+        -- 티어를 영원히 받을 수 없었다(Level 필드가 겪었던 것과 동일한 클래스의 버그 - 당시 수정은
+        -- UpdateActiveLevel 참고).
+        --
+        -- RequestEnterGame/SwapActiveCharacter에서 RestoreTierSkills 직후 호출한다 - "레벨 요건은
+        -- 채웠는데 그 티어 스킬이 아직 없다"를 매 진입마다 다시 판정해, 죽거나 재접속해도 대기 상태가
+        -- 복원되게 한다. 외길(Hidden-bad, "이후 전직에서 스킬 획득 중단") 캐릭터는 스킬을 영원히 못
+        -- 받으므로 이 판정이 매번 다시 true가 되지만, RecordBossKillForPromotion이 스킬 지급만 스킵할
+        -- 뿐 보스 처치 자체는 정상 처리되므로 실질적 피해는 없다(알려진 한계로 남겨둠).
+        local skillComp = stats.Entity:GetComponent("script.PlayerSkillComponent")
+        if not isvalid(skillComp) then return end
+        if stats:HasTrait("봉인된 자") then return end
+
+        local milestones = { { tier = 2, level = 5 }, { tier = 3, level = 13 }, { tier = 4, level = 18 } }
+        for _, m in ipairs(milestones) do
+            if stats.Level >= m.level and skillComp:GetTierAttackId(m.tier) == "" then
+                if m.tier == 4 and stats:HasTrait("봉인구") then
+                    -- "4차 전직 불가" - 스킵.
+                elseif m.tier == 2 and not stats.PromotionPending2 then
+                    stats.PromotionPending2 = true
+                    if stats.PromotionMilestoneElapsed == 0 then stats.PromotionMilestoneElapsed = _UtilLogic.ElapsedSeconds end
+                    log("PlayerStats: ReconcilePendingPromotions tier=2 재복원")
+                elseif m.tier == 3 and not stats.PromotionPending3 then
+                    stats.PromotionPending3 = true
+                    if stats.PromotionMilestoneElapsed == 0 then stats.PromotionMilestoneElapsed = _UtilLogic.ElapsedSeconds end
+                    log("PlayerStats: ReconcilePendingPromotions tier=3 재복원")
+                elseif m.tier == 4 and not stats.PromotionPending4 then
+                    stats.PromotionPending4 = true
+                    if stats.PromotionMilestoneElapsed == 0 then stats.PromotionMilestoneElapsed = _UtilLogic.ElapsedSeconds end
+                    log("PlayerStats: ReconcilePendingPromotions tier=4 재복원")
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
     method void ApplyCosmeticEvolution(PlayerStatsComponent stats, integer level)
         -- 피부 갈이(basicEffect.cosmetic, avg풀) - "5·10·15·20레벨마다 코스튬 자동 진화(전투 효과
         -- 없음, 순수 비주얼)"이 게터/소비처가 없어 정직하게 미구현으로 남아있었다(2026-09-08 QA

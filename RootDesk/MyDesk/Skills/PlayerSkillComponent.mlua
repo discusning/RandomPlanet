@@ -101,12 +101,26 @@ script PlayerSkillComponent extends Component
 
     @ExecSpace("ClientOnly")
     method void OnSyncProperty(string name, any value)
-        -- Opens the skill-tier 3택1 popup for the local player only (RestrictedPlayerEntitySync
-        -- keeps other players' PlayerSkillComponent invisible to this client anyway, but the guard
-        -- is kept explicit to match this project's other per-player UI controllers).
-        if name ~= "SkillChoicePending" or value ~= true then return end
+        -- RestrictedPlayerEntitySync keeps other players' PlayerSkillComponent invisible to this
+        -- client anyway, but the guard is kept explicit to match this project's other per-player UI
+        -- controllers (and to avoid re-saving the roster from a spectated player's syncs below).
         if not isvalid(_UserService.LocalPlayer) or self.Entity ~= _UserService.LocalPlayer then return end
-        _SkillChoiceUIController:ShowChoice(self.PendingSkillCategory, self.PendingSkillTier, self.PendingSkillChoice1, self.PendingSkillChoice2, self.PendingSkillChoice3)
+        if name == "SkillChoicePending" and value == true then
+            -- Opens the skill-tier 3택1 popup.
+            _SkillChoiceUIController:ShowChoice(self.PendingSkillCategory, self.PendingSkillTier, self.PendingSkillChoice1, self.PendingSkillChoice2, self.PendingSkillChoice3)
+        elseif name == "AtkSkill2" or name == "BuffSkill2" or name == "AtkSkill3" or name == "BuffSkill3" or name == "AtkSkill4" or name == "BuffSkill4" then
+            -- 버그 수정(2026-09-17, 유저 리포트 "레벨 도달 시 자동 전직 시스템이 막혀있다") - 티어2~4
+            -- 스킬은 지금까지 로스터에 전혀 저장되지 않았다(GrantInitialSkill은 1차만 복원). 그 결과
+            -- 전직 퀘스트 보스를 처치해 스킬을 얻어도, 재입장/캐릭터 교체 한 번이면 AtkSkill2~4/
+            -- BuffSkill2~4가 전부 빈 값으로 되돌아갔고(레벨은 이미 저장돼 있으니 milestone 판정도
+            -- 다시는 안 일어나) 사실상 영구히 전직이 막혔다. Level 필드와 동일한 패턴(이 파일의
+            -- OnSyncProperty "SkillChoicePending" 처리부, PlayerStatsComponent.OnSyncProperty
+            -- "Level"->CharacterRosterLogic.UpdateActiveLevel)으로, 값이 바뀔 때마다 즉시 로스터에
+            -- 반영해 재입장 후에도 복원되게 한다(CharacterRosterLogic.UpdateActiveTierSkill).
+            if value ~= "" then
+                _CharacterRosterLogic:UpdateActiveTierSkill(name, value)
+            end
+        end
     end
 
     @ExecSpace("ServerOnly")
@@ -136,6 +150,35 @@ script PlayerSkillComponent extends Component
         -- 순서로 8슬롯에 자동 채움 - 위 EquippedSkillId1~8 선언부 주석 참고).
         self:RefillEquipSlots()
         log("PlayerSkill: GrantInitialSkill atk1=" .. self.AtkSkill1 .. " buff1=" .. self.BuffSkill1)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RestoreTierSkills(string atk2, string buff2, string atk3, string buff3, string atk4, string buff4)
+        -- 버그 수정(2026-09-17) - 로스터에 저장된 티어2~4 스킬(전직 퀘스트 보스를 이미 클리어해 얻은
+        -- 것)을 재진입/캐릭터 교체 시 복원한다. GrantInitialSkill과 짝을 이루되, 이쪽은 빈 문자열을
+        -- "아직 그 티어를 클리어하지 않음"으로 취급해 건드리지 않는다(SetTierSlot처럼 ""로 덮어쓰면
+        -- 이미 있던 값을 지워버릴 위험이 있음 - 예: 여러 컴포넌트가 순서 보장 없이 같은 프레임에
+        -- 초기화되는 경우에 대한 방어).
+        if atk2 ~= nil and atk2 ~= "" then self.AtkSkill2 = atk2 end
+        if buff2 ~= nil and buff2 ~= "" then self.BuffSkill2 = buff2 end
+        if atk3 ~= nil and atk3 ~= "" then self.AtkSkill3 = atk3 end
+        if buff3 ~= nil and buff3 ~= "" then self.BuffSkill3 = buff3 end
+        if atk4 ~= nil and atk4 ~= "" then self.AtkSkill4 = atk4 end
+        if buff4 ~= nil and buff4 ~= "" then self.BuffSkill4 = buff4 end
+        self:RefillEquipSlots()
+        log("PlayerSkill: RestoreTierSkills atk2=" .. self.AtkSkill2 .. " atk3=" .. self.AtkSkill3 .. " atk4=" .. self.AtkSkill4)
+    end
+
+    method string GetTierAttackId(integer tier)
+        -- LevelProgressionLogic.ReconcilePendingPromotions가 "이 티어를 이미 클리어했는가"를 판정하는
+        -- 데 쓴다(해당 티어의 공격 스킬 보유 여부로 판정 - 버프/공격은 항상 같은 전직에서 함께
+        -- 지급되므로 공격 하나만 확인해도 충분).
+        if tier == 1 then return self.AtkSkill1
+        elseif tier == 2 then return self.AtkSkill2
+        elseif tier == 3 then return self.AtkSkill3
+        elseif tier == 4 then return self.AtkSkill4
+        end
+        return ""
     end
 
     @ExecSpace("ServerOnly")
