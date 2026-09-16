@@ -3,10 +3,9 @@ script PlayerSkillComponent extends Component
     -- 전직별 스킬 보유·장착 실행기 (Docs/랜덤 플래닛 전체 기획서.md §04 "버프풀 3택1 + 공격풀 3택1
     -- 동시 진행"). 스킬 정의는 SkillCatalog(@Logic)에서 조회, 실제 수치는 PlayerAttack/
     -- PlayerStatsComponent/MovementComponent를 그때그때 읽고 쓴다(각 스탯 공식은 그쪽이 유일한 소유자).
-    -- 8개 고정 슬롯(1~4차 x 버프/공격)에 보유 스킬을 저장하고, 그중 하나만 EquippedSkillId로 "Skill"
-    -- (Q)키에 실제 장착한다. 캐릭터 생성 시점(1차)은 유저가 카드에서 공격/버프 각각 전체 풀 안에서
-    -- 직접 고른 두 스킬을 그대로 받는다(GrantInitialSkill, 2026-08-19 재설계 - 예전엔 하나만 직접
-    -- 고르고 반대 카테고리는 안 보이게 자동 배정됐음).
+    -- 8개 고정 슬롯(1~4차 x 버프/공격)에 보유 스킬을 저장한다. 캐릭터 생성 시점(1차)은 유저가
+    -- 카드에서 공격/버프 각각 전체 풀 안에서 직접 고른 두 스킬을 그대로 받는다(GrantInitialSkill,
+    -- 2026-08-19 재설계 - 예전엔 하나만 직접 고르고 반대 카테고리는 안 보이게 자동 배정됐음).
     -- 2026-09-06 (M2 Phase A) - 2/3/4차 전직 티어는 이전엔 GrantTierSkills가 각 카테고리 첫 후보를
     -- 자동 지급했으나(3택1 UI 부재), 실제 3택1 선택 팝업(SkillChoiceUIController/ui/SkillChoiceGroup.ui,
     -- AbilityChoiceUIController와 동일 아키텍처)으로 교체 - 버프 3택1을 먼저 띄우고 확정되면 이어서
@@ -21,15 +20,32 @@ script PlayerSkillComponent extends Component
     @Sync property string AtkSkill2 = ""
     @Sync property string AtkSkill3 = ""
     @Sync property string AtkSkill4 = ""
-    @Sync property string EquippedSkillId = ""
-    @Sync @HideFromInspector property number LastUseTime = -999
-    -- 2번 스킬 슬롯 (2026-08-25, 유저 요청 - "스킬 관련 세팅이 더 진화된 모습으로... 자유도를
-    -- 올리고" - 기존엔 슬롯이 1개(Q)뿐이라 버프와 공격 스킬을 동시에 쓸 수 없었다. Q(EquippedSkillId)는
-    -- 항상 공격 카테고리, W(EquippedSkillId2)는 항상 버프 카테고리로 고정해 "공격 키 + 버프 키를
-    -- 동시에 장착"하는 실제 메이플스토리식 다중 스킬 키 구조에 가깝게 만든다 - 스킬창에서 장착 버튼을
-    -- 누르면 그 스킬의 카테고리에 따라 자동으로 맞는 슬롯에 들어간다(RequestSetEquippedSkill).
+    -- 2026-09-16 유저 요청("메이플처럼 스킬창에서 키보드 세팅으로 자유 배치, 보유 스킬 전부 동시
+    -- 사용 가능") - 기존엔 "장착" 버튼으로 딱 2개(공격 1/버프 1, Q/W 고정)만 동시 사용 가능했다.
+    -- 이제 보유한 스킬(최대 8개, 위 BuffSkill1~4/AtkSkill1~4) 전부가 항상 자기 슬롯에 상시
+    -- 배치되고(RefillEquipSlots, "장착" 개념 자체가 사라짐), 슬롯 N은 키바인딩 액션명 "Skill"
+    -- (N==1) / "SkillN"(N>=2)에 연결된다 - 어느 물리 키를 누르느냐는 KeyBindingLogic이 이미
+    -- 범용적으로 담당(§KeySetting/KeyBindingLogic.mlua). 8개 named property로 유지하는 이유는
+    -- KeyBindingPopupController류의 UIBuilder bind-injection이 구체적인 프로퍼티 이름을 요구하는
+    -- 프로젝트 기존 관행과 동일(SyncTable 배열 대신 - InventoryUIController의 slot1~16과 같은 패턴).
+    -- 아래 GetEquippedSkillId/SetEquippedSkillId/GetLastUseTime/SetLastUseTime 헬퍼로 감싸서, 나머지
+    -- 코드(UseSkillSlot/HUD/특성)는 슬롯 번호만으로 반복문을 돌 수 있게 한다.
+    @Sync property string EquippedSkillId1 = ""
+    @Sync @HideFromInspector property number LastUseTime1 = -999
     @Sync property string EquippedSkillId2 = ""
     @Sync @HideFromInspector property number LastUseTime2 = -999
+    @Sync property string EquippedSkillId3 = ""
+    @Sync @HideFromInspector property number LastUseTime3 = -999
+    @Sync property string EquippedSkillId4 = ""
+    @Sync @HideFromInspector property number LastUseTime4 = -999
+    @Sync property string EquippedSkillId5 = ""
+    @Sync @HideFromInspector property number LastUseTime5 = -999
+    @Sync property string EquippedSkillId6 = ""
+    @Sync @HideFromInspector property number LastUseTime6 = -999
+    @Sync property string EquippedSkillId7 = ""
+    @Sync @HideFromInspector property number LastUseTime7 = -999
+    @Sync property string EquippedSkillId8 = ""
+    @Sync @HideFromInspector property number LastUseTime8 = -999
     -- 2026-09-06 (M2 Phase A) - 티어 3택1 선택 팝업 상태. SkillChoicePending은 클라이언트가
     -- OnSyncProperty로 감시하는 진입점(true가 되면 SkillChoiceUIController.ShowChoice 호출) -
     -- AbilityChoicePending과 동일 패턴. PendingSkillChoice1~3은 이번 팝업의 후보 3개(카테고리 내
@@ -102,19 +118,9 @@ script PlayerSkillComponent extends Component
             local pool = _SkillCatalog:GetSkillsByCategory("buff", 1)
             if #pool > 0 then self.BuffSkill1 = pool[_UtilLogic:RandomIntegerRange(1, #pool)] end
         end
-        -- 기본 장착은 공격 스킬(Q키가 곧바로 딜을 넣도록) - 공격 쪽이 비어 있으면 버프로 대체.
-        if self.AtkSkill1 ~= "" then
-            self.EquippedSkillId = self.AtkSkill1
-        elseif self.BuffSkill1 ~= "" then
-            self.EquippedSkillId = self.BuffSkill1
-        end
-        -- W(2번 슬롯)에는 버프 스킬을 처음부터 장착 - 공격(Q)과 버프(W)를 동시에 쓸 수 있게(위
-        -- EquippedSkillId2 선언부 주석 참고). 매번 스킬창에서 수동으로 바꿔 낄 필요가 없어져서
-        -- "약한 직업도 던전을 깰 수 있어야 한다"는 요청에도 실질적으로 기여한다 - 예전엔 버프를
-        -- 쓰려면 공격 스킬을 내려야 했다.
-        if self.BuffSkill1 ~= "" then
-            self.EquippedSkillId2 = self.BuffSkill1
-        end
+        -- 2026-09-16 - 개별 슬롯 수동 배정 대신 RefillEquipSlots()로 위임(보유 스킬 전체를 결정론적
+        -- 순서로 8슬롯에 자동 채움 - 위 EquippedSkillId1~8 선언부 주석 참고).
+        self:RefillEquipSlots()
         log("PlayerSkill: GrantInitialSkill atk1=" .. self.AtkSkill1 .. " buff1=" .. self.BuffSkill1)
     end
 
@@ -276,6 +282,86 @@ script PlayerSkillComponent extends Component
             elseif tier == 4 then self.AtkSkill4 = skillId
             end
         end
+        -- 2026-09-16 - 티어 진급으로 보유 스킬 목록이 바뀔 때마다 8슬롯을 다시 결정론적으로 채운다
+        -- (새로 얻은 스킬도 즉시 자기 키로 바로 쓸 수 있어야 하므로).
+        self:RefillEquipSlots()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RefillEquipSlots()
+        -- 2026-09-16 유저 요청 - 보유한 모든 스킬(최대 8개)이 항상 상시 사용 가능해야 한다("장착"
+        -- 개념 폐지). 결정론적 순서(1차 공격->슬롯1, 1차 버프->슬롯2, 2차 공격->슬롯3, 2차 버프->
+        -- 슬롯4, ... 4차까지)로 8슬롯을 다시 채운다 - 기존 Q=공격/W=버프 관례와 하위호환되도록 1차는
+        -- 그대로 슬롯1/2에 온다. 어느 물리 키가 슬롯 N을 누르는지는 KeyBindingLogic이 별도로 관리.
+        local orderedIds = {
+            self.AtkSkill1, self.BuffSkill1,
+            self.AtkSkill2, self.BuffSkill2,
+            self.AtkSkill3, self.BuffSkill3,
+            self.AtkSkill4, self.BuffSkill4,
+        }
+        for slot = 1, 8 do
+            self:SetEquippedSkillId(slot, orderedIds[slot] or "")
+        end
+    end
+
+    method string GetEquippedSkillId(integer slot)
+        if slot == 1 then return self.EquippedSkillId1
+        elseif slot == 2 then return self.EquippedSkillId2
+        elseif slot == 3 then return self.EquippedSkillId3
+        elseif slot == 4 then return self.EquippedSkillId4
+        elseif slot == 5 then return self.EquippedSkillId5
+        elseif slot == 6 then return self.EquippedSkillId6
+        elseif slot == 7 then return self.EquippedSkillId7
+        elseif slot == 8 then return self.EquippedSkillId8
+        end
+        return ""
+    end
+
+    method void SetEquippedSkillId(integer slot, string skillId)
+        if slot == 1 then self.EquippedSkillId1 = skillId
+        elseif slot == 2 then self.EquippedSkillId2 = skillId
+        elseif slot == 3 then self.EquippedSkillId3 = skillId
+        elseif slot == 4 then self.EquippedSkillId4 = skillId
+        elseif slot == 5 then self.EquippedSkillId5 = skillId
+        elseif slot == 6 then self.EquippedSkillId6 = skillId
+        elseif slot == 7 then self.EquippedSkillId7 = skillId
+        elseif slot == 8 then self.EquippedSkillId8 = skillId
+        end
+    end
+
+    method number GetLastUseTime(integer slot)
+        if slot == 1 then return self.LastUseTime1
+        elseif slot == 2 then return self.LastUseTime2
+        elseif slot == 3 then return self.LastUseTime3
+        elseif slot == 4 then return self.LastUseTime4
+        elseif slot == 5 then return self.LastUseTime5
+        elseif slot == 6 then return self.LastUseTime6
+        elseif slot == 7 then return self.LastUseTime7
+        elseif slot == 8 then return self.LastUseTime8
+        end
+        return -999
+    end
+
+    method void SetLastUseTime(integer slot, number time)
+        if slot == 1 then self.LastUseTime1 = time
+        elseif slot == 2 then self.LastUseTime2 = time
+        elseif slot == 3 then self.LastUseTime3 = time
+        elseif slot == 4 then self.LastUseTime4 = time
+        elseif slot == 5 then self.LastUseTime5 = time
+        elseif slot == 6 then self.LastUseTime6 = time
+        elseif slot == 7 then self.LastUseTime7 = time
+        elseif slot == 8 then self.LastUseTime8 = time
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ResetAllCooldowns()
+        -- 메아리(onHitCooldownReset)/박복 특성처럼 "장착된 스킬 쿨다운 전체 초기화" 효과가 예전엔
+        -- LastUseTime/LastUseTime2 두 개만 리셋했다 - 8슬롯으로 늘어난 뒤에도 그 효과가 슬롯 1/2만
+        -- 초기화하고 나머지는 놓치지 않도록 전용 헬퍼로 통합.
+        for slot = 1, 8 do
+            self:SetLastUseTime(slot, -999)
+        end
     end
 
     method table GetOwnedSkillIds()
@@ -299,36 +385,28 @@ script PlayerSkillComponent extends Component
 
     @ExecSpace("Server")
     method void RequestSetEquippedSkill(string skillId)
-        -- Client-invoked (skill window "장착" button). Only allows equipping an actually-owned
-        -- skill - rejects a spoofed/unknown id silently (no error, just a no-op + log).
-        -- 2026-08-25: 카테고리로 슬롯 자동 분기 - 버프 스킬은 항상 2번 슬롯(W), 공격/대시 스킬은
-        -- 항상 1번 슬롯(Q)에 들어간다(EquippedSkillId2 선언부 주석 참고). 스킬창 UI는 버튼 하나
-        -- 그대로 두고 이 서버 로직만으로 "공격+버프 동시 장착"을 구현 - 클라이언트 쪽 변경 불필요.
-        local owned = self:GetOwnedSkillIds()
-        for _, entry in ipairs(owned) do
-            if entry.id == skillId then
-                if entry.category == "buff" then
-                    self.EquippedSkillId2 = skillId
-                else
-                    self.EquippedSkillId = skillId
-                end
-                log("PlayerSkill: equipped " .. skillId .. " slot=" .. (entry.category == "buff" and "2(W)" or "1(Q)"))
-                return
-            end
-        end
-        log("PlayerSkill: RequestSetEquippedSkill rejected, not owned: " .. tostring(skillId))
+        -- 2026-09-16 사실상 폐지(deprecated no-op) - "보유 스킬 전부 동시 사용 가능" 재설계 이후
+        -- RefillEquipSlots()가 보유 스킬을 자동으로 8슬롯에 전부 채우므로 수동 "장착" 자체가
+        -- 불필요해졌다. SkillUIController가 더 이상 이 메서드를 호출하지 않지만(3단계), 혹시 남은
+        -- 호출부나 구버전 클라이언트가 있어도 조용히 무해하게 지나가도록 메서드 자체는 남겨둔다.
+        log("PlayerSkill: RequestSetEquippedSkill is deprecated (skills auto-equip now) - ignored " .. tostring(skillId))
     end
 
     @ExecSpace("ServerOnly")
     @EventSender("Self")
     handler HandlePlayerActionEvent(PlayerActionEvent event)
         -- Resolves the player's skill keys into UseSkillSlot(). Mirrors PlayerAttack's own
-        -- ActionName-filtered handler pattern for the "Attack" key. "Skill"(Q)=slot 1(공격),
-        -- "Skill2"(W)=slot 2(버프) - see EquippedSkillId2 선언부 주석 + KeyBindingLogic.BuildRegistry.
-        if event.ActionName == "Skill" then
-            self:UseSkillSlot(1)
-        elseif event.ActionName == "Skill2" then
-            self:UseSkillSlot(2)
+        -- ActionName-filtered handler pattern for the "Attack" key. 2026-09-16 - 8슬롯으로 확장
+        -- (action name "Skill"=슬롯1, "Skill2".."Skill8"=슬롯2~8) - KeyBindingLogic.BuildRegistry의
+        -- 등록된 이름과 반드시 일치해야 한다. 기존 "Skill"/"Skill2" 이름은 그대로 유지해 이미 저장된
+        -- 유저 키바인딩과 하위호환.
+        local slotByAction = {
+            Skill = 1, Skill2 = 2, Skill3 = 3, Skill4 = 4,
+            Skill5 = 5, Skill6 = 6, Skill7 = 7, Skill8 = 8,
+        }
+        local slot = slotByAction[event.ActionName]
+        if slot ~= nil then
+            self:UseSkillSlot(slot)
         end
     end
 
@@ -338,7 +416,7 @@ script PlayerSkillComponent extends Component
         -- 차감·절약가/mpfree 처리 등 동일 로직을 공유하도록 통합(기존엔 슬롯 2가 아예 발동 경로가
         -- 없었음 - As-built 25차 "W키 백엔드 로직 완료"는 장착 라우팅만 완료된 상태였고 실제 키
         -- 입력을 UseSkill로 연결하는 배선이 빠져있었다).
-        local equippedId = slot == 2 and self.EquippedSkillId2 or self.EquippedSkillId
+        local equippedId = self:GetEquippedSkillId(slot)
         if equippedId == "" then return end
         local def = _SkillCatalog:GetSkillDef(equippedId)
         if def == nil then return end
@@ -350,7 +428,7 @@ script PlayerSkillComponent extends Component
         -- 연결되지 않은 채 남아있었다). effectiveCooldown에 반영.
         local cooldownReduction = isvalid(statsComp) and statsComp.SkillCooldownReduction or 0
         local effectiveCooldown = def.cooldown * (1 - cooldownReduction)
-        local lastUseTime = slot == 2 and self.LastUseTime2 or self.LastUseTime
+        local lastUseTime = self:GetLastUseTime(slot)
         if _UtilLogic.ElapsedSeconds - lastUseTime < effectiveCooldown then
             return
         end
@@ -381,11 +459,7 @@ script PlayerSkillComponent extends Component
             end
         end
 
-        if slot == 2 then
-            self.LastUseTime2 = _UtilLogic.ElapsedSeconds
-        else
-            self.LastUseTime = _UtilLogic.ElapsedSeconds
-        end
+        self:SetLastUseTime(slot, _UtilLogic.ElapsedSeconds)
         if not mpFreeActive then
             statsComp.CurrentMp = statsComp.CurrentMp - mpCost
         end
@@ -404,10 +478,10 @@ script PlayerSkillComponent extends Component
         if rouletteChance > 0 then
             local roll = _UtilLogic:RandomDouble()
             if roll < rouletteChance then
-                if slot == 2 then self.LastUseTime2 = -999 else self.LastUseTime = -999 end
+                self:SetLastUseTime(slot, -999)
                 log("PlayerSkill: 회전룰렛 - 쿨다운 즉시 초기화")
             elseif roll < rouletteChance * 2 then
-                if slot == 2 then self.LastUseTime2 = self.LastUseTime2 + def.cooldown else self.LastUseTime = self.LastUseTime + def.cooldown end
+                self:SetLastUseTime(slot, self:GetLastUseTime(slot) + def.cooldown)
                 log("PlayerSkill: 회전룰렛 - 쿨다운 2배")
             end
         end
