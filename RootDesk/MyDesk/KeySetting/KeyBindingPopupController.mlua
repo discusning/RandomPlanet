@@ -15,6 +15,14 @@ script KeyBindingPopupController extends Component
     property Entity iconAttack = "c367b4c7-da4a-45e6-ad6a-065705a1186b"
     property Entity iconSkill = "ca9d8410-f17d-4de1-9690-73789ad488c0"
     property Entity iconSkill2 = "61207b89-0a0f-4303-a500-9bc09ea23ccf"
+    -- 2026-09-16 유저 요청("보유 스킬 전부를 원하는 키에 자유 배치") - 슬롯3~8용 아이콘. IconSkill/
+    -- IconSkill2를 템플릿으로 ui/KeySettingGroup.ui에 복제 추가(build_keysetting_ui.cjs 갱신 필요).
+    property Entity iconSkill3 = "6c35e8c2-b90a-42bf-8c4a-53be013e0582"
+    property Entity iconSkill4 = "e596d25e-518c-4c85-8f0e-1935b7d8bec5"
+    property Entity iconSkill5 = "daf4d201-d373-40ce-8ead-1ff056d04930"
+    property Entity iconSkill6 = "74f10414-eaa2-45a8-b1d6-0c7b4338a5da"
+    property Entity iconSkill7 = "c6fac18d-47a3-4eb9-a065-4c70127d5a29"
+    property Entity iconSkill8 = "25cb0a50-f99b-433c-83dc-72dcfdefaf4f"
     property Entity iconInventory = "03b91a10-46fb-4cf0-b1bf-1b46dea4afb2"
     property Entity iconEquipment = "c16dcab1-1061-4651-b64c-34c6306027cc"
     property Entity iconCharacterInfo = "00cb1532-63ec-4bfd-b8bb-788bec66d2b7"
@@ -45,12 +53,21 @@ script KeyBindingPopupController extends Component
         self.closeHandler = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
         self.resetHandler = self.btnReset:ConnectEvent(ButtonClickEvent, self.OnResetClicked)
 
-        -- { actionName, entity, dragHandler, endDragHandler } per icon - actionName must match a
-        -- KeyBindingLogic.BuildRegistry() entry exactly (see KeyBindingLogic.mlua).
+        -- { actionName, entity, dragHandler, endDragHandler, skillSlot? } per icon - actionName must
+        -- match a KeyBindingLogic.BuildRegistry() entry exactly (see KeyBindingLogic.mlua).
+        -- skillSlot (1~8, only on the 8 Skill* icons) tells RefreshIcons which
+        -- PlayerSkillComponent:GetEquippedSkillId(slot) to read for that icon's dynamic label/color -
+        -- 2026-09-16, see RefreshIcons below.
         self._T.icons = {
             { actionName = "Attack", entity = self.iconAttack },
-            { actionName = "Skill", entity = self.iconSkill },
-            { actionName = "Skill2", entity = self.iconSkill2 },
+            { actionName = "Skill", entity = self.iconSkill, skillSlot = 1 },
+            { actionName = "Skill2", entity = self.iconSkill2, skillSlot = 2 },
+            { actionName = "Skill3", entity = self.iconSkill3, skillSlot = 3 },
+            { actionName = "Skill4", entity = self.iconSkill4, skillSlot = 4 },
+            { actionName = "Skill5", entity = self.iconSkill5, skillSlot = 5 },
+            { actionName = "Skill6", entity = self.iconSkill6, skillSlot = 6 },
+            { actionName = "Skill7", entity = self.iconSkill7, skillSlot = 7 },
+            { actionName = "Skill8", entity = self.iconSkill8, skillSlot = 8 },
             { actionName = "Inventory", entity = self.iconInventory },
             { actionName = "Equipment", entity = self.iconEquipment },
             { actionName = "CharacterInfo", entity = self.iconCharacterInfo },
@@ -187,7 +204,49 @@ script KeyBindingPopupController extends Component
     method void RefreshIcons()
         for _, icon in ipairs(self._T.icons) do
             self:SnapIconToKey(icon.entity, _KeyBindingLogic:GetKeyForAction(icon.actionName))
+            if icon.skillSlot ~= nil then
+                self:RefreshSkillIconLabel(icon.entity, icon.skillSlot)
+            end
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshSkillIconLabel(Entity icon, integer slot)
+        -- 2026-09-16 유저 요청 - 8개 스킬 아이콘은 IconAttack 등 나머지 액션 아이콘과 달리 정적
+        -- 아이콘이 아니라, 실제로 그 슬롯에 배치된 보유 스킬이 매 진급/재입장마다 바뀐다
+        -- (PlayerSkillComponent.RefillEquipSlots). 이름/종류색을 매번 실제 값으로 다시 그린다 -
+        -- SkillUIController.ColorForKind와 동일한 색 규칙을 여기서도 씀(간단한 표라 별도 공용
+        -- 헬퍼로 뽑기보단 그대로 복제 - 두 파일 다 매우 짧은 표).
+        if not isvalid(icon) then return end
+        local textComp = icon.TextGUIRendererComponent
+        local spriteComp = icon.SpriteGUIRendererComponent
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return end
+        local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
+        if not isvalid(skillComp) then return end
+        local skillId = skillComp:GetEquippedSkillId(slot)
+        if skillId == "" then
+            if isvalid(textComp) then textComp.Text = "-" end
+            if isvalid(spriteComp) then spriteComp.Color = Color(0.3, 0.26, 0.2, 0.4) end
+            return
+        end
+        local def = _SkillCatalog:GetSkillDef(skillId)
+        if def == nil then return end
+        if isvalid(textComp) then textComp.Text = def.name end
+        if isvalid(spriteComp) then spriteComp.Color = self:ColorForKind(def.kind) end
+    end
+
+    method Color ColorForKind(string kind)
+        if kind == "melee_single" or kind == "multi_hit" then
+            return Color(0.75, 0.16, 0.14, 0.85)
+        elseif kind == "ranged_single" or kind == "ranged_pierce" then
+            return Color(0.14, 0.34, 0.75, 0.85)
+        elseif kind == "buff" then
+            return Color(0.2, 0.62, 0.32, 0.85)
+        elseif kind == "dash" then
+            return Color(0.85, 0.52, 0.14, 0.85)
+        end
+        return Color(0.5, 0.5, 0.5, 0.85)
     end
 
     @ExecSpace("ClientOnly")
