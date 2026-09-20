@@ -198,6 +198,10 @@ script FieldWaveSpawner extends Component
             monster.MaxHp = bossHp
             monster.Hp = bossHp
             monster.XpReward = bossXp
+            -- 2026-09-20 QA - FieldMiniBoss.model에 IsBoss가 없어 기본값(false)으로 스폰돼, 킹 슬라임을
+            -- 잡아도 Monster.GrantXpToAttacker의 보스 분기(전직 퀘스트 보스 처치 기록
+            -- RecordBossKillForPromotion / 도굴꾼 보스 보상 / 보스 처치 연출)가 전부 건너뛰어졌다.
+            monster.IsBoss = true
         end
         local attack = e:GetComponent("script.MonsterAttack")
         if isvalid(attack) then
