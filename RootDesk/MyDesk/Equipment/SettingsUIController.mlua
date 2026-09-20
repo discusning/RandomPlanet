@@ -69,9 +69,14 @@ script SettingsUIController extends Component
         -- KeyBindingPopupController lives on /ui/KeySettingGroup's root (see
         -- RootDesk/MyDesk/KeySetting/KeyBindingPopupController.mlua) - previously only reachable
         -- via the undiscoverable P-key shortcut. This is the in-game entry point.
+        -- 2026-09-20 QA("설정 키설정 x") - 스크립트/P키로는 열리는데 실제 클릭에서만 안 열린다는
+        -- 제보라 클릭 이벤트 도달 여부를 로그로 남긴다(재현되면 이 로그가 없으면 클릭 자체가 이
+        -- 버튼에 안 닿는 것, 있으면 아래 Open 경로 문제).
+        log("SettingsUI: OnKeySettingClicked")
         self:Hide()
         local keySettingGroup = _EntityService:GetEntityByPath("/ui/KeySettingGroup")
         if not isvalid(keySettingGroup) then
+            log_warning("SettingsUI: KeySettingGroup not found")
             return
         end
         local popup = keySettingGroup:GetComponent("script.KeyBindingPopupController")

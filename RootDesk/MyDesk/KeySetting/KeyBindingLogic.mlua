@@ -59,7 +59,10 @@ script KeyBindingLogic extends Logic
             { actionName = "Skill7", displayName = "스킬7", defaultKey = KeyboardKey.D, kind = "controllerAction" },
             { actionName = "Skill8", displayName = "스킬8", defaultKey = KeyboardKey.F, kind = "controllerAction" },
             { actionName = "Inventory", displayName = "인벤토리", defaultKey = KeyboardKey.I, kind = "uiToggle" },
-            { actionName = "Equipment", displayName = "장비", defaultKey = KeyboardKey.E, kind = "uiToggle" },
+            -- 2026-09-20 QA - 스킬3 기본키(E)와 장비창 기본키(E)가 겹쳐 E 한 번에 장비창 토글과
+            -- 스킬3 발동이 동시에 일어났다(실측 확인). 스킬 키(QWER/ASDF 핫바)를 유지하고 장비창을 U로
+            -- 옮긴다. 이미 저장된 유저 바인딩의 중복은 ResolveDuplicateKeys가 로드 시 자동 정리.
+            { actionName = "Equipment", displayName = "장비", defaultKey = KeyboardKey.U, kind = "uiToggle" },
             { actionName = "CharacterInfo", displayName = "캐릭터정보", defaultKey = KeyboardKey.C, kind = "uiToggle" },
             { actionName = "SkillWindow", displayName = "스킬창", defaultKey = KeyboardKey.K, kind = "uiToggle" },
             { actionName = "UseHpPotion", displayName = "HP 포션", defaultKey = KeyboardKey.Alpha1, kind = "itemAction" },
@@ -322,12 +325,57 @@ script KeyBindingLogic extends Logic
             end
         end
         self._T.loadComplete = true
+        self:ResolveDuplicateKeys()
 
         local localPlayer = _UserService.LocalPlayer
         if isvalid(localPlayer) then
             self:ApplyBindingsToLocalPlayer(localPlayer)
         end
         log("KeyBinding: OnBindingsLoaded, hadSavedData=" .. tostring(next(savedKeys) ~= nil))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ResolveDuplicateKeys()
+        -- 2026-09-20 QA - 한 물리 키가 두 액션에 동시에 묶여 있으면(예: 예전 기본값 E = 스킬3 +
+        -- 장비창) 키 한 번에 두 동작이 발동된다. 레지스트리 순서상 앞선 액션(스킬 등 전투 액션)이 키를
+        -- 유지하고, 뒤에 오는 액션은 자기 기본키가 비어있으면 그리로, 아니면 후보 키 중 빈 키로 옮긴다.
+        -- 옮긴 결과가 있으면 저장까지 한다. P는 키 세팅 창 토글 전용이라 후보에서 제외.
+        self:EnsureInitialized()
+        local used = {}
+        local changed = false
+        local fallback = { KeyboardKey.U, KeyboardKey.T, KeyboardKey.G, KeyboardKey.Z, KeyboardKey.X, KeyboardKey.V, KeyboardKey.N, KeyboardKey.M }
+        local taken = {}
+        for _, entry in ipairs(self._T.registry) do
+            taken[self._T.currentKeys[entry.actionName]] = true
+        end
+        for _, entry in ipairs(self._T.registry) do
+            local key = self._T.currentKeys[entry.actionName]
+            if used[key] then
+                local newKey = nil
+                if not taken[entry.defaultKey] then
+                    newKey = entry.defaultKey
+                else
+                    for _, cand in ipairs(fallback) do
+                        if not taken[cand] then
+                            newKey = cand
+                            break
+                        end
+                    end
+                end
+                if newKey ~= nil then
+                    self._T.currentKeys[entry.actionName] = newKey
+                    taken[newKey] = true
+                    used[newKey] = true
+                    changed = true
+                    log("KeyBinding: ResolveDuplicateKeys " .. entry.actionName .. " " .. tostring(key) .. " -> " .. tostring(newKey))
+                end
+            else
+                used[key] = true
+            end
+        end
+        if changed then
+            self:SaveBindings()
+        end
     end
 
     @ExecSpace("ClientOnly")
