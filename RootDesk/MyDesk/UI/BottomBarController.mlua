@@ -58,6 +58,9 @@ script BottomBarController extends Component
             { path = "/ui/SettingsGroup", scriptType = "script.SettingsUIController" },
             { path = "/ui/SkillGroup", scriptType = "script.SkillUIController" },
             { path = "/ui/AccountUpgradeGroup", scriptType = "script.AccountUpgradeUIController" },
+            -- 2026-09-20 물약 상점(로비 물약 상인 NPC로만 열림 - 하단바 버튼은 없다). 다른 창을 열거나
+            -- 하단바가 숨겨질 때 같이 닫히도록 상호배타 목록에만 편입.
+            { path = "/ui/PotionShopGroup", scriptType = "script.PotionShopUIController" },
         }
     end
 
@@ -78,6 +81,11 @@ script BottomBarController extends Component
         -- 끝난다(에러 없음, 그래서 처음엔 못 알아챔). scriptType으로 분기해 전역 참조로 우회.
         if scriptType == "script.AccountUpgradeUIController" then
             _AccountUpgradeUIController:Hide()
+            return
+        end
+        -- PotionShopUIController도 같은 이유로 @Logic - 전역 참조로 닫는다.
+        if scriptType == "script.PotionShopUIController" then
+            _PotionShopUIController:Hide()
             return
         end
         local e = _EntityService:GetEntityByPath(path)

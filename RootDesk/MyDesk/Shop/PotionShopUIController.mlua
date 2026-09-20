@@ -1,0 +1,156 @@
+@Logic
+script PotionShopUIController extends Logic
+    -- 물약 상점 (2026-09-20 QA "물약 상점 없음") - 로비 물약 상인 NPC(LobbyStageController.
+    -- OnShopNpcTouched)를 누르면 열리는 팝업. 계정 재화 "정수"(AccountCurrencyLogic)로 빨간/파란
+    -- 포션을 산다. AccountUpgradeUIController와 동일한 구조(엔티티를 직접 property로 주입한 독립
+    -- @Logic) - ui/PotionShopGroup.ui의 엔티티 UUID는 UIBuilder write(bind)가 주입한다.
+    property Entity shopGroup = "a4666b02-877d-47a6-9fd6-57e7f9e1422e"
+    property TextGUIRendererComponent currencyText = "96971334-ab6a-4a06-b41e-682dc5bae247"
+    property TextGUIRendererComponent statusText = "f0a6606c-ef63-4ea0-aa17-716d11d08dfa"
+    property TextGUIRendererComponent hpInfoText = "8a595f48-a3e4-4390-a36e-8ed006dd8300"
+    property TextGUIRendererComponent mpInfoText = "a23607c5-1197-403a-bc6c-30625d358da6"
+    property Entity btnHpBuy1 = "2070e885-cbc3-4e40-a08a-15f95020815d"
+    property Entity btnHpBuy10 = "2f9547d1-3091-40f4-b648-2fa271184c2e"
+    property Entity btnMpBuy1 = "adaae093-b159-4527-aa55-e575e9fdcf00"
+    property Entity btnMpBuy10 = "ca3b957b-6d3e-4a1b-b1dd-c44d5f578efd"
+    property Entity btnClose = "eab724fe-4665-4772-93f8-c4785794f61b"
+    -- 서버 응답이 유실돼도 버튼이 영구히 잠기지 않도록 하는 안전 해제 시간(초).
+    property number PendingTimeout = 5
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.handlers = {}
+        self._T.pending = false
+        if isvalid(self.shopGroup) then
+            self.shopGroup.Enable = false
+        end
+        self:Bind(self.btnHpBuy1, function() self:OnBuyClicked("hppotion", 1) end)
+        self:Bind(self.btnHpBuy10, function() self:OnBuyClicked("hppotion", 10) end)
+        self:Bind(self.btnMpBuy1, function() self:OnBuyClicked("mppotion", 1) end)
+        self:Bind(self.btnMpBuy10, function() self:OnBuyClicked("mppotion", 10) end)
+        self:Bind(self.btnClose, function() self:Hide() end)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            if isvalid(rec.entity) then
+                rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Bind(Entity button, any callback)
+        -- 버튼 클릭 핸들러 연결 + OnEndPlay 해제용 기록.
+        if not isvalid(button) then return end
+        local h = button:ConnectEvent(ButtonClickEvent, callback)
+        table.insert(self._T.handlers, { entity = button, eventHandler = h })
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        if isvalid(self.shopGroup) then
+            self.shopGroup.Enable = true
+        end
+        self:SetStatus("")
+        self:RefreshDisplay()
+        log("PotionShop: opened")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        if isvalid(self.shopGroup) then
+            self.shopGroup.Enable = false
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetStatus(string message)
+        if isvalid(self.statusText) then
+            self.statusText.Text = message
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer CountOwned(string potionId)
+        -- 활성 캐릭터 인벤토리에서 해당 물약의 보유 수량(1인스턴스=count 필드로 스택).
+        local idx = _CharacterRosterLogic:GetActiveIndex()
+        if idx == nil then return 0 end
+        local data = _CharacterRosterLogic:GetRoster()[idx]
+        if data == nil or data.inventory == nil then return 0 end
+        for _, inst in ipairs(data.inventory) do
+            if inst.potionId == potionId then
+                return inst.count or 1
+            end
+        end
+        return 0
+    end
+
+    @ExecSpace("ClientOnly")
+    method string BuildInfoLine(string potionId)
+        local tpl = _EquipmentLogic:GetPotionTemplate(potionId)
+        if tpl == nil then return "" end
+        return "개당 " .. tpl.price .. " 정수  ·  보유 " .. self:CountOwned(potionId) .. "개"
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshDisplay()
+        -- 열릴 때 / 구매 결과 / 정수 변동(AccountCurrencyLogic)마다 텍스트만 갱신.
+        if isvalid(self.currencyText) then
+            if _AccountCurrencyLogic:IsLoadComplete() then
+                self.currencyText.Text = "보유 정수: " .. _AccountCurrencyLogic:GetCurrency()
+            else
+                self.currencyText.Text = "정수 정보를 불러오는 중..."
+            end
+        end
+        if isvalid(self.hpInfoText) then
+            self.hpInfoText.Text = self:BuildInfoLine("hppotion")
+        end
+        if isvalid(self.mpInfoText) then
+            self.mpInfoText.Text = self:BuildInfoLine("mppotion")
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnBuyClicked(string potionId, integer amount)
+        if self._T.pending then return end
+        if not _AccountCurrencyLogic:IsLoadComplete() then
+            self:SetStatus("정수 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.")
+            return
+        end
+        if _CharacterRosterLogic:GetActiveIndex() == nil then
+            self:SetStatus("활성 캐릭터가 없어 구매할 수 없습니다.")
+            return
+        end
+        local tpl = _EquipmentLogic:GetPotionTemplate(potionId)
+        if tpl == nil then return end
+        local cost = tpl.price * amount
+        if _AccountCurrencyLogic:GetCurrency() < cost then
+            self:SetStatus("정수가 부족합니다. (필요 " .. cost .. " / 보유 " .. _AccountCurrencyLogic:GetCurrency() .. ")")
+            return
+        end
+        self._T.pending = true
+        _TimerService:SetTimerOnce(function() self._T.pending = false end, self.PendingTimeout)
+        log("PotionShop: request purchase " .. potionId .. " x" .. amount .. " cost=" .. cost)
+        _AccountCurrencyLogic:RequestPurchasePotion(potionId, amount)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnPurchaseResult(boolean success, string potionId, integer amount, string reason)
+        -- AccountCurrencyLogic.OnPotionPurchaseResult가 정수 갱신과 인벤토리 지급을 마친 뒤 호출.
+        self._T.pending = false
+        if success then
+            local tpl = _EquipmentLogic:GetPotionTemplate(potionId)
+            local name = tpl ~= nil and tpl.name or potionId
+            self:SetStatus(name .. " " .. amount .. "개를 구매했습니다.")
+        elseif reason == "funds" then
+            self:SetStatus("정수가 부족합니다.")
+        else
+            self:SetStatus("구매에 실패했습니다.")
+        end
+        self:RefreshDisplay()
+        log("PotionShop: OnPurchaseResult success=" .. tostring(success) .. " potionId=" .. potionId .. " amount=" .. amount .. " reason=" .. reason)
+    end
+
+end
