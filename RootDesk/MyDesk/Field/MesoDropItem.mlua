@@ -1,0 +1,30 @@
+@Component
+script MesoDropItem extends Component
+    -- 메소 드랍 아이템 (2026-09-21 유저 요청) - 몬스터 처치 시 일정 확률로 필드에 떨어지는 메소.
+    -- MSW의 "메소 UI"(코인 아이콘+개수)와 짝을 이루는 실제 인게임 통화 오브젝트 - 만졌다고 바로
+    -- 먹는 게 아니라, 플레이어가 근처에서 줍기 키를 눌러야 회수된다(MesoPickupLogic 참고). Body/
+    -- Trigger 없이 TransformComponent+SpriteRendererComponent만으로 충분(터치 판정이 아니라
+    -- 키 입력 시점의 거리 계산으로 회수하므로).
+    property integer Amount = 0
+    -- 방치되면 필드가 코인으로 뒤덮이는 것을 막는 자동 소멸 시간(초) - 클래식 메이플에서도 메소는
+    -- 시간이 지나면 사라진다.
+    property number DespawnSeconds = 20
+    @HideFromInspector property any despawnTimerId = nil
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        self.despawnTimerId = _TimerService:SetTimerOnce(function()
+            if isvalid(self.Entity) then
+                _EntityService:Destroy(self.Entity)
+            end
+        end, self.DespawnSeconds)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        if self.despawnTimerId then
+            _TimerService:ClearTimer(self.despawnTimerId)
+        end
+    end
+
+end

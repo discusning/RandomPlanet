@@ -82,6 +82,9 @@ script KeyBindingLogic extends Logic
             -- there (see KeyBindingPopupController's icon-per-action comment) if it should become
             -- player-rebindable through that UI too.
             { actionName = "ReturnToLobby", displayName = "귀환(토벌전장)", defaultKey = KeyboardKey.B, kind = "fieldAction" },
+            -- 2026-09-21 유저 요청 - 몬스터 처치 시 필드에 떨어지는 메소를 줍는 키(MesoPickupLogic).
+            -- ReturnToLobby와 동일한 fieldAction - Z는 기존 레지스트리 어디서도 쓰지 않는 빈 키.
+            { actionName = "PickupMeso", displayName = "메소 줍기", defaultKey = KeyboardKey.Z, kind = "fieldAction" },
         }
     end
 

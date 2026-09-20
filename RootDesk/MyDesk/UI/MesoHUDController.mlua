@@ -1,0 +1,42 @@
+@Logic
+script MesoHUDController extends Logic
+    -- 메소 UI (2026-09-21 유저 요청 "MSW가 제공하는 메소 UI를 활용") - 코인 아이콘 + 보유 골드
+    -- 텍스트로 구성된 상시 HUD. 실제 Maker Preset List의 "Meso UI"(CoinPanel/coin_icon/coin_count)는
+    -- 에디터 드래그 전용이라 파일 도구로 재현할 수 없어, 동일한 시각 문법(코인 아이콘+숫자)을 이
+    -- 프로젝트 UIBuilder로 직접 구성했다 - 아이콘은 msw-search로 찾은 실제 메이플스토리 금색 메소
+    -- 코인 스프라이트. PlayerHUDController와 동일한 10Hz 폴링 패턴, IsGameplayActive 게이트는
+    -- BattlefieldReturnLogic과 동일(캐릭터 선택 화면에서는 숨김).
+    property Entity hudGroup = "9e77db29-ed1f-4420-bd00-b99a04c1d880"
+    property TextGUIRendererComponent goldText = "5b741e31-707d-44a3-b98a-172c528d023d"
+    @HideFromInspector property integer timerId = 0
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        if isvalid(self.hudGroup) then
+            self.hudGroup.Enable = false
+        end
+        self.timerId = _TimerService:SetTimerRepeat(self.Tick, 1 / 10)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.timerId then
+            _TimerService:ClearTimer(self.timerId)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Tick()
+        local active = _CharacterRosterLogic:IsGameplayActive()
+        if isvalid(self.hudGroup) then
+            self.hudGroup.Enable = active
+        end
+        if not active then
+            return
+        end
+        if isvalid(self.goldText) then
+            self.goldText.Text = tostring(_CharacterRosterLogic:GetGold())
+        end
+    end
+
+end

@@ -15,10 +15,16 @@ script Monster extends Component
     -- pattern PlayerSkillComponent already uses for skill hit VFX).
     property string HitVfxRuid = "5542826f767a4bbd989ca62f22a53fa3"
     property integer XpReward = 20
-    -- 골드 (2026-09-20 유저 요청) - 처치 시 캐릭터가 얻는 인게임 재화(GrantGoldToAttacker). 계정 영구
-    -- 재화 "정수"와 별개. 경험치 보상에 비례해(난이도/게이트 배율이 XpReward에 이미 반영됨 -
-    -- FieldWaveSpawner) 자동으로 스케일되도록 XpReward * GoldPerXp로 계산한다.
+    -- 골드/메소 (2026-09-20 유저 요청, 2026-09-21 필드 드랍 방식으로 전환) - 처치 시 확률로 필드에
+    -- 떨어지는 메소(MesoDropItem, TryDropMeso) 1개당 액수. 계정 영구 재화 "정수"와 별개. 경험치
+    -- 보상에 비례해(난이도/게이트 배율이 XpReward에 이미 반영됨 - FieldWaveSpawner) 자동으로
+    -- 스케일되도록 XpReward * GoldPerXp로 계산한다.
     property number GoldPerXp = 0.25
+    -- 메소 드랍 확률(%) - PotionDropChance와 동일 패턴, DropRateMultiplier(상인 특성 등)도 동일하게
+    -- 적용된다. 물약(12%)보다 훨씬 자주 나오게 기본값을 높게 잡음(클래식 메이플도 메소가 흔함).
+    property integer MesoDropChance = 70
+    -- 필드에 스폰할 메소 드랍 모델(RootDesk/MyDesk/Models/MapObjects/MesoDrop.model)의 EntryKey.
+    property string MesoDropModelId = "mesodrop"
     -- Countered by the attacker's DEX-driven Accuracy stat (PlayerAttack.IsAttackTarget) - see
     -- Docs/랜덤 플래닛 전체 기획서.md §2-2 (민첩 -> 명중). 0 for a basic monster like this test slime;
     -- future tougher/evasive monster types can raise it.
@@ -328,18 +334,42 @@ script Monster extends Component
                 log("Monster: 영혼 포획자 링크 - 포획 지원 무적 발동")
             end
         end
-        self:GrantGoldToAttacker(attacker)
+        self:TryDropMeso(attacker)
         self:TryDropPotion(attacker)
     end
 
     @ExecSpace("ServerOnly")
-    method void GrantGoldToAttacker(Entity attacker)
-        -- 처치자(플레이어)에게 골드 지급 - 골드는 캐릭터 데이터(roster, 클라이언트 소유)에 적립되므로
-        -- 물약 드랍과 같이 처치자의 UserId를 targetUserId로 지정한 Client RPC로 넘긴다.
+    method void TryDropMeso(Entity attacker)
+        -- 2026-09-21 유저 요청 - 골드를 처치 즉시 조용히 적립하던 방식(구 GrantGoldToAttacker)을
+        -- MSW 메소 UI 관행에 맞춰 "확률로 필드에 드랍 + 줍기 키로 회수"로 전환. TryDropPotion과
+        -- 동일한 확률/DropRateMultiplier 패턴 - 상인 등 드랍률 특성이 메소에도 동일하게 적용된다.
         if not isvalid(attacker) or not isvalid(attacker.PlayerComponent) then return end
-        local gold = math.max(1, math.floor(self.XpReward * self.GoldPerXp))
-        _CharacterRosterLogic:GrantGold(gold, attacker.PlayerComponent.UserId)
-        log("Monster: gold +" .. gold .. " to userId=" .. tostring(attacker.PlayerComponent.UserId))
+        local statsComp = attacker:GetComponent("script.PlayerStatsComponent")
+        local dropMult = 1.0
+        if isvalid(statsComp) then
+            dropMult = math.max(0, 1 + statsComp.DropRateMultiplier)
+        end
+        local effectiveChance = math.min(100, self.MesoDropChance * dropMult)
+        if _UtilLogic:RandomIntegerRange(1, 100) > effectiveChance then return end
+
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then return end
+        local deathPos = self.Entity.TransformComponent.WorldPosition
+        -- FieldWaveSpawner 몬스터들이 고정 스폰 X를 공유해 겹쳐 뜨는 문제(PlayerHit.mlua 상단 주석
+        -- 참고)와 같은 실수를 반복하지 않도록, 드랍 위치에 작은 무작위 x 편차를 준다.
+        local jitterX = (_UtilLogic:RandomDouble() - 0.5) * 0.6
+        local dropPos = Vector3(deathPos.x + jitterX, deathPos.y, 0)
+        local amount = math.max(1, math.floor(self.XpReward * self.GoldPerXp))
+        local item = _SpawnService:SpawnByModelId(self.MesoDropModelId, "MesoDrop", dropPos, map)
+        if item == nil then
+            log_error("Monster: TryDropMeso SpawnByModelId returned nil for modelId=" .. self.MesoDropModelId)
+            return
+        end
+        local dropComp = item:GetComponent("script.MesoDropItem")
+        if isvalid(dropComp) then
+            dropComp.Amount = amount
+        end
+        log("Monster: meso dropped amount=" .. amount .. " at (" .. string.format("%.2f", dropPos.x) .. "," .. string.format("%.2f", dropPos.y) .. ")")
     end
 
     @ExecSpace("ServerOnly")
