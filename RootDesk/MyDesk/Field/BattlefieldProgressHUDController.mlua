@@ -72,9 +72,23 @@ script BattlefieldProgressHUDController extends Logic
         if spawner.WaveKillTarget > 0 then
             ratio = math.max(0, math.min(1, spawner.WaveKillCount / spawner.WaveKillTarget))
         end
+        local countLabel = tostring(spawner.WaveKillCount) .. " / " .. tostring(spawner.WaveKillTarget)
+        -- 2026-09-20 QA("웨이브 5 미니보스 후 10/14로 표시됨, 깬 건지 아닌지 확인 불가") - 마지막 웨이브는
+        -- 킬 목표(14)를 못 채워도 30초 타이머로 미니보스가 나오고, 클리어 후에도 웨이브 카운트가 처치
+        -- 당시 값(10/14)으로 얼어붙어 있었다. 보스전/클리어 상태에서는 킬 카운트가 더는 의미가 없으므로
+        -- 게이지를 가득 채우고 문구를 상태로 바꿔 "지금 뭘 해야 하는지/끝났는지"를 바로 알 수 있게 한다.
+        if spawner.FieldCleared then
+            ratio = 1
+            countLabel = "토벌 완료!"
+            self.waveBadge.Text = "클리어"
+        elseif spawner.MiniBossActive then
+            ratio = 1
+            countLabel = "보스 처치!"
+            self.waveBadge.Text = "보스전"
+        end
         local size = self.fillTransform.RectSize
         self.fillTransform.RectSize = Vector2(self.fullWidth * ratio, size.y)
-        self.countText.Text = tostring(spawner.WaveKillCount) .. " / " .. tostring(spawner.WaveKillTarget)
+        self.countText.Text = countLabel
 
         -- 전체 진행도(고정 5웨이브 중 완료한 웨이브 수) - 클리어 상태면 꽉 채우고 배지 문구를 바꾼다.
         local maxWave = spawner.MaxWaveNumber
