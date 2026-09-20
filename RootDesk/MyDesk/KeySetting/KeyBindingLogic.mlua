@@ -46,6 +46,12 @@ script KeyBindingLogic extends Logic
         --     itemAction에 넣지 않는다.
         return {
             { actionName = "Attack", displayName = "공격", defaultKey = KeyboardKey.LeftControl, kind = "controllerAction" },
+            -- 2026-09-20 유저 요청 - "스페이스바를 누르면 점프되는데, 점프는 점프키로 지정된 키로만
+            -- 가능하게". 예전엔 점프를 한 번도 명시적으로 바인딩하지 않아(위 주석) 엔진 기본값
+            -- Space가 항상 점프였고, 키 세팅에서 Space를 다른 기능에 배정해도 점프가 같이 발동됐다.
+            -- 이제 다른 액션과 똑같이 등록해 ApplyBindingsToLocalPlayer가 RemoveAllActionKeyByActionName
+            -- 후 지정된 키 하나만 점프에 묶는다(기본값 Space, 키 세팅에서 재배정 가능).
+            { actionName = "Jump", displayName = "점프", defaultKey = KeyboardKey.Space, kind = "controllerAction" },
             { actionName = "Skill", displayName = "스킬1", defaultKey = KeyboardKey.Q, kind = "controllerAction" },
             { actionName = "Skill2", displayName = "스킬2", defaultKey = KeyboardKey.W, kind = "controllerAction" },
             -- 2026-09-16 유저 요청("메이플처럼 보유 스킬 전부를 원하는 키에 자유 배치") - 보유 스킬이

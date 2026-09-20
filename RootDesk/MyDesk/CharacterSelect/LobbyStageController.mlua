@@ -248,9 +248,11 @@ script LobbyStageController extends Component
         if event.key ~= KeyboardKey.UpArrow then
             return
         end
-        if _InputService:IsPointerOverUI() then
-            return
-        end
+        -- 2026-09-20 QA("토벌전장 포탈에서 ↑키가 종종 안 먹는다") - 원인 2가지를 제거했다.
+        -- (1) 여기에 있던 IsPointerOverUI() 가드: ↑는 키보드 입력인데 마우스 커서가 하단 바/HUD/창
+        --     같은 UI 위에 있기만 해도 포탈 입력을 통째로 무시해서, 마우스를 어디에 두었느냐에 따라
+        --     같은 자리에서 됐다 안 됐다 했다(터치/클릭 이벤트용 가드를 키 입력에 잘못 재사용).
+        -- (2) 판정 박스가 너무 좁음(IsPlayerAtPortal 참고).
         local localPlayer = _UserService.LocalPlayer
         if not isvalid(localPlayer) then
             return
@@ -270,6 +272,23 @@ script LobbyStageController extends Component
             log("LobbyStage: up-arrow at return portal, requesting server teleport to choice_map")
             _CharacterRosterLogic:HideLocalPlayer()
             _CharacterRosterLogic:RequestReturnToSelect()
+            return
+        end
+
+        -- 포탈 근처에서 ↑를 눌렀는데 판정에서 빗나간 경우만 원인 추적용으로 남긴다(멀리서 누른
+        -- ↑는 로프/사다리 이동 등 정상 입력이라 로그하지 않는다).
+        self:LogPortalMiss(playerPos, self.portalField1, "battlefield")
+        self:LogPortalMiss(playerPos, self.portal, "return")
+    end
+
+    method void LogPortalMiss(Vector3 playerPos, Entity portalEntity, string label)
+        if not isvalid(portalEntity) then return end
+        local portalComp = portalEntity.PortalComponent
+        local portalPos = portalEntity.TransformComponent.WorldPosition
+        local dx = playerPos.x - (portalPos.x + portalComp.BoxOffset.x)
+        local dy = playerPos.y - (portalPos.y + portalComp.BoxOffset.y)
+        if math.abs(dx) < 4 and math.abs(dy) < 4 then
+            log("LobbyStage: up-arrow near " .. label .. " portal but outside box dx=" .. string.format("%.2f", dx) .. " dy=" .. string.format("%.2f", dy) .. " size=" .. string.format("%.2f", portalComp.BoxSize.x) .. "x" .. string.format("%.2f", portalComp.BoxSize.y))
         end
     end
 
@@ -288,7 +307,14 @@ script LobbyStageController extends Component
         local center = Vector2(portalPos.x + offset.x, portalPos.y + offset.y)
         local dx = playerPos.x - center.x
         local dy = playerPos.y - center.y
-        return dx > -size.x / 2 and dx < size.x / 2 and dy > -size.y / 2 and dy < size.y / 2
+        -- 2026-09-20 QA - 전장 포탈(portal-1) 판정 박스가 가로 약 1.0칸(캐릭터 한 명 폭)이라 화면상
+        -- 포탈 위에 서 있는데도 살짝만 벗어나면 ↑가 무시됐고, 세로도 약 1.4칸이라 점프 중/착지 직후에는
+        -- 판정 밖이었다. 화면에 보이는 포탈 그림에 맞춰 좌우 0.5칸, 아래 0.4칸, 위 0.8칸 여유를 준다
+        -- (위 여유는 점프 중 입력 허용용 - 2층 포탈은 3칸 이상 위라 겹치지 않는다).
+        local marginX = 0.5
+        local marginDown = 0.4
+        local marginUp = 0.8
+        return dx > -size.x / 2 - marginX and dx < size.x / 2 + marginX and dy > -size.y / 2 - marginDown and dy < size.y / 2 + marginUp
     end
 
     @ExecSpace("ClientOnly")

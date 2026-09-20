@@ -23,6 +23,9 @@ script KeyBindingPopupController extends Component
     property Entity iconSkill6 = "74f10414-eaa2-45a8-b1d6-0c7b4338a5da"
     property Entity iconSkill7 = "c6fac18d-47a3-4eb9-a065-4c70127d5a29"
     property Entity iconSkill8 = "25cb0a50-f99b-433c-83dc-72dcfdefaf4f"
+    -- 2026-09-20 유저 요청("점프는 점프키로 지정된 키로만") - 점프도 재배정 가능한 액션으로 승격.
+    -- UUID는 UIBuilder write({bind})로 주입.
+    property Entity iconJump = "8995a049-4f51-4860-829f-a9001add049a"
     property Entity iconInventory = "03b91a10-46fb-4cf0-b1bf-1b46dea4afb2"
     property Entity iconEquipment = "c16dcab1-1061-4651-b64c-34c6306027cc"
     property Entity iconCharacterInfo = "00cb1532-63ec-4bfd-b8bb-788bec66d2b7"
@@ -60,6 +63,7 @@ script KeyBindingPopupController extends Component
         -- 2026-09-16, see RefreshIcons below.
         self._T.icons = {
             { actionName = "Attack", entity = self.iconAttack },
+            { actionName = "Jump", entity = self.iconJump },
             { actionName = "Skill", entity = self.iconSkill, skillSlot = 1 },
             { actionName = "Skill2", entity = self.iconSkill2, skillSlot = 2 },
             { actionName = "Skill3", entity = self.iconSkill3, skillSlot = 3 },
