@@ -1,7 +1,7 @@
 {
   "Id": "",
   "GameId": "",
-  "EntryKey": "ui://a4666b02-877d-47a6-9fd6-57e7f9e1422e",
+  "EntryKey": "ui://4f87dd1d-1877-461b-8965-3267713ae4f1",
   "ContentType": "x-mod/ui",
   "Content": "",
   "Usage": 0,
@@ -14,7 +14,7 @@
     "Use": "Binary",
     "Entities": [
       {
-        "id": "a4666b02-877d-47a6-9fd6-57e7f9e1422e",
+        "id": "4f87dd1d-1877-461b-8965-3267713ae4f1",
         "path": "/ui/PotionShopGroup",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.UIGroupComponent,MOD.Core.CanvasGroupComponent",
         "jsonString": {
@@ -113,7 +113,7 @@
         }
       },
       {
-        "id": "e1aea056-3faf-473c-8f92-87fa93ed72a3",
+        "id": "694893df-463a-499f-9f75-317a672aceb2",
         "path": "/ui/PotionShopGroup/Dim",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
@@ -258,7 +258,7 @@
         }
       },
       {
-        "id": "85d89072-c4ea-4c40-bc06-a3b91bd6d2eb",
+        "id": "6c3434e5-d517-4db5-9643-3184982e947f",
         "path": "/ui/PotionShopGroup/Panel",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
@@ -403,7 +403,7 @@
         }
       },
       {
-        "id": "2f121b31-83c8-4d45-bd3c-896c378d012a",
+        "id": "f422b67d-cc1c-4128-b944-8b7737df1411",
         "path": "/ui/PotionShopGroup/Panel/Border",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
@@ -548,7 +548,7 @@
         }
       },
       {
-        "id": "94817162-12a2-4956-9392-51c876483e71",
+        "id": "1723dc37-e587-4e81-b1bc-0f205e30f605",
         "path": "/ui/PotionShopGroup/Panel/Inner",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
@@ -693,7 +693,7 @@
         }
       },
       {
-        "id": "c47b0741-6da7-4727-bfeb-1fdd4e003f69",
+        "id": "6133c9ef-3d27-49b1-9fda-33b9ae2fe124",
         "path": "/ui/PotionShopGroup/Panel/Title",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -881,7 +881,7 @@
         }
       },
       {
-        "id": "96971334-ab6a-4a06-b41e-682dc5bae247",
+        "id": "7cd7f029-4405-4cf2-89ad-46a319a1ed57",
         "path": "/ui/PotionShopGroup/Panel/CurrencyText",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -1057,7 +1057,7 @@
               },
               "SizeFit": false,
               "SortingLayer": "UI",
-              "Text": "보유 정수: 0",
+              "Text": "보유 골드: 0",
               "Underlay": false,
               "UseConstraintX": false,
               "UseConstraintY": false,
@@ -1069,7 +1069,7 @@
         }
       },
       {
-        "id": "847ed6a6-9ddb-4ec2-8bdc-717bab9aea7d",
+        "id": "f1e08ead-5885-4bb4-afea-68a6e48c9c82",
         "path": "/ui/PotionShopGroup/Panel/RowHp",
         "componentNames": "MOD.Core.UITransformComponent",
         "jsonString": {
@@ -1154,7 +1154,7 @@
         }
       },
       {
-        "id": "f3607118-9524-44e6-9053-489270b949d4",
+        "id": "f1aae4f7-ba1d-4a3c-96c6-bd1d2027ca7e",
         "path": "/ui/PotionShopGroup/Panel/RowHp/Bg",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
@@ -1299,7 +1299,7 @@
         }
       },
       {
-        "id": "267de74d-1b22-4e28-83a3-7d5257a5a2e2",
+        "id": "2e41ed1d-59ba-4ca1-abb8-e5e1e7cfaa9e",
         "path": "/ui/PotionShopGroup/Panel/RowHp/Icon",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
@@ -1444,7 +1444,7 @@
         }
       },
       {
-        "id": "1c6b6758-00b3-44c1-b4c4-69e45c02bc01",
+        "id": "61fc48df-54d9-4787-99ad-3fff75dce588",
         "path": "/ui/PotionShopGroup/Panel/RowHp/NameText",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -1632,7 +1632,7 @@
         }
       },
       {
-        "id": "5f54fb08-1046-4691-85bf-d01a0cd95eee",
+        "id": "d0ed55dc-8051-43ba-8598-4a27f9f19360",
         "path": "/ui/PotionShopGroup/Panel/RowHp/DescText",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -1820,7 +1820,7 @@
         }
       },
       {
-        "id": "8a595f48-a3e4-4390-a36e-8ed006dd8300",
+        "id": "b765a43a-bda9-496c-b32f-a3759ef15cb5",
         "path": "/ui/PotionShopGroup/Panel/RowHp/InfoText",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -2008,7 +2008,7 @@
         }
       },
       {
-        "id": "2070e885-cbc3-4e40-a08a-15f95020815d",
+        "id": "1fc895be-3a13-4624-a244-b9d9e3846e11",
         "path": "/ui/PotionShopGroup/Panel/RowHp/BtnBuy1",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.ButtonComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -2246,7 +2246,7 @@
         }
       },
       {
-        "id": "2f9547d1-3091-40f4-b648-2fa271184c2e",
+        "id": "9c3d76b4-8ca3-46c4-8461-67f79e3e45b2",
         "path": "/ui/PotionShopGroup/Panel/RowHp/BtnBuy10",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.ButtonComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -2484,7 +2484,7 @@
         }
       },
       {
-        "id": "e4de82e3-af06-4916-9c6b-5fc7a5f8e122",
+        "id": "b1d1b37f-8d80-4c9b-bca2-95a9f6e17e82",
         "path": "/ui/PotionShopGroup/Panel/RowMp",
         "componentNames": "MOD.Core.UITransformComponent",
         "jsonString": {
@@ -2569,7 +2569,7 @@
         }
       },
       {
-        "id": "c9890900-edec-4ca6-82eb-5baef6384995",
+        "id": "7560b04c-8a5b-4bcf-89bc-4cece9871d72",
         "path": "/ui/PotionShopGroup/Panel/RowMp/Bg",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
@@ -2714,7 +2714,7 @@
         }
       },
       {
-        "id": "018b35df-da3f-4cad-aa45-14dbec325430",
+        "id": "da2a26b1-db68-4026-8465-3e89bcf2d3df",
         "path": "/ui/PotionShopGroup/Panel/RowMp/Icon",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
@@ -2859,7 +2859,7 @@
         }
       },
       {
-        "id": "5ffcb3fe-12ff-4d6c-9d3f-1ce6487aa5ee",
+        "id": "e9c0a2b7-a112-4cf3-8a79-a4ef590b8ef4",
         "path": "/ui/PotionShopGroup/Panel/RowMp/NameText",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -3047,7 +3047,7 @@
         }
       },
       {
-        "id": "5cf1fa05-3ac5-4521-9e3c-0da9f7e51cdc",
+        "id": "d36dfc65-28f3-46ae-99c5-563029f183cf",
         "path": "/ui/PotionShopGroup/Panel/RowMp/DescText",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -3235,7 +3235,7 @@
         }
       },
       {
-        "id": "a23607c5-1197-403a-bc6c-30625d358da6",
+        "id": "6145706b-96f2-4c1b-b9ef-3e912d97ef50",
         "path": "/ui/PotionShopGroup/Panel/RowMp/InfoText",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -3423,7 +3423,7 @@
         }
       },
       {
-        "id": "adaae093-b159-4527-aa55-e575e9fdcf00",
+        "id": "27d4c85f-eada-499c-a844-335574e55707",
         "path": "/ui/PotionShopGroup/Panel/RowMp/BtnBuy1",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.ButtonComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -3661,7 +3661,7 @@
         }
       },
       {
-        "id": "ca3b957b-6d3e-4a1b-b1dd-c44d5f578efd",
+        "id": "8edbbe54-63c8-428f-97a5-83f1f9e450a7",
         "path": "/ui/PotionShopGroup/Panel/RowMp/BtnBuy10",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.ButtonComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -3899,7 +3899,7 @@
         }
       },
       {
-        "id": "f0a6606c-ef63-4ea0-aa17-716d11d08dfa",
+        "id": "d06cd47e-b7bc-45e4-afea-6776b3e09d96",
         "path": "/ui/PotionShopGroup/Panel/StatusText",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {
@@ -4087,7 +4087,7 @@
         }
       },
       {
-        "id": "eab724fe-4665-4772-93f8-c4785794f61b",
+        "id": "7ab6284f-1448-4fe6-b970-c2c912e98f3c",
         "path": "/ui/PotionShopGroup/Panel/BtnClose",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.ButtonComponent,MOD.Core.TextGUIRendererComponent",
         "jsonString": {

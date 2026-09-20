@@ -8,8 +8,6 @@ script AccountCurrencyLogic extends Logic
     property string StorageName = "AccountCurrency"
     property integer MaxUpgradeLevel = 10
     property integer UpgradeBaseCost = 50
-    -- 물약 상점 1회 구매 상한(서버 검증용 - 클라이언트 UI는 1/10개 버튼만 제공).
-    property integer MaxPotionPurchase = 99
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -136,45 +134,6 @@ script AccountCurrencyLogic extends Logic
         self:SaveState(profileCode, newValue, newLevel)
         log("AccountCurrency: purchased upgrade level=" .. newLevel .. " cost=" .. cost .. " remaining=" .. newValue)
         self:OnUpgradeResult(true, newValue, newLevel)
-    end
-
-    @ExecSpace("Server")
-    method void RequestPurchasePotion(string potionId, integer amount)
-        -- 로비 물약 상인(PotionShopUIController) -> 여기로 온다. 재화(정수)는 서버 DataStorage가
-        -- 원본이라 차감/검증은 전부 서버에서 하고, 성공하면 클라이언트가 자기 인벤토리(roster)에
-        -- 물약을 넣는다(인벤토리가 처음부터 ClientOnly 소유인 이 프로젝트의 구조 - GrantPotionDrop과
-        -- 동일한 신뢰 모델).
-        local player = _UserService:GetUserEntityByUserId(senderUserId)
-        if not isvalid(player) then return end
-        local profileCode = player.PlayerComponent.ProfileCode
-        local state = self:LoadState(profileCode)
-        local tpl = _EquipmentLogic:GetPotionTemplate(potionId)
-        if tpl == nil or tpl.price == nil or amount < 1 or amount > self.MaxPotionPurchase then
-            log_warning("AccountCurrency: RequestPurchasePotion rejected potionId=" .. tostring(potionId) .. " amount=" .. tostring(amount))
-            self:OnPotionPurchaseResult(false, state.value, potionId, 0, "invalid")
-            return
-        end
-        local cost = tpl.price * amount
-        if state.value < cost then
-            self:OnPotionPurchaseResult(false, state.value, potionId, 0, "funds")
-            return
-        end
-        local newValue = state.value - cost
-        self:SaveState(profileCode, newValue, state.upgradeLevel)
-        log("AccountCurrency: purchased potion " .. potionId .. " x" .. amount .. " cost=" .. cost .. " remaining=" .. newValue)
-        self:OnPotionPurchaseResult(true, newValue, potionId, amount, "")
-    end
-
-    @ExecSpace("Client")
-    method void OnPotionPurchaseResult(boolean success, number newValue, string potionId, integer amount, string reason)
-        -- RequestPurchasePotion의 응답(요청한 클라이언트로 자동 반환). 정수는 서버 값이 항상 최신
-        -- 원본이므로 성공/실패와 무관하게 덮어쓴다. 성공하면 여기서 물약을 인벤토리에 넣는다.
-        self._T.value = newValue
-        if success then
-            _CharacterRosterLogic:GrantPotionDrop(potionId, amount)
-        end
-        _AccountUpgradeUIController:RefreshDisplay()
-        _PotionShopUIController:OnPurchaseResult(success, potionId, amount, reason)
     end
 
     @ExecSpace("Client")

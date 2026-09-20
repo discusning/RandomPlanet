@@ -15,6 +15,10 @@ script Monster extends Component
     -- pattern PlayerSkillComponent already uses for skill hit VFX).
     property string HitVfxRuid = "5542826f767a4bbd989ca62f22a53fa3"
     property integer XpReward = 20
+    -- 골드 (2026-09-20 유저 요청) - 처치 시 캐릭터가 얻는 인게임 재화(GrantGoldToAttacker). 계정 영구
+    -- 재화 "정수"와 별개. 경험치 보상에 비례해(난이도/게이트 배율이 XpReward에 이미 반영됨 -
+    -- FieldWaveSpawner) 자동으로 스케일되도록 XpReward * GoldPerXp로 계산한다.
+    property number GoldPerXp = 0.25
     -- Countered by the attacker's DEX-driven Accuracy stat (PlayerAttack.IsAttackTarget) - see
     -- Docs/랜덤 플래닛 전체 기획서.md §2-2 (민첩 -> 명중). 0 for a basic monster like this test slime;
     -- future tougher/evasive monster types can raise it.
@@ -324,7 +328,18 @@ script Monster extends Component
                 log("Monster: 영혼 포획자 링크 - 포획 지원 무적 발동")
             end
         end
+        self:GrantGoldToAttacker(attacker)
         self:TryDropPotion(attacker)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantGoldToAttacker(Entity attacker)
+        -- 처치자(플레이어)에게 골드 지급 - 골드는 캐릭터 데이터(roster, 클라이언트 소유)에 적립되므로
+        -- 물약 드랍과 같이 처치자의 UserId를 targetUserId로 지정한 Client RPC로 넘긴다.
+        if not isvalid(attacker) or not isvalid(attacker.PlayerComponent) then return end
+        local gold = math.max(1, math.floor(self.XpReward * self.GoldPerXp))
+        _CharacterRosterLogic:GrantGold(gold, attacker.PlayerComponent.UserId)
+        log("Monster: gold +" .. gold .. " to userId=" .. tostring(attacker.PlayerComponent.UserId))
     end
 
     @ExecSpace("ServerOnly")

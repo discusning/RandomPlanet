@@ -84,13 +84,13 @@ script EquipmentLogic extends Logic
         -- 더 늘어나면 그때 이관). RUID는 둘 다 msw-search로 확보한 실제 클래식 메이플스토리
         -- 스프라이트(같은 포션 실루엣, 색만 다름 - 동일 pivot/28x28). restoreType으로 HP/MP
         -- 어느 쪽을 회복하는지 구분 - PlayerStatsComponent.RequestUsePotion이 소비.
-        -- 2026-09-20 QA("물약 상점 없음") - price는 로비 물약 상인(PotionShopUIController)이 계정 재화
-        -- "정수"로 판매할 개당 가격. 서버(AccountCurrencyLogic.RequestPurchasePotion)도 이 값으로
-        -- 검증하므로 이 메서드는 양쪽에서 호출 가능해야 한다(ExecSpace 미지정 유지).
+        -- 2026-09-20 QA("물약 상점 없음") - price는 로비 물약 상인(PotionShopUIController)이 캐릭터
+        -- 인게임 재화 "골드"(CharacterRosterLogic.GetGold - 몬스터 처치로 획득)로 판매할 개당 가격.
+        -- 계정 영구 재화 "정수"와는 별개다.
         if potionId == "hppotion" then
-            return { id = "hppotion", name = "빨간 포션", ruid = "234aca1a4ce946119b68e3717991e775", restoreType = "hp", restorePercent = 0.3, price = 3 }
+            return { id = "hppotion", name = "빨간 포션", ruid = "234aca1a4ce946119b68e3717991e775", restoreType = "hp", restorePercent = 0.3, price = 10 }
         elseif potionId == "mppotion" then
-            return { id = "mppotion", name = "파란 포션", ruid = "7e9b39b73f4945b1a8d77db6c99a6946", restoreType = "mp", restorePercent = 0.3, price = 3 }
+            return { id = "mppotion", name = "파란 포션", ruid = "7e9b39b73f4945b1a8d77db6c99a6946", restoreType = "mp", restorePercent = 0.3, price = 10 }
         end
         return nil
     end

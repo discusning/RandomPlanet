@@ -1,26 +1,26 @@
 @Logic
 script PotionShopUIController extends Logic
     -- 물약 상점 (2026-09-20 QA "물약 상점 없음") - 로비 물약 상인 NPC(LobbyStageController.
-    -- OnShopNpcTouched)를 누르면 열리는 팝업. 계정 재화 "정수"(AccountCurrencyLogic)로 빨간/파란
-    -- 포션을 산다. AccountUpgradeUIController와 동일한 구조(엔티티를 직접 property로 주입한 독립
+    -- OnShopNpcTouched)를 누르면 열리는 팝업. 캐릭터가 몬스터를 잡아 번 인게임 재화 "골드"
+    -- (CharacterRosterLogic.GetGold/SpendGold)로 빨간/파란 포션을 산다. 계정 영구 재화 "정수"
+    -- (AccountCurrencyLogic - 좋은 특성 저격용 메타 강화)와는 완전히 별개이며 여기서 쓰지 않는다.
+    -- 골드/물약 인벤토리 모두 캐릭터 데이터(roster, 클라이언트 소유)라 구매는 클라이언트에서
+    -- 끝난다. AccountUpgradeUIController와 동일한 구조(엔티티를 직접 property로 주입한 독립
     -- @Logic) - ui/PotionShopGroup.ui의 엔티티 UUID는 UIBuilder write(bind)가 주입한다.
-    property Entity shopGroup = "a4666b02-877d-47a6-9fd6-57e7f9e1422e"
-    property TextGUIRendererComponent currencyText = "96971334-ab6a-4a06-b41e-682dc5bae247"
-    property TextGUIRendererComponent statusText = "f0a6606c-ef63-4ea0-aa17-716d11d08dfa"
-    property TextGUIRendererComponent hpInfoText = "8a595f48-a3e4-4390-a36e-8ed006dd8300"
-    property TextGUIRendererComponent mpInfoText = "a23607c5-1197-403a-bc6c-30625d358da6"
-    property Entity btnHpBuy1 = "2070e885-cbc3-4e40-a08a-15f95020815d"
-    property Entity btnHpBuy10 = "2f9547d1-3091-40f4-b648-2fa271184c2e"
-    property Entity btnMpBuy1 = "adaae093-b159-4527-aa55-e575e9fdcf00"
-    property Entity btnMpBuy10 = "ca3b957b-6d3e-4a1b-b1dd-c44d5f578efd"
-    property Entity btnClose = "eab724fe-4665-4772-93f8-c4785794f61b"
-    -- 서버 응답이 유실돼도 버튼이 영구히 잠기지 않도록 하는 안전 해제 시간(초).
-    property number PendingTimeout = 5
+    property Entity shopGroup = "4f87dd1d-1877-461b-8965-3267713ae4f1"
+    property TextGUIRendererComponent currencyText = "7cd7f029-4405-4cf2-89ad-46a319a1ed57"
+    property TextGUIRendererComponent statusText = "d06cd47e-b7bc-45e4-afea-6776b3e09d96"
+    property TextGUIRendererComponent hpInfoText = "b765a43a-bda9-496c-b32f-a3759ef15cb5"
+    property TextGUIRendererComponent mpInfoText = "6145706b-96f2-4c1b-b9ef-3e912d97ef50"
+    property Entity btnHpBuy1 = "1fc895be-3a13-4624-a244-b9d9e3846e11"
+    property Entity btnHpBuy10 = "9c3d76b4-8ca3-46c4-8461-67f79e3e45b2"
+    property Entity btnMpBuy1 = "27d4c85f-eada-499c-a844-335574e55707"
+    property Entity btnMpBuy10 = "8edbbe54-63c8-428f-97a5-83f1f9e450a7"
+    property Entity btnClose = "7ab6284f-1448-4fe6-b970-c2c912e98f3c"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         self._T.handlers = {}
-        self._T.pending = false
         if isvalid(self.shopGroup) then
             self.shopGroup.Enable = false
         end
@@ -55,7 +55,7 @@ script PotionShopUIController extends Logic
         end
         self:SetStatus("")
         self:RefreshDisplay()
-        log("PotionShop: opened")
+        log("PotionShop: opened gold=" .. _CharacterRosterLogic:GetGold())
     end
 
     @ExecSpace("ClientOnly")
@@ -75,9 +75,7 @@ script PotionShopUIController extends Logic
     @ExecSpace("ClientOnly")
     method integer CountOwned(string potionId)
         -- 활성 캐릭터 인벤토리에서 해당 물약의 보유 수량(1인스턴스=count 필드로 스택).
-        local idx = _CharacterRosterLogic:GetActiveIndex()
-        if idx == nil then return 0 end
-        local data = _CharacterRosterLogic:GetRoster()[idx]
+        local data = _CharacterRosterLogic:GetActiveCharacterData()
         if data == nil or data.inventory == nil then return 0 end
         for _, inst in ipairs(data.inventory) do
             if inst.potionId == potionId then
@@ -91,18 +89,14 @@ script PotionShopUIController extends Logic
     method string BuildInfoLine(string potionId)
         local tpl = _EquipmentLogic:GetPotionTemplate(potionId)
         if tpl == nil then return "" end
-        return "개당 " .. tpl.price .. " 정수  ·  보유 " .. self:CountOwned(potionId) .. "개"
+        return "개당 " .. tpl.price .. " 골드  ·  보유 " .. self:CountOwned(potionId) .. "개"
     end
 
     @ExecSpace("ClientOnly")
     method void RefreshDisplay()
-        -- 열릴 때 / 구매 결과 / 정수 변동(AccountCurrencyLogic)마다 텍스트만 갱신.
+        -- 열릴 때 / 구매 결과마다 텍스트만 갱신.
         if isvalid(self.currencyText) then
-            if _AccountCurrencyLogic:IsLoadComplete() then
-                self.currencyText.Text = "보유 정수: " .. _AccountCurrencyLogic:GetCurrency()
-            else
-                self.currencyText.Text = "정수 정보를 불러오는 중..."
-            end
+            self.currencyText.Text = "보유 골드: " .. _CharacterRosterLogic:GetGold()
         end
         if isvalid(self.hpInfoText) then
             self.hpInfoText.Text = self:BuildInfoLine("hppotion")
@@ -114,43 +108,24 @@ script PotionShopUIController extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnBuyClicked(string potionId, integer amount)
-        if self._T.pending then return end
-        if not _AccountCurrencyLogic:IsLoadComplete() then
-            self:SetStatus("정수 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.")
-            return
-        end
-        if _CharacterRosterLogic:GetActiveIndex() == nil then
+        if _CharacterRosterLogic:GetActiveCharacterData() == nil then
             self:SetStatus("활성 캐릭터가 없어 구매할 수 없습니다.")
             return
         end
         local tpl = _EquipmentLogic:GetPotionTemplate(potionId)
         if tpl == nil then return end
         local cost = tpl.price * amount
-        if _AccountCurrencyLogic:GetCurrency() < cost then
-            self:SetStatus("정수가 부족합니다. (필요 " .. cost .. " / 보유 " .. _AccountCurrencyLogic:GetCurrency() .. ")")
+        local gold = _CharacterRosterLogic:GetGold()
+        if not _CharacterRosterLogic:SpendGold(cost) then
+            self:SetStatus("골드가 부족합니다. (필요 " .. cost .. " / 보유 " .. gold .. ")")
+            log("PotionShop: purchase denied " .. potionId .. " x" .. amount .. " cost=" .. cost .. " gold=" .. gold)
             return
         end
-        self._T.pending = true
-        _TimerService:SetTimerOnce(function() self._T.pending = false end, self.PendingTimeout)
-        log("PotionShop: request purchase " .. potionId .. " x" .. amount .. " cost=" .. cost)
-        _AccountCurrencyLogic:RequestPurchasePotion(potionId, amount)
-    end
-
-    @ExecSpace("ClientOnly")
-    method void OnPurchaseResult(boolean success, string potionId, integer amount, string reason)
-        -- AccountCurrencyLogic.OnPotionPurchaseResult가 정수 갱신과 인벤토리 지급을 마친 뒤 호출.
-        self._T.pending = false
-        if success then
-            local tpl = _EquipmentLogic:GetPotionTemplate(potionId)
-            local name = tpl ~= nil and tpl.name or potionId
-            self:SetStatus(name .. " " .. amount .. "개를 구매했습니다.")
-        elseif reason == "funds" then
-            self:SetStatus("정수가 부족합니다.")
-        else
-            self:SetStatus("구매에 실패했습니다.")
-        end
+        -- GrantPotionDrop이 인벤토리 반영 + SaveRoster(차감된 골드도 함께 저장)까지 처리한다.
+        _CharacterRosterLogic:GrantPotionDrop(potionId, amount)
+        self:SetStatus(tpl.name .. " " .. amount .. "개를 구매했습니다.")
         self:RefreshDisplay()
-        log("PotionShop: OnPurchaseResult success=" .. tostring(success) .. " potionId=" .. potionId .. " amount=" .. amount .. " reason=" .. reason)
+        log("PotionShop: purchased " .. potionId .. " x" .. amount .. " cost=" .. cost .. " goldLeft=" .. _CharacterRosterLogic:GetGold())
     end
 
 end

@@ -450,6 +450,53 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method integer GetGold()
+        -- 골드 (2026-09-20 유저 요청 "정수와 인게임 골드는 구별") - 캐릭터가 전장에서 벌어 물약 등을
+        -- 사는 인게임 재화. 계정 영구 재화인 "정수"(AccountCurrencyLogic - 좋은 특성 저격용 메타
+        -- 강화)와 완전히 별개이며, 캐릭터 데이터(roster[idx].gold)에 귀속돼 캐릭터가 사망해
+        -- 슬롯이 삭제되면(DeleteSlot) 함께 사라진다.
+        local data = self:GetActiveCharacterData()
+        if data == nil then return 0 end
+        return data.gold or 0
+    end
+
+    @ExecSpace("Client")
+    method void GrantGold(integer amount)
+        -- 몬스터 처치 골드. 서버(Monster.GrantGoldToAttacker, ServerOnly)가 처치자의 UserId를
+        -- targetUserId로 지정해 호출하는 Client RPC - 인벤토리와 같은 이유로 roster(클라이언트 소유)에
+        -- 직접 적립한다(GrantPotionDrop과 동일한 신뢰 모델).
+        if amount <= 0 then return end
+        local data = self:GetActiveCharacterData()
+        if data == nil then return end
+        data.gold = (data.gold or 0) + amount
+        self:QueueRosterSave()
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean SpendGold(integer amount)
+        -- 골드가 충분하면 차감하고 true. 저장은 호출부 책임(상점은 곧바로 물약 지급 -> SaveRoster가
+        -- 한 번에 함께 저장한다).
+        local data = self:GetActiveCharacterData()
+        if data == nil or amount <= 0 then return false end
+        local current = data.gold or 0
+        if current < amount then return false end
+        data.gold = current - amount
+        return true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void QueueRosterSave()
+        -- 킬마다 SaveRoster(DataStorage SetAsync)를 부르면 쓰기 빈도가 과해서, 골드처럼 잦게 바뀌는
+        -- 값은 5초 디바운스로 묶어 저장한다(최대 5초치 유실 위험 - 사망 시 슬롯이 어차피 삭제됨).
+        if self._T.rosterSaveQueued then return end
+        self._T.rosterSaveQueued = true
+        _TimerService:SetTimerOnce(function()
+            self._T.rosterSaveQueued = false
+            self:SaveRoster()
+        end, 5)
+    end
+
+    @ExecSpace("ClientOnly")
     method void RefreshInventoryWindowIfOpen()
         self:RefreshUIWindowIfOpen("/ui/InventoryGroup", "script.InventoryUIController")
     end
