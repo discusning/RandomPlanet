@@ -25,6 +25,24 @@ script BattlefieldProgressHUDController extends Logic
     property Entity bossBanner = "f972453d-e182-4d54-a91e-40ff76215300"
     @HideFromInspector property integer lastBossSerial = -1
 
+    -- 2026-09-22 유저 요청 - 마지막 웨이브 미니보스를 처치해 전장이 클리어돼도 아무 연출이 없었다.
+    -- 옛 메이플 파티퀘스트의 "CLEAR" 연출을 재현: 애니메이션 클립(글자가 팝인 -> 유지 -> 붕괴)을
+    -- 플레이어 머리 위에 월드 이펙트로 재생 + 팡파레 + 안내 자막. 클립의 프레임 크기가 제각각이라
+    -- (팝인 ~530x150, 붕괴 프레임은 납작하게 줄어듦) 고정 크기 UI 스프라이트 대신 원본 크기로
+    -- 그리는 월드 이펙트를 쓴다. 트리거는 보스 등장 연출과 같은 방식 - @Sync FieldCleared의
+    -- false -> true 엣지를 4Hz 폴링으로 감지(별도 RPC 불필요, 파티 전원에게 동일하게 발동).
+    property TextGUIRendererComponent clearText = "c40688a9-e025-4597-87c4-812ebe9fe508"
+    property string clearRuid = "976774bd563a4c4b9e02e5deb04686c7"
+    property string clearSoundRuid = "84a187fe4d514e6a9376069c89ceafe3"
+    property number clearEffectYOffset = 1.4
+    property integer clearPopEndFrame = 5
+    property number clearPopSeconds = 0.6
+    property number clearHoldSeconds = 2.4
+    property number clearSubtitleSeconds = 5.0
+    -- -1 = 아직 이 전장에서 관측한 적 없음(입장 직후 이미 클리어 상태였다면 연출을 재생하지 않기 위함)
+    @HideFromInspector property integer lastCleared = -1
+    @HideFromInspector property any clearHoldSerial = nil
+
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         -- Hidden by default; Tick shows it only while the local player is actually standing in one
@@ -54,6 +72,7 @@ script BattlefieldProgressHUDController extends Logic
         local mapName = localPlayer.CurrentMapName
         if mapName ~= "토벌전장1" and mapName ~= "토벌전장2" and mapName ~= "토벌전장3" then
             self.hudGroup.Enable = false
+            self.lastCleared = -1
             return
         end
         local mapEntity = _EntityService:GetEntityByPath("/maps/" .. mapName)
@@ -132,6 +151,69 @@ script BattlefieldProgressHUDController extends Logic
             self:PlayBossEntranceFx()
         end
         self.lastBossSerial = serial
+
+        -- 클리어 연출 - FieldCleared가 false -> true로 바뀐 첫 틱에만 1회 발동.
+        local clearedNow = 0
+        if spawner.FieldCleared then clearedNow = 1 end
+        if self.lastCleared == 0 and clearedNow == 1 then
+            self:PlayClearFx(spawner.IsGateMode)
+        end
+        self.lastCleared = clearedNow
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PlayClearFx(boolean isGate)
+        -- 1) 팡파레 + 카메라 셰이크 2) CLEAR 글자 팝인(프레임 0~popEnd) -> 마지막 프레임 유지(루프)
+        -- -> 붕괴(나머지 프레임) 3) 화면 상단 자막(보상/귀환 안내).
+        local player = _UserService.LocalPlayer
+        if not isvalid(player) then return end
+        log("BattlefieldProgressHUD: PlayClearFx triggered gate=" .. tostring(isGate))
+        _SoundService:PlaySound(self.clearSoundRuid, 1.0)
+        local cam = _CameraService:GetCurrentCameraComponent()
+        if isvalid(cam) then
+            cam:ShakeCamera(0.6, 0.35)
+        end
+
+        -- 플레이어에 "부착"하지 않고 트리거 순간의 월드 좌표에 고정 재생한다 - 부착 대상 엔티티의
+        -- 가시성/상태(아바타 미표시, 사망 직후 등)에 이펙트 렌더가 좌우되지 않게 하기 위함.
+        local wp = player.TransformComponent.WorldPosition
+        local pos = Vector3(wp.x, wp.y + self.clearEffectYOffset, 0)
+        local serial = _EffectService:PlayEffect(self.clearRuid, player, pos, 0, Vector3(1, 1, 1), false, { StartFrameIndex = 0, EndFrameIndex = self.clearPopEndFrame, OrderInLayer = 500 })
+        log("BattlefieldProgressHUD: clear pop-in effect serial=" .. tostring(serial) .. " pos=" .. tostring(pos))
+
+        -- 팝인이 끝나는 시점에 마지막 포즈 프레임만 루프로 붙잡아 글자를 화면에 유지한다.
+        _TimerService:SetTimerOnce(function()
+            local p = _UserService.LocalPlayer
+            if not isvalid(p) then return end
+            self.clearHoldSerial = _EffectService:PlayEffect(self.clearRuid, p, pos, 0, Vector3(1, 1, 1), true, { StartFrameIndex = self.clearPopEndFrame, EndFrameIndex = self.clearPopEndFrame, OrderInLayer = 500 })
+            log("BattlefieldProgressHUD: clear hold effect serial=" .. tostring(self.clearHoldSerial))
+        end, self.clearPopSeconds)
+
+        -- 유지가 끝나면 루프를 걷어내고 붕괴 프레임(popEnd+1 ~ 끝)을 1회 재생.
+        _TimerService:SetTimerOnce(function()
+            if self.clearHoldSerial ~= nil then
+                _EffectService:RemoveEffect(self.clearHoldSerial)
+                self.clearHoldSerial = nil
+            end
+            local p = _UserService.LocalPlayer
+            if not isvalid(p) then return end
+            _EffectService:PlayEffect(self.clearRuid, p, pos, 0, Vector3(1, 1, 1), false, { StartFrameIndex = self.clearPopEndFrame + 1, OrderInLayer = 500 })
+        end, self.clearPopSeconds + self.clearHoldSeconds)
+
+        if isvalid(self.clearText) then
+            local returnKey = _KeyBindingLogic:GetSymbol(_KeyBindingLogic:GetKeyForAction("ReturnToLobby"))
+            local title = "토벌 전장 클리어!"
+            if isGate then
+                title = "몬스터 게이트 클리어!  (이능 재선택권 · 고급 스탯 구슬 획득)"
+            end
+            self.clearText.Text = title .. "\n[" .. returnKey .. "] 키로 귀환할 수 있습니다"
+            self.clearText.Entity.Enable = true
+            _TimerService:SetTimerOnce(function()
+                if isvalid(self.clearText) then
+                    self.clearText.Entity.Enable = false
+                end
+            end, self.clearSubtitleSeconds)
+        end
     end
 
     @ExecSpace("ClientOnly")
