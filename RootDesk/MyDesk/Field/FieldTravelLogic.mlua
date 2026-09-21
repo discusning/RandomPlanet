@@ -22,7 +22,16 @@ script FieldTravelLogic extends Logic
         end
         -- 카오스 던전 휴식 보너스와 동일하게 입장 시점에 자동 소모(선택 토글 없음).
         local profileCode = player.PlayerComponent.ProfileCode
-        local rewardBonus = _RestGaugeLogic:TryConsumeForEntry(profileCode)
+        -- 2026-09-22 - 휴식 게이지는 DataStorage(GetAndWait) 왕복이라 이 호출이 예외로 끝나면 아래
+        -- 텔레포트까지 통째로 건너뛰어 "포탈에 입장이 안 되는" 증상이 된다. 보너스는 부가 요소이므로
+        -- 어떤 실패에도 입장 자체는 항상 진행되게 pcall로 격리하고(실패 시 보너스 없음) 원인은 로그로 남긴다.
+        local gaugeOk, rewardBonus = pcall(function()
+            return _RestGaugeLogic:TryConsumeForEntry(profileCode)
+        end)
+        if not gaugeOk then
+            log_error("FieldTravel: RestGauge consume failed, entering without bonus. err=" .. tostring(rewardBonus))
+            rewardBonus = false
+        end
         -- 2026-09-08 QA - 토벌전장 보상 시스템(런종료 재화 등)이 이미 구축된 상태라 신규 연결.
         local rewardStatsComp = player:GetComponent("script.PlayerStatsComponent")
         if isvalid(rewardStatsComp) then

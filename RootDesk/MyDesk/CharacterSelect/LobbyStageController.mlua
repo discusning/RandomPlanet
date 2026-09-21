@@ -12,6 +12,12 @@ script LobbyStageController extends Component
     property Entity squadGroup = "5f96f6e4-814c-42e0-b42a-2b5926f6723b"
     property Entity portal = "3857eb19-aa56-462a-9700-de2d00d22c5e"
     property Entity portalField1 = "298492af-60a8-4ab0-a06e-3ea36232bfa5"
+    -- 2026-09-22 QA("토벌전장 이동 포탈이 종종 입장되지 않는다") - 로비 x≈88.3에는 포탈이 1/2/3층(portal-1/
+    -- portal-2/portal-6)으로 3개 쌓여 있고 색도 파랑/주황/빨강으로 전장 1/2/3을 연상시키는데, 코드는
+    -- 1층(portal-1)만 처리해서 2/3층 포탈에서 ↑를 눌러도 아무 반응이 없었다(그래서 "종종" 안 되는
+    -- 것처럼 보임). 세 포탈 모두 같은 전장 선택 팝업을 연다(전장/난이도는 팝업에서 고른다).
+    property Entity portalField2 = "7c4325a2-1fcf-434d-a372-d1c0218f01a3"
+    property Entity portalField3 = "fdb69252-ed0d-4693-9a31-eda553883aeb"
     property Entity battlefieldSelectGroup = "65a54cec-65e5-42cd-a897-297665d1079d"
 
     @ExecSpace("ClientOnly")
@@ -279,11 +285,12 @@ script LobbyStageController extends Component
         end
         local playerPos = localPlayer.TransformComponent.WorldPosition
 
-        -- 1F of the 3-story portal stack (portal-1) opens the battlefield-select popup instead of
-        -- teleporting directly - checked first since it's a separate box from the return portal and
-        -- the two never overlap.
-        if self:IsPlayerAtPortal(playerPos, self.portalField1) then
-            log("LobbyStage: up-arrow at battlefield portal (1F), opening battlefield-select popup")
+        -- The 3-story portal stack (portal-1/2/6, 1F/2F/3F) opens the battlefield-select popup
+        -- instead of teleporting directly - checked first since it's a separate box from the return
+        -- portal and the two never overlap. 2026-09-22: 예전엔 1F만 처리해서 2/3F 포탈은 ↑가 무반응이었다.
+        local floor = self:GetBattlefieldPortalFloor(playerPos)
+        if floor > 0 then
+            log("LobbyStage: up-arrow at battlefield portal (" .. floor .. "F), opening battlefield-select popup")
             self:OpenBattlefieldSelect()
             return
         end
@@ -297,8 +304,32 @@ script LobbyStageController extends Component
 
         -- 포탈 근처에서 ↑를 눌렀는데 판정에서 빗나간 경우만 원인 추적용으로 남긴다(멀리서 누른
         -- ↑는 로프/사다리 이동 등 정상 입력이라 로그하지 않는다).
-        self:LogPortalMiss(playerPos, self.portalField1, "battlefield")
+        self:LogPortalMiss(playerPos, self.portalField1, "battlefield 1F")
+        self:LogPortalMiss(playerPos, self.portalField2, "battlefield 2F")
+        self:LogPortalMiss(playerPos, self.portalField3, "battlefield 3F")
         self:LogPortalMiss(playerPos, self.portal, "return")
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer GetBattlefieldPortalFloor(Vector3 playerPos)
+        -- 플레이어가 서 있는 전장 포탈의 층(1/2/3)을 돌려준다. 어느 포탈 판정에도 안 걸리면 0.
+        -- (로비 x≈88.3의 포탈 3개 - 위 OnKeyDown 주석 참고. 판정 박스는 IsPlayerAtPortal 공용.)
+        -- 위쪽 점프 여유(+0.8) 때문에 인접 층의 판정 박스가 일부 겹치므로(3층 바닥이 2층 박스에도 걸림),
+        -- 걸린 포탈 중 세로 거리가 가장 가까운 층을 고른다 - 세 포탈 모두 같은 팝업을 여니 동작엔 영향이
+        -- 없고, 로그의 층 표기만 정확하게 하려는 것.
+        local portals = { self.portalField1, self.portalField2, self.portalField3 }
+        local bestFloor = 0
+        local bestDy = 999
+        for floor, portalEntity in ipairs(portals) do
+            if self:IsPlayerAtPortal(playerPos, portalEntity) then
+                local dy = math.abs(playerPos.y - portalEntity.TransformComponent.WorldPosition.y)
+                if dy < bestDy then
+                    bestDy = dy
+                    bestFloor = floor
+                end
+            end
+        end
+        return bestFloor
     end
 
     method void LogPortalMiss(Vector3 playerPos, Entity portalEntity, string label)
