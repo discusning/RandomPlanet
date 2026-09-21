@@ -37,16 +37,23 @@
 - ✅ 스킬창 "사용/해제" 토글 제거 → "배정된 키" 표시(`ApplyKeyInfoLabel`), 슬롯에 `[키]` 표기, 캐릭터 정보창 스킬 요약은 보유 스킬 기준.
 - 🟡 키 설정 창 컨트롤러: 미배정 아이콘 숨김·키보드 밖 드롭=해제 코드는 들어갔으나 **화면 동작 미검증**(Phase 2에서 함께 확인).
 - ⚠️ **현재 스킬을 키에 배정할 UI가 없다(Phase 3 전까지).** Phase 3 완료 전에는 main에 푸시하지 말 것(로컬 커밋만).
-### Phase 2 — 키 설정 창 UI
-- ⬜ 딤 제거, 비모달, 제목줄 드래그, 미배정 슬롯 아이콘 숨김, 키보드 밖 드롭=해제.
-- ⬜ `BottomBarController.CloseOtherWindows` 예외: 키 설정 창은 스킬창/인벤토리/장비창/캐릭터정보와 공존.
-- ⬜ 창 기본 위치 겹침 조정(스킬창/인벤토리와 동시에 보이게).
-### Phase 3 — 창 간 드래그 (스킬창/인벤토리 → 키)
-- ⬜ `ui/DragGhostGroup.ui` 신규 + `HotkeyDragLogic`(@Logic).
-- ⬜ 스킬창 스킬 슬롯 드래그 원본화, 인벤토리 물약 슬롯 드래그 원본화.
-- ⬜ 키 설정 창 `DropPayloadAt(touchPoint, payload)`.
+### Phase 2 — 키 설정 창 UI — 2026-09-22 구현·스크립트 검증 완료
+- ✅ 전체 화면 딤 제거(비모달), 제목줄 드래그 핸들(`Window/DragHandle`, `_WindowHotkeyLogic:ApplyDragDelta` 재사용), 열릴 때 창을 왼쪽(`dockX=-277`)에 붙임, 미배정 슬롯/None 키 아이콘 숨김, 스킬·물약 아이콘을 키보드 밖으로 끌면 해제(공격/점프/창 단축키는 제자리 복귀).
+- ✅ `BottomBarController.CloseOtherWindows`: 키 설정 창은 동반 창이라 다른 창을 열 때 닫히지 않음(전체 닫기 `""`/`Hide()`에서만 닫힘).
+- ✅ 겹침 조정: `WindowHotkeyLogic.DockOpenCompanions`/`DockCardBesideKeyWindow` — 스킬창(480)/인벤토리(520) 카드를 오른쪽 끝으로. 실측: 키 창(-277,0), 스킬 카드(700,0), 인벤토리 카드(680,0).
+### Phase 3 — 창 간 드래그 (스킬창/인벤토리 → 키) — 2026-09-22 구현·스크립트 검증 완료
+- ✅ `ui/DragGhostGroup.ui`(표시 순서 21) + `KeySetting/HotkeyDragLogic.mlua`(@Logic: `BeginDrag/MoveDrag/EndDrag`).
+- ✅ 스킬창 `BuffSlot/AtkSlot`(UITouchReceive 추가), 인벤토리 슬롯(기존 UITouchReceive 재사용)에서 드래그 이벤트 연결. 물약은 `restoreType` hp/mp → `UseHpPotion/UseMpPotion`.
+- ✅ `KeyBindingPopupController.DropPayloadAt(touchPoint, payload)`: 화면좌표 → `ScreenToUIPosition` → 창 위치+키보드 오프셋 차감 → 키 판정(넓은 키는 사각형 판정 `KeyHalfWidth`). 실측: 고스트 위치=기대 좌표, 키 G/H/T 드롭 배정, 스페이스바 가장자리 인식.
+- ✅ 보조 경로(클릭): 스킬창 버튼 "키 배정하기/해제 [키]" — 선택한 스킬을 비어 있는 핫바 키(Q W E R A S D F …)에 배정/해제(`FindFreeHotkey`). 드래그가 어려울 때의 안전망.
 ### Phase 4 — 마감
-- ⬜ 미배정 스킬 안내 토스트("P키 → 스킬을 키에 배정하세요"), HUD 확인, 이 문서·As-built 정리.
+- ⬜ 미배정 스킬 안내(획득 시 토스트 등), 신규 캐릭터 첫 진입 경험 점검, As-built 정리.
+- ⬜ 유저 실측 확인 항목(아래).
 
 ## 검증 한계 (정직하게)
-- Maker MCP `mouse_input`은 UI 드래그/클릭을 못 낸다 → 실제 마우스 드래그 경로(레이캐스트/UITouch 이벤트)는 **유저 확인 필요**. 로직/좌표 판정/저장/복원은 스크립트로 검증.
+- Maker MCP `mouse_input`은 UI 드래그/클릭을 못 낸다 → **실제 마우스 드래그 경로**는 스크립트로 이벤트 함수를 직접 호출해 검증했다(고스트 이동/드롭 판정/좌표 환산/배정/저장은 실측). 아래는 **유저가 게임에서 확인해야 할 것**:
+  1. 스킬창의 스킬 슬롯을 마우스로 끌었을 때 고스트가 따라오고, 키 설정 창의 키 위에서 놓으면 배정되는가(슬롯이 Button+UITouchReceive라 클릭과 드래그가 충돌하지 않는지).
+  2. 인벤토리 물약 슬롯 드래그 → 키 배정.
+  3. 키 설정 창 제목줄 드래그 이동, 창을 열었을 때 스킬창/인벤토리와 겹치지 않는지, 창 위 딤이 없어 뒤 UI가 눌리는지.
+  4. 실제 PLAY 클릭/캐릭터 교체 시 저장된 스킬 배치 복원(`ApplySkillLayoutForActiveCharacter` 연결).
+  5. 실제 키 입력으로 배정된 스킬이 발동되는지(서버 슬롯/네이티브 액션 매핑은 실측 확인).

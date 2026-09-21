@@ -365,6 +365,25 @@ script KeyBindingLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method any FindFreeHotkey()
+        -- 스킬창의 "키 배정하기" 버튼(클릭 한 번으로 배정하는 보조 경로 - 드래그가 어려울 때)이 쓰는 후보:
+        -- 스킬 핫바처럼 쓰기 좋은 키 순서(Q W E R A S D F ...)로, 어떤 액션도 안 쓰는 첫 키. 없으면 nil.
+        self:EnsureInitialized()
+        local preferred = {
+            KeyboardKey.Q, KeyboardKey.W, KeyboardKey.E, KeyboardKey.R,
+            KeyboardKey.A, KeyboardKey.S, KeyboardKey.D, KeyboardKey.F,
+            KeyboardKey.G, KeyboardKey.H, KeyboardKey.J, KeyboardKey.T,
+            KeyboardKey.Y, KeyboardKey.X, KeyboardKey.V, KeyboardKey.N,
+        }
+        for _, key in ipairs(preferred) do
+            if self:GetActionForKey(key) == nil then
+                return key
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
     method boolean AssignSkillToKey(string skillId, any key)
         -- 스킬창에서 키보드의 키로 스킬을 끌어다 놓았을 때(또는 키 설정 창 안에서 새로 배정할 때).
         --  * 키가 비어 있으면: 빈 슬롯 하나를 잡아 그 키에 묶고 스킬을 넣는다.

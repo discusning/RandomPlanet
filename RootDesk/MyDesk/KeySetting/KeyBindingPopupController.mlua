@@ -34,7 +34,14 @@ script KeyBindingPopupController extends Component
     -- itemAction 항목). UUID는 UIBuilder write({bind})로 주입.
     property Entity iconUseHpPotion = "02d349cb-e431-4ec0-a195-06b58d701b0e"
     property Entity iconUseMpPotion = "209da69d-ebf6-4ec6-a018-de0f90a6cf2c"
+    -- 2026-09-22 키 설정 개편 - 창 제목줄 드래그 핸들(창 이동)과 키보드 패널(스킬창/인벤토리에서
+    -- 끌어온 항목을 놓을 때 화면 좌표를 키 좌표로 환산하는 기준). UUID는 UIBuilder bind로 주입.
+    property Entity dragHandle = "be6e1438-08b7-4ea4-824a-7fca2a5b3567"
+    property Entity keyboardPanel = "4f14dda1-2923-4848-a1d3-856430a25b52"
+    -- 열릴 때 창을 놓는 X 위치(왼쪽에 붙여 오른쪽에 스킬창/인벤토리 카드가 들어갈 자리를 남긴다).
+    property number dockX = -277
 
+    property any windowDragHandler = nil
     property any keyToggleHandler = nil
     property any closeHandler = nil
     property any resetHandler = nil
@@ -55,6 +62,9 @@ script KeyBindingPopupController extends Component
         self.keyToggleHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
         self.closeHandler = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
         self.resetHandler = self.btnReset:ConnectEvent(ButtonClickEvent, self.OnResetClicked)
+        if isvalid(self.dragHandle) then
+            self.windowDragHandler = self.dragHandle:ConnectEvent(UITouchDragEvent, self.OnWindowDrag)
+        end
 
         -- { actionName, entity, dragHandler, endDragHandler, skillSlot? } per icon - actionName must
         -- match a KeyBindingLogic.BuildRegistry() entry exactly (see KeyBindingLogic.mlua).
@@ -115,27 +125,56 @@ script KeyBindingPopupController extends Component
 
     @ExecSpace("ClientOnly")
     method void Open()
-        -- Closes the 5 bottom-bar windows first (Settings/Skill's own "키 설정" buttons already
-        -- did this by calling Hide() on themselves before Open(), but the global P-key toggle
-        -- (OnKeyDown below) called Open() directly and skipped it - so opening this popup while
-        -- e.g. the skill window was open left both rendered stacked on screen at once). Mirrors
-        -- BottomBarController's own CloseOtherWindows mutual-exclusion pattern.
-        local bottomBar = _WindowHotkeyLogic:GetBottomBar()
-        if isvalid(bottomBar) then
-            bottomBar:CloseOtherWindows("")
-        end
-
+        -- 2026-09-22 키 설정 개편 - 이 창은 이제 다른 창(스킬창/인벤토리 등)을 닫지 않고 함께 열린다
+        -- (스킬창·인벤토리의 스킬/물약을 이 창의 키로 끌어다 놓아야 하므로). 전체 화면 딤도 없다.
+        -- 창을 왼쪽에 붙이고, 이미 열려 있는 스킬창/인벤토리 카드는 오른쪽 빈 자리로 옮겨 겹치지 않게 한다.
         self.isOpen = true
-        self.dimmer.Enable = true
         self.window.Enable = true
+        self.window.UITransformComponent.anchoredPosition = Vector2(self.dockX, 0)
+        _WindowHotkeyLogic:DockOpenCompanions()
         self:RefreshIcons()
     end
 
     @ExecSpace("ClientOnly")
     method void Close()
         self.isOpen = false
-        self.dimmer.Enable = false
         self.window.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnWindowDrag(UITouchDragEvent event)
+        -- 제목줄 드래그로 창 이동(다른 창들과 같은 공용 이동 로직).
+        _WindowHotkeyLogic:ApplyDragDelta(self.window.UITransformComponent, event)
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean DropPayloadAt(Vector2 touchPoint, table payload)
+        -- HotkeyDragLogic.EndDrag가 스킬창/인벤토리에서 끌어온 항목을 놓은 화면 좌표를 넘긴다. 창이 열려
+        -- 있고 키 위에 놓았을 때만 배정한다(KeyBindingLogic이 규칙 - 빈 키/스킬 슬롯 교체만 허용).
+        -- 화면 좌표 -> UI 좌표(최상위 UI 중앙 기준) -> 키보드 패널 로컬 좌표(창 위치 + 키보드 오프셋을 뺌,
+        -- 둘 다 중앙 앵커/피벗/스케일 1이라 단순 뺄셈으로 환산된다).
+        if not self.isOpen or payload == nil then
+            return false
+        end
+        local ui = _UILogic:ScreenToUIPosition(touchPoint)
+        local windowPos = self.window.UITransformComponent.anchoredPosition
+        local keyboardPos = isvalid(self.keyboardPanel) and self.keyboardPanel.UITransformComponent.anchoredPosition or Vector2(0, -34)
+        local localX = ui.x - (windowPos.x + keyboardPos.x)
+        local localY = ui.y - (windowPos.y + keyboardPos.y)
+        local nearest = self:FindNearestKey(localX, localY)
+        if nearest == nil then
+            log("KeyBindingPopup: DropPayloadAt no key at local=(" .. tostring(localX) .. "," .. tostring(localY) .. ")")
+            return false
+        end
+        local ok = false
+        if payload.kind == "skill" then
+            ok = _KeyBindingLogic:AssignSkillToKey(payload.id, nearest.key)
+        elseif payload.kind == "item" then
+            ok = _KeyBindingLogic:AssignItemActionToKey(payload.action, nearest.key)
+        end
+        log("KeyBindingPopup: DropPayloadAt kind=" .. tostring(payload.kind) .. " key=" .. tostring(nearest.key) .. " ok=" .. tostring(ok))
+        self:RefreshIcons()
+        return ok
     end
 
     @ExecSpace("ClientOnly")
@@ -213,7 +252,28 @@ script KeyBindingPopupController extends Component
         log("KeyBindingPopup: RemoveAction " .. actionName)
     end
 
+    method number KeyHalfWidth(any key)
+        -- 넓은 키(스페이스/시프트/엔터 등)는 중심에서 멀리 놓아도 그 키 위로 인식되도록 반폭을 돌려준다
+        -- (ui/KeySettingGroup.ui의 Key_* 크기와 같은 값). 나머지 일반 키는 52px = 반폭 26.
+        if key == KeyboardKey.Space then return 189
+        elseif key == KeyboardKey.RightShift then return 80
+        elseif key == KeyboardKey.LeftShift or key == KeyboardKey.Return then return 65
+        elseif key == KeyboardKey.Backspace then return 57
+        elseif key == KeyboardKey.CapsLock then return 49
+        elseif key == KeyboardKey.Tab or key == KeyboardKey.Backslash then return 41
+        elseif key == KeyboardKey.LeftControl or key == KeyboardKey.RightControl or key == KeyboardKey.LeftAlt or key == KeyboardKey.RightAlt
+            or key == KeyboardKey.LeftWindows or key == KeyboardKey.RightWindows or key == KeyboardKey.Menu then return 34
+        end
+        return 26
+    end
+
     method any FindNearestKey(number x, number y)
+        -- 먼저 키 사각형 안에 정확히 놓았는지 본다(넓은 키 포함). 아니면 스냅 거리 안의 가장 가까운 키.
+        for _, entry in ipairs(self._T.keyLayout) do
+            if math.abs(entry.x - x) <= self:KeyHalfWidth(entry.key) and math.abs(entry.y - y) <= 26 then
+                return entry
+            end
+        end
         local best = nil
         local bestDist = self.snapDistance
         for _, entry in ipairs(self._T.keyLayout) do
@@ -396,6 +456,7 @@ script KeyBindingPopupController extends Component
         if self.keyToggleHandler then _InputService:DisconnectEvent(KeyDownEvent, self.keyToggleHandler) end
         if self.closeHandler then self.btnClose:DisconnectEvent(ButtonClickEvent, self.closeHandler) end
         if self.resetHandler then self.btnReset:DisconnectEvent(ButtonClickEvent, self.resetHandler) end
+        if self.windowDragHandler and isvalid(self.dragHandle) then self.dragHandle:DisconnectEvent(UITouchDragEvent, self.windowDragHandler) end
         if self._T.icons ~= nil then
             for _, icon in ipairs(self._T.icons) do
                 if isvalid(icon.entity) then

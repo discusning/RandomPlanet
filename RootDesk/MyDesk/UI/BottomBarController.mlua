@@ -71,6 +71,9 @@ script BottomBarController extends Component
         for _, w in ipairs(self:GetWindowList()) do
             self:CloseWindow(w.path, w.scriptType)
         end
+        -- 키 설정 창은 GetWindowList에 없으므로(동반 창 - CloseOtherWindows 참고) 하단바가 숨겨질 때
+        -- (맵/캐릭터 선택 전환) 여기서 따로 닫는다.
+        self:CloseWindow("/ui/KeySettingGroup", "script.KeyBindingPopupController")
     end
 
     @ExecSpace("ClientOnly")
@@ -129,7 +132,12 @@ script BottomBarController extends Component
         -- of everything the same way - without this, opening e.g. Inventory while it was already
         -- open left both stacked on screen (KeyBindingPopupController.Hide is a thin alias for its
         -- own Close()).
-        self:CloseWindow("/ui/KeySettingGroup", "script.KeyBindingPopupController")
+        -- 2026-09-22 키 설정 개편 - 키 설정 창은 다른 창의 "동반 창"이라(스킬창/인벤토리의 항목을
+        -- 끌어다 놓는다) 다른 창을 열 때 닫지 않는다. 전부 닫는 경우(keepPath == "", ESC/일괄 닫기)에만
+        -- 함께 닫힌다.
+        if keepPath == "" then
+            self:CloseWindow("/ui/KeySettingGroup", "script.KeyBindingPopupController")
+        end
         -- Same story for the squad-formation card (opened from the Lobby NPC, not a bottom-bar
         -- button) - it also renders as a full-screen card and was never part of this mutual
         -- exclusion set, so it could stack behind/in front of any bottom-bar window too.

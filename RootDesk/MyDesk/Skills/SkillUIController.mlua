@@ -80,7 +80,45 @@ script SkillUIController extends Component
         local hAtkHover = self.atkSlotEntity:ConnectEvent(ButtonStateChangeEvent, function(event) self:OnSlotHoverStateChanged("attack", event) end)
         table.insert(self._T.handlers, { entity = self.atkSlotEntity, eventType = ButtonStateChangeEvent, eventHandler = hAtkHover })
 
+        -- 2026-09-22 키 설정 개편 - 이 창의 스킬 슬롯을 키 설정 창의 키로 끌어다 놓아 배정한다
+        -- (HotkeyDragLogic이 고스트/드롭 판정을 담당). 슬롯 엔티티에는 UITouchReceiveComponent가 있어야
+        -- 드래그 이벤트가 온다(ui/SkillGroup.ui의 BuffSlot/AtkSlot에 추가됨).
+        local dragSlots = { { category = "buff", entity = self.buffSlotEntity }, { category = "attack", entity = self.atkSlotEntity } }
+        for _, ds in ipairs(dragSlots) do
+            local capturedCategory = ds.category
+            local hBegin = ds.entity:ConnectEvent(UITouchBeginDragEvent, function(event) self:OnSlotBeginDrag(capturedCategory, event) end)
+            table.insert(self._T.handlers, { entity = ds.entity, eventType = UITouchBeginDragEvent, eventHandler = hBegin })
+            local hMove = ds.entity:ConnectEvent(UITouchDragEvent, self.OnSlotDrag)
+            table.insert(self._T.handlers, { entity = ds.entity, eventType = UITouchDragEvent, eventHandler = hMove })
+            local hEnd = ds.entity:ConnectEvent(UITouchEndDragEvent, self.OnSlotEndDrag)
+            table.insert(self._T.handlers, { entity = ds.entity, eventType = UITouchEndDragEvent, eventHandler = hEnd })
+        end
+
         self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotBeginDrag(string category, UITouchBeginDragEvent event)
+        -- 보유 스킬 슬롯을 끌기 시작 - 미보유(빈) 슬롯이면 무시. 고스트에 스킬 이름/종류색을 보여준다.
+        local skillId = self:GetOwnedForCurrentTier()[category]
+        if skillId == nil or skillId == "" then return end
+        local def = _SkillCatalog:GetSkillDef(skillId)
+        if def == nil then return end
+        _HotkeyDragLogic:BeginDrag({ kind = "skill", id = skillId }, def.name, self:ColorForKind(def.kind), event.TouchPoint)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotDrag(UITouchDragEvent event)
+        _HotkeyDragLogic:MoveDrag(event.TouchPoint)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotEndDrag(UITouchEndDragEvent event)
+        -- 키 위에 놓아 배정에 성공하면 이 창의 "배정된 키" 표시(슬롯 색/[키]/버튼 라벨)를 갱신한다.
+        local assigned = _HotkeyDragLogic:EndDrag(event.TouchPoint)
+        if assigned then
+            self:Refresh()
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -118,8 +156,34 @@ script SkillUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void OnKeyInfoClicked()
-        -- "배정된 키" 표시 버튼 - 눌러도 별도 동작 없이 키 설정 창만 열어 준다(이미 열려 있으면 유지).
-        self:OnOpenKeySettingClicked()
+        -- 선택한 스킬의 "키 배정하기/해제" 토글(클릭 한 번으로 하는 보조 경로 - 정밀한 위치 지정이 필요하면
+        -- 슬롯을 키 설정 창의 키로 끌어다 놓는다). 미배정이면 비어 있는 핫바 키(Q W E R A S D F ...)
+        -- 중 첫 키에 배정하고, 이미 배정돼 있으면 해제한다. 스킬을 고르지 않았으면 키 설정 창을 연다.
+        local skillId = self._T.selectedSkillId
+        if skillId == nil or skillId == "" then
+            self:OnOpenKeySettingClicked()
+            return
+        end
+        local slot = _KeyBindingLogic:GetSlotOfSkill(skillId)
+        if slot ~= nil then
+            _KeyBindingLogic:RemoveSkillFromSlot(slot)
+        else
+            local key = _KeyBindingLogic:FindFreeHotkey()
+            if key == nil then
+                log("SkillUI: OnKeyInfoClicked no free hotkey")
+                return
+            end
+            _KeyBindingLogic:AssignSkillToKey(skillId, key)
+        end
+        self:Refresh()
+        -- 키 설정 창이 열려 있으면 아이콘도 바로 갱신.
+        local keyGroup = _EntityService:GetEntityByPath("/ui/KeySettingGroup")
+        if isvalid(keyGroup) then
+            local popup = keyGroup:GetComponent("script.KeyBindingPopupController")
+            if isvalid(popup) and popup.isOpen then
+                popup:RefreshIcons()
+            end
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -172,6 +236,8 @@ script SkillUIController extends Component
         self._T.selectedSkillId = ""
         self._T.selectedCategory = ""
         self:Refresh()
+        -- 키 설정 창이 열려 있으면 그 옆(오른쪽 끝)으로 붙는다.
+        _WindowHotkeyLogic:DockCardBesideKeyWindow("/ui/SkillGroup/Card", 480)
     end
 
     @ExecSpace("ClientOnly")
@@ -273,9 +339,9 @@ script SkillUIController extends Component
         if not isvalid(btnText) then return end
         local key = _KeyBindingLogic:GetKeyForSkill(skillId)
         if key == nil then
-            btnText.Text = "미배정 (키 설정에서 끌어다 놓기)"
+            btnText.Text = "키 배정하기"
         else
-            btnText.Text = "배정된 키: " .. _KeyBindingLogic:GetSymbol(key)
+            btnText.Text = "해제 [" .. _KeyBindingLogic:GetSymbol(key) .. "]"
         end
     end
 

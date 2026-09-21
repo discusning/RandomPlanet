@@ -133,6 +133,14 @@ script InventoryUIController extends Component
             table.insert(self._T.handlers, { entity = btn, eventType = UITouchEnterEvent, eventHandler = hEnter })
             local hExit = btn:ConnectEvent(UITouchExitEvent, function() _ItemStatTooltipController:Hide() end)
             table.insert(self._T.handlers, { entity = btn, eventType = UITouchExitEvent, eventHandler = hExit })
+            -- 2026-09-22 키 설정 개편 - 물약 슬롯을 키 설정 창의 키로 끌어다 놓아 단축키를 배정한다
+            -- (같은 UITouchReceiveComponent가 드래그 이벤트도 쏜다 - HotkeyDragLogic 참고).
+            local hBegin = btn:ConnectEvent(UITouchBeginDragEvent, function(event) self:OnSlotBeginDrag(capturedIndex, event) end)
+            table.insert(self._T.handlers, { entity = btn, eventType = UITouchBeginDragEvent, eventHandler = hBegin })
+            local hMove = btn:ConnectEvent(UITouchDragEvent, self.OnSlotDrag)
+            table.insert(self._T.handlers, { entity = btn, eventType = UITouchDragEvent, eventHandler = hMove })
+            local hEnd = btn:ConnectEvent(UITouchEndDragEvent, self.OnSlotEndDrag)
+            table.insert(self._T.handlers, { entity = btn, eventType = UITouchEndDragEvent, eventHandler = hEnd })
         end
 
         for _, tab in ipairs(self._T.tabs) do
@@ -166,6 +174,8 @@ script InventoryUIController extends Component
     method void Show()
         self.Entity.Enable = true
         self:Refresh()
+        -- 2026-09-22 - 키 설정 창이 열려 있으면 그 옆(오른쪽 끝)으로 붙는다(물약을 키로 끌어다 놓기 위해).
+        _WindowHotkeyLogic:DockCardBesideKeyWindow("/ui/InventoryGroup/Card", 520)
     end
 
     @ExecSpace("ClientOnly")
@@ -320,6 +330,40 @@ script InventoryUIController extends Component
                 end
             end
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotBeginDrag(integer visualIndex, UITouchBeginDragEvent event)
+        -- 물약 슬롯만 키로 끌어 배정할 수 있다(장비/주문서/기타는 무시). 물약 종류(hp/mp)가 곧 단축키
+        -- 액션(UseHpPotion/UseMpPotion)이다.
+        local data = self:GetActiveCharacterData()
+        if data == nil then return end
+        local entry = self:GetCategoryItems(data.inventory or {}, self._T.activeCategory)[visualIndex]
+        if entry == nil or entry.inst.potionId == nil then return end
+        local tpl = _EquipmentLogic:GetPotionTemplate(entry.inst.potionId)
+        if tpl == nil then return end
+        local action = nil
+        local color = Color(0.5, 0.5, 0.5, 0.9)
+        if tpl.restoreType == "hp" then
+            action = "UseHpPotion"
+            color = Color(0.75, 0.16, 0.14, 0.9)
+        elseif tpl.restoreType == "mp" then
+            action = "UseMpPotion"
+            color = Color(0.14, 0.34, 0.75, 0.9)
+        end
+        if action == nil then return end
+        _ItemStatTooltipController:Hide()
+        _HotkeyDragLogic:BeginDrag({ kind = "item", action = action }, tpl.name, color, event.TouchPoint)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotDrag(UITouchDragEvent event)
+        _HotkeyDragLogic:MoveDrag(event.TouchPoint)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotEndDrag(UITouchEndDragEvent event)
+        _HotkeyDragLogic:EndDrag(event.TouchPoint)
     end
 
     @ExecSpace("ClientOnly")

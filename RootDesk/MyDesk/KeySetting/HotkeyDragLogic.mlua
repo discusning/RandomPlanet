@@ -1,0 +1,74 @@
+@Logic
+script HotkeyDragLogic extends Logic
+    -- 2026-09-22 키 설정 개편(Docs/RandomPlanet-KeyRework-Plan.md) - 스킬창/인벤토리 같은 "다른 창"의
+    -- 스킬·물약을 키 설정 창의 키로 끌어다 놓는 드래그 앤 드롭. 원본 창(SkillUIController/
+    -- InventoryUIController)이 자기 슬롯의 UITouchBeginDrag/Drag/EndDrag 이벤트에서 이 Logic의
+    -- BeginDrag/MoveDrag/EndDrag를 호출한다. 창 사이를 오가는 드래그라 원본 창의 UI 그룹 안에서
+    -- 아이콘을 움직일 수 없어(그룹 표시 순서 때문에 다른 창 뒤에 가려짐), 가장 위 표시 순서의
+    -- DragGhostGroup(ui/DragGhostGroup.ui)에 있는 고스트 하나가 포인터를 따라다닌다. 놓는 순간 화면
+    -- 좌표를 키 설정 창(KeyBindingPopupController.DropPayloadAt)에 넘겨 어떤 키 위인지 판정한다.
+    -- payload 형식: { kind = "skill", id = "<skillId>" } 또는 { kind = "item", action = "UseHpPotion" }.
+
+    property Entity ghost = "46aad8a6-8c39-4f55-8da1-0e7b796eda41"
+    property TextGUIRendererComponent ghostText = "46aad8a6-8c39-4f55-8da1-0e7b796eda41"
+    property SpriteGUIRendererComponent ghostSprite = "46aad8a6-8c39-4f55-8da1-0e7b796eda41"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.payload = nil
+        if isvalid(self.ghost) then
+            self.ghost.Enable = false
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void BeginDrag(table payload, string label, Color color, Vector2 touchPoint)
+        -- 드래그 시작 - 고스트를 보이고 포인터 위치로 옮긴다.
+        if payload == nil or not isvalid(self.ghost) then
+            return
+        end
+        self._T.payload = payload
+        if isvalid(self.ghostText) then
+            self.ghostText.Text = label
+        end
+        if isvalid(self.ghostSprite) then
+            self.ghostSprite.Color = color
+        end
+        self:MoveDrag(touchPoint)
+        self.ghost.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void MoveDrag(Vector2 touchPoint)
+        -- 드래그 중 - 고스트를 포인터에 붙인다(ScreenToUIPosition은 최상위 UI 중앙 기준 좌표를 돌려주고
+        -- 고스트는 중앙 앵커/피벗이라 그대로 anchoredPosition에 쓸 수 있다).
+        if self._T.payload == nil or not isvalid(self.ghost) then
+            return
+        end
+        self.ghost.UITransformComponent.anchoredPosition = _UILogic:ScreenToUIPosition(touchPoint)
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean EndDrag(Vector2 touchPoint)
+        -- 드래그 끝 - 고스트를 숨기고, 놓은 위치를 키 설정 창에 넘겨 배정을 시도한다. 배정에 성공하면
+        -- true(원본 창이 자기 표시를 갱신하는 신호로 쓴다). 키 설정 창이 닫혀 있거나 키 위가 아니면 false.
+        local payload = self._T.payload
+        self._T.payload = nil
+        if isvalid(self.ghost) then
+            self.ghost.Enable = false
+        end
+        if payload == nil then
+            return false
+        end
+        local keyGroup = _EntityService:GetEntityByPath("/ui/KeySettingGroup")
+        if not isvalid(keyGroup) then
+            return false
+        end
+        local popup = keyGroup:GetComponent("script.KeyBindingPopupController")
+        if not isvalid(popup) then
+            return false
+        end
+        return popup:DropPayloadAt(touchPoint, payload)
+    end
+
+end

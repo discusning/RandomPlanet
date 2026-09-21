@@ -107,6 +107,47 @@ script WindowHotkeyLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method boolean IsKeySettingOpen()
+        -- 키 설정 창(KeyBindingPopupController)이 지금 열려 있는가.
+        local group = _EntityService:GetEntityByPath("/ui/KeySettingGroup")
+        if not isvalid(group) then
+            return false
+        end
+        local popup = group:GetComponent("script.KeyBindingPopupController")
+        return isvalid(popup) and popup.isOpen
+    end
+
+    @ExecSpace("ClientOnly")
+    method void DockCardBesideKeyWindow(string cardPath, number cardWidth)
+        -- 2026-09-22 키 설정 개편 - 키 설정 창이 열려 있으면, 스킬창/인벤토리 같은 "드래그 원본" 카드를
+        -- 화면 오른쪽 끝(여백 20)에 붙여 키 설정 창(왼쪽에 붙음)과 겹치지 않게 한다. 열려 있지 않으면
+        -- 카드는 원래 위치를 그대로 쓴다.
+        if not self:IsKeySettingOpen() then
+            return
+        end
+        local card = _EntityService:GetEntityByPath(cardPath)
+        if not isvalid(card) then
+            return
+        end
+        card.UITransformComponent.anchoredPosition = Vector2(960 - 20 - cardWidth / 2, 0)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void DockOpenCompanions()
+        -- 키 설정 창이 열리는 순간, 이미 열려 있는 드래그 원본 창(스킬창/인벤토리)을 오른쪽으로 옮긴다.
+        local companions = {
+            { root = "/ui/SkillGroup", card = "/ui/SkillGroup/Card", width = 480 },
+            { root = "/ui/InventoryGroup", card = "/ui/InventoryGroup/Card", width = 520 },
+        }
+        for _, c in ipairs(companions) do
+            local root = _EntityService:GetEntityByPath(c.root)
+            if isvalid(root) and root.Enable then
+                self:DockCardBesideKeyWindow(c.card, c.width)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
     method void ApplyDragDelta(UITransformComponent cardTransform, UITouchDragEvent event)
         -- 2026-09-15 코드 최적화 - 창 제목줄 드래그 이동 로직이 Equipment/Inventory/
         -- CharacterInfo/Settings 4개 팝업 컨트롤러의 OnDrag에 완전히 동일하게(수식까지) 중복돼
