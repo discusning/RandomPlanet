@@ -82,8 +82,27 @@ script PlayerSkillComponent extends Component
     @ExecSpace("ServerOnly")
     method void OnUpdate(number delta)
         if not self.BuffActive then return end
+        -- 2026-09-22 타임 스톱 - 선택 팝업이 떠 있는 동안은 버프 만료도 멈춘다(끝난 뒤 ShiftTimers가 남은
+        -- 시간을 이어 붙인다).
+        if _TimeStopLogic.Stopped then return end
         if _UtilLogic.ElapsedSeconds < self.BuffExpireTime then return end
         self:RevertBuff()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ShiftTimers(number stopStartElapsed, number duration)
+        -- 2026-09-22 타임 스톱(TimeStopLogic.Thaw) - 스킬 쿨다운(슬롯별 마지막 사용 시각)과 버프 종료
+        -- 시각을 멈춘 시간만큼 뒤로 민다. 사용한 적 없는 슬롯(-999)과 이미 종료된 버프는 그대로 둔다.
+        if duration <= 0 then return end
+        for slot = 1, 8 do
+            local last = self:GetLastUseTime(slot)
+            if last > -900 then
+                self:SetLastUseTime(slot, last + duration)
+            end
+        end
+        if self.BuffActive and self.BuffExpireTime > stopStartElapsed then
+            self.BuffExpireTime = self.BuffExpireTime + duration
+        end
     end
 
     @ExecSpace("ClientOnly")

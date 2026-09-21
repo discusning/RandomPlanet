@@ -31,6 +31,8 @@ script ProjectileComponent extends Component
     @ExecSpace("ServerOnly")
     method void OnUpdate(number delta)
         if not self._T.fired then return end
+        -- 2026-09-22 타임 스톱 - 이능/스킬 선택 중엔 비행/수명 카운트가 멈춘다(그 자리에 정지).
+        if _TimeStopLogic.Stopped then return end
 
         self._T.lifetime = self._T.lifetime + delta
         if self._T.lifetime >= self.MaxLifetime then

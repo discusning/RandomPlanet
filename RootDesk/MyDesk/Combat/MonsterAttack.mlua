@@ -27,6 +27,10 @@ script MonsterAttack extends AttackComponent
     method void TryAttack()
         -- Timer-driven contact swing (no facing/state change) - matches msw-combat-system's
         -- MonsterAttack description: damages nearby players without touching StateComponent.
+        -- 2026-09-22 타임 스톱 - 이능/스킬 선택 중엔 공격하지 않는다(TimeStopLogic).
+        if _TimeStopLogic.Stopped then
+            return
+        end
         local monster = self.Entity:GetComponent("script.Monster")
         if isvalid(monster) and monster.IsDead then
             return

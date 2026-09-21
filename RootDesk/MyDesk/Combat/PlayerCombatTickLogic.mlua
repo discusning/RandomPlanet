@@ -44,6 +44,9 @@ script PlayerCombatTickLogic extends Logic
     method void CombatTick(PlayerStatsComponent stats)
         -- 전투 지형에서 1초마다 실행(StartCombatTimer 참고) - 아래 각 항목은 해당 특성의 basicEffect
         -- 필드가 없으면 함수 초입에서 nil 체크로 조용히 스킵된다(범용 엔진과 동일한 no-op 원칙).
+        -- 2026-09-22 타임 스톱 - 이능/스킬 선택 팝업이 떠 있는 동안은 틱이 멈춘다(재생/시한폭탄/방어막
+        -- 주기 등 시간 의존 효과가 정지 중에 흐르지 않게). BerserkTick/TownRegenTick도 동일.
+        if _TimeStopLogic.Stopped then return end
         local player = stats.Entity.PlayerComponent
         local attack = stats.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 or player.Hp <= 0 then return end
@@ -271,6 +274,7 @@ script PlayerCombatTickLogic extends Logic
         -- 유지, "살수록 약해진다"는 자해였던 부분이라 제거). BaseAttackDamage(RecalculateDerived가
         -- 매번 갱신) 기준으로 매번 곱해서 세팅하므로 스탯 재계산과 충돌하거나 값이 누적 드리프트하지
         -- 않는다.
+        if _TimeStopLogic.Stopped then return end
         local player = stats.Entity.PlayerComponent
         local attack = stats.Entity:GetComponent("script.PlayerAttack")
         if not isvalid(player) or not isvalid(attack) or player.MaxHp <= 0 then return end
@@ -291,6 +295,7 @@ script PlayerCombatTickLogic extends Logic
         -- 그냥 클램프만 될 뿐이라 타이머를 계속 돌려도 무해하다. Mp는 PlayerComponent가 아니라
         -- 이 스크립트 자신의 CurrentMp/MaxMp(RecalculateDerived가 매번 갱신)에 저장되므로
         -- PlayerAttack처럼 별도 컴포넌트 조회가 필요 없다.
+        if _TimeStopLogic.Stopped then return end
         local player = stats.Entity.PlayerComponent
         if not isvalid(player) or player.MaxHp <= 0 then return end
         -- 2026-09-08 QA - 금욕 링크("재생 지원": 비전투 시 파티 회복 속도 증가) 신규 연결. 전원

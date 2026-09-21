@@ -23,6 +23,11 @@ script FieldMonsterAI extends Component
         local monster = self.Entity:GetComponent("script.Monster")
         local move = self.Entity.MovementComponent
         if not isvalid(move) then return end
+        -- 2026-09-22 타임 스톱 - 이능/스킬 선택 중엔 그 자리에서 정지(TimeStopLogic).
+        if _TimeStopLogic.Stopped then
+            move:Stop()
+            return
+        end
         if isvalid(monster) and monster.IsDead then
             move:Stop()
             return

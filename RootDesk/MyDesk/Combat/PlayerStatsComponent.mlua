@@ -92,6 +92,9 @@ script PlayerStatsComponent extends Component
     -- 깎지 않는다. PendingAbilityChoices는 큐(레벨업이 몰릴 때 팝업을 한 번에 하나씩만 띄우기 위함).
     @Sync @HideFromInspector property boolean AbilityChoicePending = false
     @Sync @HideFromInspector property integer PendingAbilityChoices = 0
+    -- 2026-09-22 타임 스톱(Combat/TimeStopLogic.mlua) - 서버가 이능/스킬 선택 중 게임 시간을 멈추는 동안
+    -- true. 클라이언트는 이 값의 변화(OnSyncProperty)를 받아 로컬 입력을 잠그고/푼다.
+    @Sync @HideFromInspector property boolean TimeStopped = false
     -- "특성 변경" 선택 시 실제로 적용될 특성 - 팝업이 뜨는 시점에 미리 굴려서 클라이언트가 몇으로
     --바뀌는지 보고 고를 수 있게 한다(블라인드 선택 방지).
     @Sync @HideFromInspector property string PendingTraitPreview = ""
@@ -558,6 +561,32 @@ script PlayerStatsComponent extends Component
         end
     end
 
+    @ExecSpace("ServerOnly")
+    method void ShiftTimers(number stopStartElapsed, number duration)
+        -- 2026-09-22 타임 스톱(TimeStopLogic.Thaw) - 절대 시각(ElapsedSeconds)에 묶인 버프/무적 종료
+        -- 시각을 멈춘 시간만큼 뒤로 밀어, 정지 중에 만료되지 않고 정지 직전 남은 시간 그대로 이어지게
+        -- 한다. 정지 시작 시점에 아직 유효했던(시각 > stopStartElapsed) 값만 민다 - 이미 만료됐거나
+        -- 비활성(0)인 값은 그대로 둬야 다시 살아나지 않는다. 런 시작 시각은 항상 밀어 생존 시간에
+        -- 정지 시간이 포함되지 않게 한다.
+        if duration <= 0 then return end
+        self.RunStartElapsed = self.RunStartElapsed + duration
+        local function shift(current)
+            if current > stopStartElapsed then
+                return current + duration
+            end
+            return current
+        end
+        self.BurstExpireElapsed = shift(self.BurstExpireElapsed)
+        self.LinkMasterBuffExpireElapsed = shift(self.LinkMasterBuffExpireElapsed)
+        self.OwnOnHitBuffExpireElapsed = shift(self.OwnOnHitBuffExpireElapsed)
+        self.LinkOnHitBuffExpireElapsed = shift(self.LinkOnHitBuffExpireElapsed)
+        self.LinkPeriodicBuffExpireElapsed = shift(self.LinkPeriodicBuffExpireElapsed)
+        self.LinkCaptureInvulnUntilElapsed = shift(self.LinkCaptureInvulnUntilElapsed)
+        self.LinkLowHpInvulnUntilElapsed = shift(self.LinkLowHpInvulnUntilElapsed)
+        self.LinkLowHpInvulnCooldownUntilElapsed = shift(self.LinkLowHpInvulnCooldownUntilElapsed)
+        self.LinkDashInvulnUntilElapsed = shift(self.LinkDashInvulnUntilElapsed)
+    end
+
     @ExecSpace("ClientOnly")
     method void OnSyncProperty(string name, any value)
         -- Fires once RunEnded finishes syncing to this client - only ever true for the local player's
@@ -582,6 +611,12 @@ script PlayerStatsComponent extends Component
                 if not isvalid(self.Entity) then return end
                 _AbilityChoiceUIController:ShowChoice(self.Trait, self.PendingTraitPreview, self.Trait2)
             end, 0.1)
+        elseif name == "TimeStopped" then
+            -- 2026-09-22 타임 스톱 - 서버가 이능/스킬 선택 중 게임 시간을 멈추거나 푼 것을 로컬 입력
+            -- 잠금/해제로 반영(본인 캐릭터만).
+            if isvalid(_UserService.LocalPlayer) and self.Entity == _UserService.LocalPlayer then
+                _TimeStopLogic:OnTimeStopChanged(value == true)
+            end
         elseif name == "Level" then
             -- M2 Phase C(2026-09-06) - 버그 수정: 로스터의 캐릭터별 level 필드가 생성 시점(1) 이후
             -- 전혀 갱신되지 않아(As-built 기존 기록 - 재입장/스왑 시 레벨업분 소실), 링크 캐릭터의

@@ -105,6 +105,8 @@ script FieldWaveSpawner extends Component
     method void OnUpdate(number delta)
         -- Session-relative countdown (never anchored on raw ElapsedSeconds - see
         -- msw-scripting §13's per-session-timer trap) that rolls into the next wave.
+        -- 2026-09-22 타임 스톱 - 이능/스킬 선택 중엔 웨이브 카운트다운/처치 판정/미니보스 진행 전부 멈춘다.
+        if _TimeStopLogic.Stopped then return end
         if self:IsFieldCurrentlyEmpty() then
             if not self.IsFieldEmpty then
                 self:ResetField()
@@ -387,6 +389,8 @@ script FieldWaveSpawner extends Component
         -- Alternates left/right portal spawn points; skips entirely while nobody is on this map
         -- (no point piling up monsters in an empty field) and once the current wave's alive cap
         -- is reached.
+        -- 2026-09-22 타임 스톱 - 이능/스킬 선택 중엔 새 몬스터를 스폰하지 않는다.
+        if _TimeStopLogic.Stopped then return end
         local map = self.Entity.CurrentMap
         if not isvalid(map) then
             return

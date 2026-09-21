@@ -1,0 +1,149 @@
+@Logic
+script TimeStopLogic extends Logic
+    -- 2026-09-22 유저 요청("이능 선택지 창이 열리면 피격 무시가 아니라 게임 자체가 이능만 빼고 멈춰버리게,
+    -- 약간 타임 스탑") - 이능(레벨업 3택1)/스킬 티어(전직 3택1) 선택 팝업이 떠 있거나 그 대기열이 남아 있는
+    -- 동안 게임 시간을 멈춘다. 이 프로젝트의 몬스터/웨이브/투사체는 서버 시뮬레이션이라 엔진 차원의
+    -- 서버 시간 정지가 없고(클라이언트 SetClientTimeScale은 클라이언트 애니메이션/물리 표시만 바꾼다),
+    -- 그래서 서버에서 "시간에 따라 움직이는" 코드마다 Stopped 플래그를 확인해 멈춘다:
+    --   FieldMonsterAI(이동), MonsterAttack(접촉 공격), FieldWaveSpawner(스폰/웨이브 카운트다운/미니보스),
+    --   ProjectileComponent(비행), PlayerCombatTickLogic(1초 틱 3종), BattlefieldReturnLogic(귀환 채널),
+    --   PlayerSkillComponent(버프 만료).
+    -- 절대 시각(ElapsedSeconds)에 묶인 쿨다운/버프/무적 타임스탬프는 정지가 끝나는 순간 멈춘 시간만큼
+    -- 뒤로 밀어(ShiftTimers) 정지 중에 만료되지 않게 한다. 클라이언트는 PlayerStatsComponent.TimeStopped
+    -- (@Sync)를 받아 입력을 잠그고, 팝업이 실제로 뜬 동안 애니메이션/파티클을 멈춘다(FreezeClientWorld).
+    -- 정지 판정은 매 프레임 서버 상태(AbilityChoicePending/PendingAbilityChoices, SkillChoicePending/
+    -- PendingSkillTier)에서 계산하므로 별도 상태 관리(카운터)가 필요 없다 - PlayerHit의 "선택 중 피격 무효"
+    -- 와 같은 조건이다(그쪽은 이제 이중 방어선일 뿐, 몬스터가 멈춰 있어 실제로는 맞을 일이 없다).
+
+    -- 서버 전용 - 다른 스크립트가 _TimeStopLogic.Stopped로 읽는다(클라이언트에서는 항상 false).
+    @HideFromInspector property boolean Stopped = false
+    -- 안전장치: 대기열(Pending)이 남아 있는데 팝업 플래그가 이 시간 넘게 꺼져 있으면(팝업이 안 열리는
+    -- 버그) 영구 정지(소프트락)를 막기 위해 정지를 푼다. 정상 흐름에선 팝업 간 간격이 0.1~0.3초뿐이다.
+    property number PopupGraceSeconds = 3
+    @HideFromInspector property number StopStartElapsed = 0
+    @HideFromInspector property number NoPopupSinceElapsed = -1
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        -- Logic의 OnUpdate는 모든 Component의 OnUpdate보다 먼저 실행되므로(스크립팅 규칙) 이 프레임의
+        -- Stopped 값이 이미 확정된 상태에서 몬스터/스포너들이 읽는다.
+        local state = self:EvaluateChoiceState()
+        local wantStop = state[1]
+        local popupVisible = state[2]
+        local now = _UtilLogic.ElapsedSeconds
+        local stop = wantStop
+        if wantStop and not popupVisible then
+            if self.NoPopupSinceElapsed < 0 then
+                self.NoPopupSinceElapsed = now
+            elseif now - self.NoPopupSinceElapsed > self.PopupGraceSeconds then
+                stop = false
+                if self.Stopped then
+                    log_warning("TimeStop: 선택 팝업이 " .. tostring(self.PopupGraceSeconds) .. "초 넘게 열리지 않아 정지를 해제합니다(안전장치)")
+                end
+            end
+        else
+            self.NoPopupSinceElapsed = -1
+        end
+        if stop ~= self.Stopped then
+            self.Stopped = stop
+            if stop then
+                self:Freeze(now)
+            else
+                self:Thaw(now)
+            end
+        end
+    end
+
+    method any EvaluateChoiceState()
+        -- { wantStop, popupVisible } - 선택 팝업이 필요한 상태인가, 그중 팝업 플래그가 실제로 켜져
+        -- 있는가. 다중 반환은 이 워크스페이스 컴파일러가 경고하므로(LWA-1111) 테이블 하나로 돌려준다.
+        local wantStop = false
+        local popupVisible = false
+        for _, user in ipairs(_UserService.UserEntities.Values) do
+            if isvalid(user) then
+                local stats = user:GetComponent("script.PlayerStatsComponent")
+                if isvalid(stats) and (stats.AbilityChoicePending or stats.PendingAbilityChoices > 0) then
+                    wantStop = true
+                    if stats.AbilityChoicePending then popupVisible = true end
+                end
+                local skill = user:GetComponent("script.PlayerSkillComponent")
+                if isvalid(skill) and (skill.SkillChoicePending or skill.PendingSkillTier ~= 0) then
+                    wantStop = true
+                    if skill.SkillChoicePending then popupVisible = true end
+                end
+            end
+        end
+        return { wantStop, popupVisible }
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Freeze(number now)
+        self.StopStartElapsed = now
+        for _, user in ipairs(_UserService.UserEntities.Values) do
+            if isvalid(user) then
+                local stats = user:GetComponent("script.PlayerStatsComponent")
+                if isvalid(stats) then
+                    stats.TimeStopped = true
+                end
+            end
+        end
+        log("TimeStop: 시간 정지 시작")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Thaw(number now)
+        -- 멈춘 시간만큼 절대 시각 타임스탬프를 뒤로 밀고 클라이언트에 해제를 알린다.
+        local duration = now - self.StopStartElapsed
+        for _, user in ipairs(_UserService.UserEntities.Values) do
+            if isvalid(user) then
+                local stats = user:GetComponent("script.PlayerStatsComponent")
+                if isvalid(stats) then
+                    stats:ShiftTimers(self.StopStartElapsed, duration)
+                    stats.TimeStopped = false
+                end
+                local skill = user:GetComponent("script.PlayerSkillComponent")
+                if isvalid(skill) then
+                    skill:ShiftTimers(self.StopStartElapsed, duration)
+                end
+            end
+        end
+        log("TimeStop: 시간 정지 해제 (멈춘 시간 " .. string.format("%.2f", duration) .. "초)")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void FreezeClientWorld()
+        -- 선택 팝업이 실제로 뜬 순간 호출 - 클라이언트 월드 시간을 0으로(몬스터/파티클/데미지 스킨 등의
+        -- 애니메이션이 그 자리에서 멈춘다). 주의: TimerService도 클라이언트 스크립트에서는 이 값의 영향을
+        -- 받아 0이면 타이머가 안 돈다 - 그래서 선택 버튼을 누르는 즉시 ReleaseClientWorld로 1로 되돌려야
+        -- 다음 팝업을 여는 클라이언트 타이머(0.1초, PlayerStatsComponent/PlayerSkillComponent의
+        -- OnSyncProperty)가 정상 동작한다.
+        _UtilLogic:SetClientTimeScale(0)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ReleaseClientWorld()
+        _UtilLogic:SetClientTimeScale(1.0)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnTimeStopChanged(boolean stopped)
+        -- 서버의 TimeStopped(@Sync) 변화를 따라 로컬 입력을 잠그거나 푼다(정지 중엔 플레이어도 움직이지/
+        -- 공격하지 못한다). 해제 때는 월드 시간도 확실히 1로 되돌린다(어떤 경로로든 0에 갇히지 않게).
+        local localPlayer = _UserService.LocalPlayer
+        if isvalid(localPlayer) then
+            local controller = localPlayer.PlayerControllerComponent
+            if isvalid(controller) then
+                if stopped then
+                    controller.Enable = false
+                elseif _CharacterRosterLogic:IsGameplayActive() then
+                    controller.Enable = true
+                end
+            end
+        end
+        if not stopped then
+            _UtilLogic:SetClientTimeScale(1.0)
+        end
+        log("TimeStop: client stopped=" .. tostring(stopped))
+    end
+
+end

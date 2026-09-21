@@ -119,6 +119,11 @@ script BattlefieldReturnLogic extends Logic
         if self._T.channeling ~= true then
             return
         end
+        -- 2026-09-22 타임 스톱 - 이능/스킬 선택 중엔 귀환 채널 카운트다운도 멈춘다(팝업이 떠 있는 채로
+        -- 로비로 귀환되는 일이 없도록).
+        if _TimeStopLogic.Stopped then
+            return
+        end
         self.ChannelRemaining = self.ChannelRemaining - delta
         if self.ChannelRemaining <= 0 then
             self:CompleteReturn()
