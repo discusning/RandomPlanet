@@ -36,6 +36,16 @@ script PlayerHit extends Component
             -- MonsterAttack.mlua targets the same group.
             hit.CollisionGroup = CollisionGroups.Default
         end
+        -- 2026-09-22 QA("게임 속 이펙트에는 0데미지가 뜨는데 실제 HP는 깎임") - 플레이어가 맞을 때 엔진이
+        -- 자동으로 띄우는 데미지 스킨은 HitEvent.TotalDamage를 그대로 보여주는데, 그 값은 엔진 자체 Hp
+        -- 차감(2배 피해 버그, MonsterAttack.CalcDamage 참고)을 막으려고 항상 0이다. 피격자의
+        -- DamageSkinSpawnerComponent를 꺼서 이 잘못된 "0" 표시를 없애고(실측: 끄면 엔진 "0"이 사라지고
+        -- CombatFeelLogic.PlayDamageNumber가 띄운 실제 피해 숫자만 남음), 실제 적용 피해량은 아래
+        -- HandleHitEvent가 직접 표시한다. 플레이어가 몬스터를 때릴 때의 숫자는 몬스터 쪽 표시라 영향 없음.
+        local skinSpawner = self.Entity.DamageSkinSpawnerComponent
+        if isvalid(skinSpawner) then
+            skinSpawner.Enable = false
+        end
     end
 
     @ExecSpace("ServerOnly")
@@ -202,11 +212,13 @@ script PlayerHit extends Component
         end
 
         -- 방어막(마나실드/수호자/유리몸/약골) - Hp보다 먼저 소모된다.
+        local shieldAbsorbedAll = false
         if isvalid(statsComp) and statsComp.ShieldAmount > 0 and dmg > 0 then
             if statsComp.ShieldAmount >= dmg then
                 statsComp.ShieldAmount = statsComp.ShieldAmount - dmg
                 log("PlayerHit: shield absorbed " .. dmg .. ", remaining=" .. statsComp.ShieldAmount)
                 dmg = 0
+                shieldAbsorbedAll = true
             else
                 dmg = dmg - statsComp.ShieldAmount
                 log("PlayerHit: shield absorbed " .. statsComp.ShieldAmount .. ", overflow=" .. dmg)
@@ -220,6 +232,11 @@ script PlayerHit extends Component
         -- 지금까지 이 프로젝트엔 피격 시 화면 반응이 전혀 없었음).
         if dmg > 0 then
             _CombatFeelLogic:FlashPlayerHit(self.Entity, player.UserId)
+            -- 2026-09-22 QA - 엔진 데미지 스킨은 MonsterAttack에서 꺼 두었으므로(0이 뜨던 문제) 실제로
+            -- 적용된 피해량(최종 dmg)을 여기서 직접 표시한다.
+            _CombatFeelLogic:PlayDamageNumber(self.Entity, dmg, player.UserId)
+        elseif shieldAbsorbedAll then
+            _CombatFeelLogic:ShowGuardText(self.Entity, player.UserId)
         end
 
         -- 2026-09-10 QA - KnockbackResistance(STR 파생 2차 스탯)가 지금까지 계산만 되고 실제로

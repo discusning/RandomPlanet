@@ -103,6 +103,26 @@ script CombatFeelLogic extends Logic
     end
 
     @ExecSpace("Client")
+    method void PlayDamageNumber(Entity target, integer amount)
+        -- 2026-09-22 QA - 몬스터가 플레이어에게 준 "실제 적용 피해량"(방어막/경감/특성 반영 후)을 머리
+        -- 위에 띄운다. 엔진 기본 표시는 MonsterAttack이 TotalDamage 0/표시 히트 수 0으로 꺼둬서 0이
+        -- 뜨지 않게 했고, 그 대신 PlayerHit이 여기로 최종 피해를 지시한다(PlayHealNumber와 같은
+        -- 서버->클라 지시 패턴).
+        if not isvalid(target) or amount <= 0 then return end
+        log("CombatFeel: 피해 숫자 표시 amount=" .. amount)
+        _DamageSkinService:Play(target, self.MissSkinRuid, 0, { amount }, DamageSkinTweenType.Default, false, Vector2(0, 0.5), Vector2(1, 1), 1.0, 1.0, LitMode.Default)
+    end
+
+    @ExecSpace("Client")
+    method void ShowGuardText(Entity target)
+        -- 방어막이 피해를 전부 흡수했을 때 "GUARD" 텍스트(예전엔 엔진이 0을 띄웠다). 네이티브
+        -- DamageSkinTextType.Guard 프리셋 재사용.
+        if not isvalid(target) then return end
+        log("CombatFeel: GUARD 텍스트 표시")
+        _DamageSkinService:PlayTextDamage(target, self.MissSkinRuid, DamageSkinTextType.Guard, DamageSkinTweenType.Default)
+    end
+
+    @ExecSpace("Client")
     method void FlashPlayerHit(Entity target)
         -- 몬스터 접촉 피해를 실제로 받았을 때(방어막 등으로 완전 흡수되지 않은 경우만) 아바타를
         -- 짧게 붉게 물들여 "맞았다"는 즉각적인 시각 피드백을 준다(Zelda/Hollow Knight류 액션 게임

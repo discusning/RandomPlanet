@@ -52,6 +52,11 @@ script MonsterAttack extends AttackComponent
         -- 무적 같은 핸들러 쪽 방어도 엔진 차감에 뚫렸다. 그래서 이벤트로 나가는 TotalDamage는 0으로
         -- 하고, 실제 피해량(GetContactDamage)은 PlayerHit이 공격자 컴포넌트에서 직접 읽어 단독으로
         -- 적용한다(플레이어만 이 공격의 대상이라 이 분기가 곧 전부).
+        -- 2026-09-22 QA("이펙트에는 0데미지가 뜨는데 실제 HP는 깎임") - 엔진 데미지 스킨은 이 이벤트의
+        -- TotalDamage(=0)를 그대로 띄워 접촉 피해가 항상 "0"으로 표시됐다. 그래서 플레이어의 엔진 표시
+        -- 컴포넌트(DamageSkinSpawnerComponent)는 PlayerHit.OnBeginPlay에서 꺼 두고, 실제로 적용된 피해량을
+        -- PlayerHit이 CombatFeelLogic.PlayDamageNumber로 직접 띄운다(GetDisplayHitCount를 0으로 두는
+        -- 방법은 엔진 표시를 막지 못해 실측으로 폐기).
         return 0
     end
 
