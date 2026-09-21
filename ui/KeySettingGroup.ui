@@ -24,7 +24,7 @@
           "enable": true,
           "visible": true,
           "localize": true,
-          "displayOrder": 12,
+          "displayOrder": 13,
           "pathConstraints": "//",
           "revision": 0,
           "origin": {
@@ -103,7 +103,7 @@
             {
               "@type": "MOD.Core.UIGroupComponent",
               "DefaultShow": true,
-              "GroupOrder": 12,
+              "GroupOrder": 13,
               "GroupType": 1,
               "Enable": true
             },
@@ -18005,7 +18005,7 @@
                 "a": 1
               },
               "OutlineWidth": 3,
-              "RaycastTarget": false,
+              "RaycastTarget": true,
               "Type": 1,
               "Enable": true
             },
@@ -18599,7 +18599,7 @@
                 "a": 1
               },
               "OutlineWidth": 3,
-              "RaycastTarget": false,
+              "RaycastTarget": true,
               "Type": 1,
               "Enable": true
             },
@@ -18797,7 +18797,7 @@
                 "a": 1
               },
               "OutlineWidth": 3,
-              "RaycastTarget": false,
+              "RaycastTarget": true,
               "Type": 1,
               "Enable": true
             },
@@ -18995,7 +18995,7 @@
                 "a": 1
               },
               "OutlineWidth": 3,
-              "RaycastTarget": false,
+              "RaycastTarget": true,
               "Type": 1,
               "Enable": true
             },
@@ -19193,7 +19193,7 @@
                 "a": 1
               },
               "OutlineWidth": 3,
-              "RaycastTarget": false,
+              "RaycastTarget": true,
               "Type": 1,
               "Enable": true
             },
@@ -19391,7 +19391,7 @@
                 "a": 1
               },
               "OutlineWidth": 3,
-              "RaycastTarget": false,
+              "RaycastTarget": true,
               "Type": 1,
               "Enable": true
             },
@@ -19589,7 +19589,7 @@
                 "a": 1
               },
               "OutlineWidth": 3,
-              "RaycastTarget": false,
+              "RaycastTarget": true,
               "Type": 1,
               "Enable": true
             },
@@ -19707,9 +19707,14 @@
                 "x": -160,
                 "y": -155
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": -160,
+                "y": -155,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -19723,16 +19728,17 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
               "@type": "MOD.Core.SpriteGUIRendererComponent",
               "AnimClipPlayType": 0,
               "EndFrameIndex": 2147483647,
+              "IgnoreMapLayerCheck": false,
               "ImageRUID": {
                 "DataId": "2860136c06ab075439721c027de365af"
               },
-              "IgnoreMapLayerCheck": false,
               "LocalPosition": {
                 "x": 0,
                 "y": 0
@@ -19781,7 +19787,7 @@
                 "a": 1
               },
               "OutlineWidth": 3,
-              "RaycastTarget": false,
+              "RaycastTarget": true,
               "Type": 1,
               "Enable": true
             },
