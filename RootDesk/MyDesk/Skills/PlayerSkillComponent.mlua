@@ -20,26 +20,13 @@ script PlayerSkillComponent extends Component
     @Sync property string AtkSkill2 = ""
     @Sync property string AtkSkill3 = ""
     @Sync property string AtkSkill4 = ""
-    -- 2026-09-17 유저 요청("1~4차 중 공격 스킬은 1~2개만 쓰고 싶다") - 보유(Skill1~4)와 별개로
-    -- "이 보유 스킬을 실제로 슬롯에 채울지" 여부를 슬롯별로 켜고 끌 수 있어야 한다. 기본값 true라
-    -- 기존 캐릭터(전부 상시 사용)는 동작이 그대로 유지되고, 스킬창의 "사용/해제" 버튼으로 유저가
-    -- 원하는 것만 골라 끌 수 있다. 티어/카테고리 고정 위치(RefillEquipSlots와 동일 순서)라 꺼도
-    -- 그 물리 키 배정 자체는 유지되고(EquippedSkillId만 비워짐) 다른 스킬이 그 자리를 차지하지 않음 -
-    -- 키 배치가 토글할 때마다 밀리지 않아 예측 가능하다.
-    @Sync property boolean AtkEquipped1 = true
-    @Sync property boolean BuffEquipped1 = true
-    @Sync property boolean AtkEquipped2 = true
-    @Sync property boolean BuffEquipped2 = true
-    @Sync property boolean AtkEquipped3 = true
-    @Sync property boolean BuffEquipped3 = true
-    @Sync property boolean AtkEquipped4 = true
-    @Sync property boolean BuffEquipped4 = true
-    -- 2026-09-16 유저 요청("메이플처럼 스킬창에서 키보드 세팅으로 자유 배치, 보유 스킬 전부 동시
-    -- 사용 가능") - 기존엔 "장착" 버튼으로 딱 2개(공격 1/버프 1, Q/W 고정)만 동시 사용 가능했다.
-    -- 이제 보유한 스킬(최대 8개, 위 BuffSkill1~4/AtkSkill1~4) 전부가 항상 자기 슬롯에 상시
-    -- 배치되고(RefillEquipSlots, "장착" 개념 자체가 사라짐), 슬롯 N은 키바인딩 액션명 "Skill"
-    -- (N==1) / "SkillN"(N>=2)에 연결된다 - 어느 물리 키를 누르느냐는 KeyBindingLogic이 이미
-    -- 범용적으로 담당(§KeySetting/KeyBindingLogic.mlua). 8개 named property로 유지하는 이유는
+    -- 2026-09-22 유저 요청("스킬 8개를 강제로 키에 박아두지 말고, 필요한 스킬만 키 설정에 넣고 뺄 수
+    -- 있게" - Docs/RandomPlanet-KeyRework-Plan.md) - 핫키 슬롯 1~8(슬롯 N = 키바인딩 액션 "Skill"
+    -- (N==1) / "SkillN"(N>=2))에 어떤 스킬을 둘지는 이제 유저가 직접 배정한다. 예전의 자동 채움
+    -- (RefillEquipSlots)과 스킬창 "사용/해제" 토글(AtkEquippedN/BuffEquippedN)은 폐지 - 슬롯에 배정된
+    -- 스킬만 쓸 수 있고, 미배정 스킬은 보유만 한 채 발동되지 않는다. 배정은 RequestAssignSkillToSlot/
+    -- RequestApplySkillLayout(서버 RPC, 보유 여부 검증)로만 바뀐다. 슬롯 N의 물리 키는 클라이언트
+    -- KeyBindingLogic이 캐릭터별로 관리(로스터 skillLayout). 8개 named property로 유지하는 이유는
     -- KeyBindingPopupController류의 UIBuilder bind-injection이 구체적인 프로퍼티 이름을 요구하는
     -- 프로젝트 기존 관행과 동일(SyncTable 배열 대신 - InventoryUIController의 slot1~16과 같은 패턴).
     -- 아래 GetEquippedSkillId/SetEquippedSkillId/GetLastUseTime/SetLastUseTime 헬퍼로 감싸서, 나머지
@@ -146,9 +133,9 @@ script PlayerSkillComponent extends Component
             local pool = _SkillCatalog:GetSkillsByCategory("buff", 1)
             if #pool > 0 then self.BuffSkill1 = pool[_UtilLogic:RandomIntegerRange(1, #pool)] end
         end
-        -- 2026-09-16 - 개별 슬롯 수동 배정 대신 RefillEquipSlots()로 위임(보유 스킬 전체를 결정론적
-        -- 순서로 8슬롯에 자동 채움 - 위 EquippedSkillId1~8 선언부 주석 참고).
-        self:RefillEquipSlots()
+        -- 2026-09-22 - 더 이상 슬롯을 자동으로 채우지 않는다(유저가 직접 배정). 보유하지 않은
+        -- 스킬이 슬롯에 남아 있으면(캐릭터 교체 직후 등) 비우기만 한다.
+        self:ValidateEquippedSlots()
         log("PlayerSkill: GrantInitialSkill atk1=" .. self.AtkSkill1 .. " buff1=" .. self.BuffSkill1)
     end
 
@@ -165,7 +152,7 @@ script PlayerSkillComponent extends Component
         if buff3 ~= nil and buff3 ~= "" then self.BuffSkill3 = buff3 end
         if atk4 ~= nil and atk4 ~= "" then self.AtkSkill4 = atk4 end
         if buff4 ~= nil and buff4 ~= "" then self.BuffSkill4 = buff4 end
-        self:RefillEquipSlots()
+        self:ValidateEquippedSlots()
         log("PlayerSkill: RestoreTierSkills atk2=" .. self.AtkSkill2 .. " atk3=" .. self.AtkSkill3 .. " atk4=" .. self.AtkSkill4)
     end
 
@@ -339,75 +326,76 @@ script PlayerSkillComponent extends Component
             elseif tier == 4 then self.AtkSkill4 = skillId
             end
         end
-        -- 2026-09-16 - 티어 진급으로 보유 스킬 목록이 바뀔 때마다 8슬롯을 다시 결정론적으로 채운다
-        -- (새로 얻은 스킬도 즉시 자기 키로 바로 쓸 수 있어야 하므로).
-        self:RefillEquipSlots()
+        -- 2026-09-22 - 새로 얻은 스킬은 자동 배정하지 않는다("자동 배정 없음" - 유저가 키 설정에서 직접
+        -- 배정). 다만 클라이언트가 안내를 띄울 수 있도록 별도 처리 없이 보유 상태만 갱신된다.
+        self:ValidateEquippedSlots()
     end
 
-    @ExecSpace("ServerOnly")
-    method void RefillEquipSlots()
-        -- 2026-09-16 유저 요청 - 보유한 스킬 중 "사용" 상태인 것만 상시 사용 가능해야 한다("장착"
-        -- 버튼 개념 폐지, 대신 슬롯별 사용/해제 토글). 결정론적 순서(1차 공격->슬롯1, 1차 버프->슬롯2,
-        -- 2차 공격->슬롯3, 2차 버프->슬롯4, ... 4차까지)로 8슬롯을 다시 채운다 - 기존 Q=공격/W=버프
-        -- 관례와 하위호환되도록 1차는 그대로 슬롯1/2에 온다. 어느 물리 키가 슬롯 N을 누르는지는
-        -- KeyBindingLogic이 별도로 관리.
-        -- 2026-09-17 - AtkEquippedN/BuffEquippedN이 false인 슬롯은 보유하고 있어도 빈 슬롯으로
-        -- 채운다(슬롯 위치는 고정 - 해제해도 다른 스킬이 그 자리로 밀려오지 않음).
-        local orderedIds = {
-            self.AtkEquipped1 and self.AtkSkill1 or "", self.BuffEquipped1 and self.BuffSkill1 or "",
-            self.AtkEquipped2 and self.AtkSkill2 or "", self.BuffEquipped2 and self.BuffSkill2 or "",
-            self.AtkEquipped3 and self.AtkSkill3 or "", self.BuffEquipped3 and self.BuffSkill3 or "",
-            self.AtkEquipped4 and self.AtkSkill4 or "", self.BuffEquipped4 and self.BuffSkill4 or "",
-        }
-        for slot = 1, 8 do
-            self:SetEquippedSkillId(slot, orderedIds[slot] or "")
-        end
-    end
-
-    method boolean GetEquippedFlag(integer tier, string category)
-        -- 스킬창(SkillUIController)이 "사용"/"해제" 버튼 라벨을 그리는 데 쓰는 순수 조회 - ExecSpace
-        -- 지정 없음(양쪽에서 로컬로 호출되는 공유 함수, RequestSetSkillEquipped와 짝).
-        if category == "attack" then
-            if tier == 1 then return self.AtkEquipped1
-            elseif tier == 2 then return self.AtkEquipped2
-            elseif tier == 3 then return self.AtkEquipped3
-            elseif tier == 4 then return self.AtkEquipped4
-            end
-        else
-            if tier == 1 then return self.BuffEquipped1
-            elseif tier == 2 then return self.BuffEquipped2
-            elseif tier == 3 then return self.BuffEquipped3
-            elseif tier == 4 then return self.BuffEquipped4
-            end
+    method boolean IsSkillOwned(string skillId)
+        -- 순수 조회(양쪽에서 로컬로 호출되는 공유 함수) - 스킬창/키 설정 창이 "이 스킬을 키에 배정할 수
+        -- 있는가"를 판정하고, 서버 RPC가 보유 여부를 검증할 때 쓴다.
+        if skillId == nil or skillId == "" then return false end
+        for _, entry in ipairs(self:GetOwnedSkillIds()) do
+            if entry.id == skillId then return true end
         end
         return false
     end
 
+    @ExecSpace("ServerOnly")
+    method void ValidateEquippedSlots()
+        -- 2026-09-22 - 예전 RefillEquipSlots(보유 스킬 8슬롯 자동 채움)의 후속. 더 이상 채우지 않고,
+        -- 보유하지 않은 스킬이 슬롯에 남아 있는 경우(캐릭터 교체로 보유 목록이 바뀐 직후 등)만 비운다.
+        for slot = 1, 8 do
+            local id = self:GetEquippedSkillId(slot)
+            if id ~= "" and not self:IsSkillOwned(id) then
+                self:SetEquippedSkillId(slot, "")
+            end
+        end
+    end
+
     @ExecSpace("Server")
-    method void RequestSetSkillEquipped(string category, integer tier, boolean equipped)
-        -- 스킬창 "사용/해제" 버튼의 서버 핸들러 - senderUserId로 본인 캐릭터인지 확인 후 해당
-        -- 티어/카테고리 슬롯의 사용 여부만 바꾸고 RefillEquipSlots로 8슬롯을 다시 채운다.
+    method void RequestAssignSkillToSlot(integer slot, string skillId)
+        -- 키 설정 창(스킬창/키보드 드래그)이 한 슬롯의 스킬을 바꿀 때의 서버 핸들러. skillId=""면
+        -- 그 슬롯을 비운다. senderUserId로 본인 캐릭터인지, 보유 스킬인지 검증하고, 같은 스킬이 다른
+        -- 슬롯에 있으면 그쪽을 비운다(한 스킬은 한 키에만).
         if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
             return
         end
-        if tier < 1 or tier > 4 then return end
-        if category == "attack" then
-            if tier == 1 then self.AtkEquipped1 = equipped
-            elseif tier == 2 then self.AtkEquipped2 = equipped
-            elseif tier == 3 then self.AtkEquipped3 = equipped
-            elseif tier == 4 then self.AtkEquipped4 = equipped
+        if slot < 1 or slot > 8 then return end
+        if skillId ~= "" then
+            if not self:IsSkillOwned(skillId) then
+                log_warning("PlayerSkill: RequestAssignSkillToSlot rejected, not owned: " .. tostring(skillId))
+                return
             end
-        elseif category == "buff" then
-            if tier == 1 then self.BuffEquipped1 = equipped
-            elseif tier == 2 then self.BuffEquipped2 = equipped
-            elseif tier == 3 then self.BuffEquipped3 = equipped
-            elseif tier == 4 then self.BuffEquipped4 = equipped
+            for other = 1, 8 do
+                if other ~= slot and self:GetEquippedSkillId(other) == skillId then
+                    self:SetEquippedSkillId(other, "")
+                end
             end
-        else
+        end
+        self:SetEquippedSkillId(slot, skillId)
+        log("PlayerSkill: RequestAssignSkillToSlot slot=" .. slot .. " skill=" .. skillId)
+    end
+
+    @ExecSpace("Server")
+    method void RequestApplySkillLayout(table slotSkills)
+        -- 캐릭터 진입/교체 직후 클라이언트가 로스터에 저장된 슬롯 배치를 한꺼번에 서버에 반영한다.
+        -- 8슬롯 전부를 명시적으로 덮어써서(빈 슬롯은 "") 이전 캐릭터의 배정이 남지 않게 하고,
+        -- 보유하지 않은 스킬/중복 스킬은 조용히 버린다.
+        if not isvalid(self.Entity.PlayerComponent) or senderUserId ~= self.Entity.PlayerComponent.UserId then
             return
         end
-        self:RefillEquipSlots()
-        log("PlayerSkill: RequestSetSkillEquipped tier=" .. tier .. " category=" .. category .. " equipped=" .. tostring(equipped))
+        local used = {}
+        for slot = 1, 8 do
+            local id = slotSkills ~= nil and (slotSkills[slot] or slotSkills[tostring(slot)]) or ""
+            if id == nil or id == "" or used[id] or not self:IsSkillOwned(id) then
+                id = ""
+            else
+                used[id] = true
+            end
+            self:SetEquippedSkillId(slot, id)
+        end
+        log("PlayerSkill: RequestApplySkillLayout applied=" .. self:GetEquippedSkillId(1) .. "/" .. self:GetEquippedSkillId(2) .. "/" .. self:GetEquippedSkillId(3) .. "/" .. self:GetEquippedSkillId(4) .. "/" .. self:GetEquippedSkillId(5) .. "/" .. self:GetEquippedSkillId(6) .. "/" .. self:GetEquippedSkillId(7) .. "/" .. self:GetEquippedSkillId(8))
     end
 
     method string GetEquippedSkillId(integer slot)
@@ -487,15 +475,6 @@ script PlayerSkillComponent extends Component
             end
         end
         return result
-    end
-
-    @ExecSpace("Server")
-    method void RequestSetEquippedSkill(string skillId)
-        -- 2026-09-16 사실상 폐지(deprecated no-op) - "보유 스킬 전부 동시 사용 가능" 재설계 이후
-        -- RefillEquipSlots()가 보유 스킬을 자동으로 8슬롯에 전부 채우므로 수동 "장착" 자체가
-        -- 불필요해졌다. SkillUIController가 더 이상 이 메서드를 호출하지 않지만(3단계), 혹시 남은
-        -- 호출부나 구버전 클라이언트가 있어도 조용히 무해하게 지나가도록 메서드 자체는 남겨둔다.
-        log("PlayerSkill: RequestSetEquippedSkill is deprecated (skills auto-equip now) - ignored " .. tostring(skillId))
     end
 
     @ExecSpace("ServerOnly")

@@ -183,6 +183,8 @@ script LobbyStageController extends Component
         _CharacterRosterLogic:SwapActiveCharacter(data.look, data.equipment, stats, standeePos, data.atkSkillId, data.buffSkillId, tierSkills)
         -- M2 Phase C(2026-09-06) - 캐릭터 교체 직후 새 활성 캐릭터 기준으로 공격대 링크 패시브 재반영.
         _CharacterRosterLogic:PushSquadLinksToServer()
+        -- 2026-09-22 - 교체된 캐릭터의 저장된 스킬 핫키 배치를 복원(이전 캐릭터의 배치는 비움).
+        _KeyBindingLogic:ApplySkillLayoutForActiveCharacter()
         self:RefreshLobbyStandees()
         log("LobbyStage: swapped active character to slot " .. idx)
     end

@@ -187,17 +187,13 @@ script CharacterInfoUIController extends Component
 
         self.skillSummaryValue.Text = "-"
         if isvalid(skillComp) then
-            -- 2026-09-16 - "보유 스킬 전부 동시 사용 가능" 재설계 이후 2슬롯 하드코딩 대신 8슬롯
-            -- 전체를 순회(GetEquippedSkillId) - 이제 보유 스킬 전부가 항상 상시 장착 상태이므로
-            -- 사실상 GetOwnedSkillIds()와 동일하지만, 실제로 눌러서 쓸 수 있는 슬롯 기준 그대로 표시.
+            -- 2026-09-22 - 스킬이 키에 자동 배정되지 않게 된 뒤로(유저가 직접 배정) 이 요약은 배정
+            -- 여부와 무관하게 "보유한" 스킬 전부를 보여준다(GetOwnedSkillIds).
             local parts = {}
-            for slot = 1, 8 do
-                local eq = skillComp:GetEquippedSkillId(slot)
-                if eq ~= nil and eq ~= "" then
-                    local def = _SkillCatalog:GetSkillDef(eq)
-                    if def ~= nil then
-                        table.insert(parts, def.name .. " (" .. def.job .. ")")
-                    end
+            for _, entry in ipairs(skillComp:GetOwnedSkillIds()) do
+                local def = _SkillCatalog:GetSkillDef(entry.id)
+                if def ~= nil then
+                    table.insert(parts, def.name .. " (" .. def.job .. ")")
                 end
             end
             if #parts > 0 then

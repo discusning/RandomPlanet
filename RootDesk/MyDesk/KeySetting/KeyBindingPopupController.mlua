@@ -166,6 +166,13 @@ script KeyBindingPopupController extends Component
     @ExecSpace("ClientOnly")
     method void EndDrag(Entity icon, string actionName)
         local pos = icon.UITransformComponent.anchoredPosition
+        -- 2026-09-22 - 스킬/물약 아이콘은 키보드 밖으로 끌어내면 해제(미배정)된다. 공격/점프/창
+        -- 단축키 아이콘은 이동만 가능(없으면 조작이 막히므로 밖에 놓으면 제자리로 돌아감).
+        if _KeyBindingLogic:IsRemovableAction(actionName) and self:IsOutsideKeyboard(pos.x, pos.y) then
+            self:RemoveAction(actionName)
+            self:RefreshIcons()
+            return
+        end
         local nearest = self:FindNearestKey(pos.x, pos.y)
         if nearest ~= nil then
             -- TryRebind already handles the MapleStory-style swap when the target
@@ -178,6 +185,32 @@ script KeyBindingPopupController extends Component
         -- Always re-snap both icons to their (possibly just-swapped) current keys,
         -- whether the drop landed on a valid key or missed every snap radius.
         self:RefreshIcons()
+    end
+
+    method boolean IsOutsideKeyboard(number x, number y)
+        -- 키 배치(keyLayout) 전체를 감싸는 사각형에서 margin 이상 벗어났는가 - "키보드 밖으로 끌어내기".
+        local margin = 60
+        local minX, maxX, minY, maxY = 99999, -99999, 99999, -99999
+        for _, entry in ipairs(self._T.keyLayout) do
+            if entry.x < minX then minX = entry.x end
+            if entry.x > maxX then maxX = entry.x end
+            if entry.y < minY then minY = entry.y end
+            if entry.y > maxY then maxY = entry.y end
+        end
+        return x < minX - margin or x > maxX + margin or y < minY - margin or y > maxY + margin
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RemoveAction(string actionName)
+        -- 스킬 슬롯이면 슬롯을 비우고(스킬은 보유 그대로), 물약이면 키를 미배정으로 되돌린다.
+        local entry = _KeyBindingLogic:GetRegistryEntry(actionName)
+        if entry == nil then return end
+        if entry.kind == "skillSlot" then
+            _KeyBindingLogic:RemoveSkillFromSlot(entry.slot)
+        elseif entry.kind == "itemAction" then
+            _KeyBindingLogic:ClearItemAction(actionName)
+        end
+        log("KeyBindingPopup: RemoveAction " .. actionName)
     end
 
     method any FindNearestKey(number x, number y)
@@ -206,29 +239,37 @@ script KeyBindingPopupController extends Component
 
     @ExecSpace("ClientOnly")
     method void RefreshIcons()
+        -- 2026-09-22 - 키가 없는(None) 액션과 스킬이 배정되지 않은 스킬 슬롯의 아이콘은 키보드 위에
+        -- 놓을 자리가 없으므로 숨긴다(스킬/물약은 스킬창·인벤토리에서 끌어다 놓아야 나타난다).
         for _, icon in ipairs(self._T.icons) do
-            self:SnapIconToKey(icon.entity, _KeyBindingLogic:GetKeyForAction(icon.actionName))
+            local key = _KeyBindingLogic:GetKeyForAction(icon.actionName)
+            local visible = key ~= nil and key ~= KeyboardKey.None
             if icon.skillSlot ~= nil then
-                self:RefreshSkillIconLabel(icon.entity, icon.skillSlot)
+                visible = visible and _KeyBindingLogic:GetSkillForSlot(icon.skillSlot) ~= ""
+            end
+            if isvalid(icon.entity) then
+                icon.entity.Enable = visible
+            end
+            if visible then
+                self:SnapIconToKey(icon.entity, key)
+                if icon.skillSlot ~= nil then
+                    self:RefreshSkillIconLabel(icon.entity, icon.skillSlot)
+                end
             end
         end
     end
 
     @ExecSpace("ClientOnly")
     method void RefreshSkillIconLabel(Entity icon, integer slot)
-        -- 2026-09-16 유저 요청 - 8개 스킬 아이콘은 IconAttack 등 나머지 액션 아이콘과 달리 정적
-        -- 아이콘이 아니라, 실제로 그 슬롯에 배치된 보유 스킬이 매 진급/재입장마다 바뀐다
-        -- (PlayerSkillComponent.RefillEquipSlots). 이름/종류색을 매번 실제 값으로 다시 그린다 -
+        -- 2026-09-16 유저 요청 - 스킬 아이콘은 IconAttack 등 나머지 액션 아이콘과 달리 정적
+        -- 아이콘이 아니라, 그 슬롯에 배정된 스킬 이름/종류색을 매번 실제 값으로 다시 그린다 -
         -- SkillUIController.ColorForKind와 동일한 색 규칙을 여기서도 씀(간단한 표라 별도 공용
         -- 헬퍼로 뽑기보단 그대로 복제 - 두 파일 다 매우 짧은 표).
+        -- 2026-09-22 - 배정 정보는 이제 KeyBindingLogic(클라이언트)이 진실 소스라 거기서 읽는다.
         if not isvalid(icon) then return end
         local textComp = icon.TextGUIRendererComponent
         local spriteComp = icon.SpriteGUIRendererComponent
-        local localPlayer = _UserService.LocalPlayer
-        if not isvalid(localPlayer) then return end
-        local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
-        if not isvalid(skillComp) then return end
-        local skillId = skillComp:GetEquippedSkillId(slot)
+        local skillId = _KeyBindingLogic:GetSkillForSlot(slot)
         if skillId == "" then
             if isvalid(textComp) then textComp.Text = "-" end
             if isvalid(spriteComp) then spriteComp.Color = Color(0.3, 0.26, 0.2, 0.4) end

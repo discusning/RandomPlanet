@@ -23,6 +23,12 @@ script KeyBindingLogic extends Logic
         for _, entry in ipairs(self._T.registry) do
             self._T.currentKeys[entry.actionName] = entry.defaultKey
         end
+        -- 슬롯 N(1~8)에 배정된 스킬 id("" = 미배정). 클라이언트가 UI/저장의 진실 소스로 삼고, 서버
+        -- PlayerSkillComponent.EquippedSkillIdN에는 RPC로 반영한다(서버가 보유 여부를 최종 검증).
+        self._T.slotSkill = {}
+        for slot = 1, 8 do
+            self._T.slotSkill[slot] = ""
+        end
         self._T.loadComplete = false
     end
 
@@ -52,18 +58,22 @@ script KeyBindingLogic extends Logic
             -- 이제 다른 액션과 똑같이 등록해 ApplyBindingsToLocalPlayer가 RemoveAllActionKeyByActionName
             -- 후 지정된 키 하나만 점프에 묶는다(기본값 Space, 키 세팅에서 재배정 가능).
             { actionName = "Jump", displayName = "점프", defaultKey = KeyboardKey.Space, kind = "controllerAction" },
-            { actionName = "Skill", displayName = "스킬1", defaultKey = KeyboardKey.Q, kind = "controllerAction" },
-            { actionName = "Skill2", displayName = "스킬2", defaultKey = KeyboardKey.W, kind = "controllerAction" },
-            -- 2026-09-16 유저 요청("메이플처럼 보유 스킬 전부를 원하는 키에 자유 배치") - 보유 스킬이
-            -- 최대 8개(1~4차 x 공격/버프)라 슬롯도 8개로 확장. Q/W(슬롯1/2)는 기존 이름 그대로 둬서
-            -- 이미 저장된 유저 키바인딩과 하위호환 - 슬롯3~8만 신규로 추가하고, 기본 키는 QWER/ASDF
-            -- 2단 핫바 배치(E,R,A,S,D,F)로 Q/W 옆에 자연스럽게 이어지게 한다.
-            { actionName = "Skill3", displayName = "스킬3", defaultKey = KeyboardKey.E, kind = "controllerAction" },
-            { actionName = "Skill4", displayName = "스킬4", defaultKey = KeyboardKey.R, kind = "controllerAction" },
-            { actionName = "Skill5", displayName = "스킬5", defaultKey = KeyboardKey.A, kind = "controllerAction" },
-            { actionName = "Skill6", displayName = "스킬6", defaultKey = KeyboardKey.S, kind = "controllerAction" },
-            { actionName = "Skill7", displayName = "스킬7", defaultKey = KeyboardKey.D, kind = "controllerAction" },
-            { actionName = "Skill8", displayName = "스킬8", defaultKey = KeyboardKey.F, kind = "controllerAction" },
+            -- 2026-09-22 유저 요청("스킬 8개를 강제로 키에 박아두지 말고 필요한 스킬만 넣고 빼게" -
+            -- Docs/RandomPlanet-KeyRework-Plan.md) - 스킬 슬롯 1~8은 이제 "핫키 위치"다. 기본 키는 없음
+            -- (KeyboardKey.None = 미배정)이고, 유저가 스킬창/키보드에서 스킬을 키에 끌어다 놓아야 슬롯이
+            -- 채워진다(AssignSkillToKey). 액션명("Skill"=슬롯1, "SkillN"=슬롯N)은 서버
+            -- PlayerSkillComponent.HandlePlayerActionEvent와 반드시 일치해야 한다. kind="skillSlot"은
+            -- 네이티브 PlayerControllerComponent.SetActionKey 파이프라인은 controllerAction과 같지만,
+            -- (1) 계정 공통 저장소가 아니라 캐릭터별 로스터(skillLayout)에 저장되고 (2) 키 설정 창에서
+            -- 삭제(미배정으로 되돌리기)가 가능하다.
+            { actionName = "Skill", displayName = "스킬1", defaultKey = KeyboardKey.None, kind = "skillSlot", slot = 1 },
+            { actionName = "Skill2", displayName = "스킬2", defaultKey = KeyboardKey.None, kind = "skillSlot", slot = 2 },
+            { actionName = "Skill3", displayName = "스킬3", defaultKey = KeyboardKey.None, kind = "skillSlot", slot = 3 },
+            { actionName = "Skill4", displayName = "스킬4", defaultKey = KeyboardKey.None, kind = "skillSlot", slot = 4 },
+            { actionName = "Skill5", displayName = "스킬5", defaultKey = KeyboardKey.None, kind = "skillSlot", slot = 5 },
+            { actionName = "Skill6", displayName = "스킬6", defaultKey = KeyboardKey.None, kind = "skillSlot", slot = 6 },
+            { actionName = "Skill7", displayName = "스킬7", defaultKey = KeyboardKey.None, kind = "skillSlot", slot = 7 },
+            { actionName = "Skill8", displayName = "스킬8", defaultKey = KeyboardKey.None, kind = "skillSlot", slot = 8 },
             { actionName = "Inventory", displayName = "인벤토리", defaultKey = KeyboardKey.I, kind = "uiToggle" },
             -- 2026-09-20 QA - 스킬3 기본키(E)와 장비창 기본키(E)가 겹쳐 E 한 번에 장비창 토글과
             -- 스킬3 발동이 동시에 일어났다(실측 확인). 스킬 키(QWER/ASDF 핫바)를 유지하고 장비창을 U로
@@ -191,6 +201,11 @@ script KeyBindingLogic extends Logic
                 break
             end
         end
+        -- 2026-09-22 - 지금 키가 없는(None) 액션(미배정 물약 등)은 교환할 "내 키"가 없으므로, 남이
+        -- 쓰는 키로는 옮길 수 없다(교환하면 상대가 키를 잃는다). 빈 키로만 배정된다.
+        if conflictAction ~= nil and oldKey == KeyboardKey.None then
+            return false
+        end
 
         self._T.currentKeys[actionName] = newKey
         if conflictAction ~= nil then
@@ -203,6 +218,12 @@ script KeyBindingLogic extends Logic
         end
 
         self:SaveBindings()
+        -- 스킬 슬롯이 관련된 이동/교환은 캐릭터별 로스터(skillLayout)에도 반영한다.
+        local movedEntry = self:GetRegistryEntry(actionName)
+        local conflictEntry = conflictAction ~= nil and self:GetRegistryEntry(conflictAction) or nil
+        if (movedEntry ~= nil and movedEntry.kind == "skillSlot") or (conflictEntry ~= nil and conflictEntry.kind == "skillSlot") then
+            self:PersistSkillLayout()
+        end
         return true
     end
 
@@ -213,7 +234,7 @@ script KeyBindingLogic extends Logic
         -- KeyDownEvent (see GetUiToggleActionForKey), since SetActionKey's PlayerActionEvent
         -- pipeline is combat-action-only, not a general hotkey system.
         local entry = self:GetRegistryEntry(actionName)
-        if entry == nil or entry.kind ~= "controllerAction" then
+        if entry == nil or (entry.kind ~= "controllerAction" and entry.kind ~= "skillSlot") then
             return
         end
         local localPlayer = _UserService.LocalPlayer
@@ -231,14 +252,22 @@ script KeyBindingLogic extends Logic
         -- currentKeys never recorded. Clearing by action name keeps the native controller and
         -- currentKeys in sync regardless.
         controller:RemoveAllActionKeyByActionName(actionName)
-        controller:SetActionKey(self._T.currentKeys[actionName], actionName)
+        -- 미배정(None) 스킬 슬롯은 어떤 물리 키에도 묶지 않는다.
+        local key = self._T.currentKeys[actionName]
+        if key ~= nil and key ~= KeyboardKey.None then
+            controller:SetActionKey(key, actionName)
+        end
     end
 
     @ExecSpace("ClientOnly")
     method void ResetToDefaults()
         self:EnsureInitialized()
         for _, entry in ipairs(self._T.registry) do
-            self:TryRebind(entry.actionName, entry.defaultKey)
+            -- 스킬 슬롯은 기본값이 "미배정"이라 되돌릴 키가 없다 - "기본값" 버튼이 유저가 애써 배정한
+            -- 스킬 배치를 지우지 않도록 건드리지 않는다(다른 기능 키와 충돌해 교환되면 키만 이동).
+            if entry.kind ~= "skillSlot" then
+                self:TryRebind(entry.actionName, entry.defaultKey)
+            end
         end
     end
 
@@ -253,16 +282,289 @@ script KeyBindingLogic extends Logic
             return
         end
         for _, entry in ipairs(self._T.registry) do
-            if entry.kind == "controllerAction" then
+            if entry.kind == "controllerAction" or entry.kind == "skillSlot" then
                 local key = self._T.currentKeys[entry.actionName] or entry.defaultKey
                 -- Called twice per session (defaults immediately, then again once
                 -- the async load resolves) - clear any previously bound key for
                 -- this action first so re-application never leaves two keys
                 -- pointing at the same action (see ApplyControllerBindingForAction).
                 controller:RemoveAllActionKeyByActionName(entry.actionName)
-                controller:SetActionKey(key, entry.actionName)
+                -- 미배정(None) 스킬 슬롯은 물리 키에 묶지 않는다.
+                if key ~= KeyboardKey.None then
+                    controller:SetActionKey(key, entry.actionName)
+                end
             end
         end
+    end
+
+    method string SlotActionName(integer slot)
+        -- 슬롯 번호 -> 키바인딩 액션명. 서버 PlayerSkillComponent.HandlePlayerActionEvent의
+        -- slotByAction과 반드시 같은 규칙("Skill"=슬롯1, "SkillN"=슬롯N).
+        if slot == 1 then
+            return "Skill"
+        end
+        return "Skill" .. tostring(slot)
+    end
+
+    @ExecSpace("ClientOnly")
+    method string GetSkillForSlot(integer slot)
+        self:EnsureInitialized()
+        return self._T.slotSkill[slot] or ""
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetSlotOfSkill(string skillId)
+        -- 이 스킬이 배정된 슬롯 번호. 미배정이면 nil.
+        self:EnsureInitialized()
+        if skillId == nil or skillId == "" then
+            return nil
+        end
+        for slot = 1, 8 do
+            if self._T.slotSkill[slot] == skillId then
+                return slot
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetKeyForSkill(string skillId)
+        -- 이 스킬이 묶인 물리 키. 미배정이면 nil.
+        local slot = self:GetSlotOfSkill(skillId)
+        if slot == nil then
+            return nil
+        end
+        return self:GetKeyForAction(self:SlotActionName(slot))
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetActionForKey(any key)
+        -- 지금 이 물리 키를 쓰고 있는 액션명(레지스트리 전체 기준). 아무도 안 쓰면 nil.
+        self:EnsureInitialized()
+        if key == nil or key == KeyboardKey.None then
+            return nil
+        end
+        for name, k in pairs(self._T.currentKeys) do
+            if k == key then
+                return name
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method any FindFreeSlot()
+        -- 스킬이 배정되지 않은 첫 슬롯(그 슬롯의 키는 항상 None). 8슬롯이 다 차 있으면 nil.
+        self:EnsureInitialized()
+        for slot = 1, 8 do
+            if self._T.slotSkill[slot] == "" then
+                return slot
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean AssignSkillToKey(string skillId, any key)
+        -- 스킬창에서 키보드의 키로 스킬을 끌어다 놓았을 때(또는 키 설정 창 안에서 새로 배정할 때).
+        --  * 키가 비어 있으면: 빈 슬롯 하나를 잡아 그 키에 묶고 스킬을 넣는다.
+        --  * 키를 다른 "스킬 슬롯"이 쓰고 있으면: 그 슬롯의 스킬을 이 스킬로 교체한다(기존 스킬은 미배정).
+        --  * 키를 공격/점프/창 단축키/물약이 쓰고 있으면: 거부한다(기본 조작을 덮어쓰지 않음).
+        -- 같은 스킬이 이미 다른 슬롯에 있으면 그쪽을 비운다(한 스킬은 한 키에만).
+        self:EnsureInitialized()
+        if skillId == nil or skillId == "" then
+            return false
+        end
+        if not self:IsValidRebindKey(key) then
+            return false
+        end
+        local holder = self:GetActionForKey(key)
+        local targetSlot = nil
+        if holder ~= nil then
+            local holderEntry = self:GetRegistryEntry(holder)
+            if holderEntry == nil or holderEntry.kind ~= "skillSlot" then
+                log("KeyBinding: AssignSkillToKey rejected, key held by " .. tostring(holder))
+                return false
+            end
+            targetSlot = holderEntry.slot
+        else
+            targetSlot = self:FindFreeSlot()
+            if targetSlot == nil then
+                log("KeyBinding: AssignSkillToKey rejected, no free slot")
+                return false
+            end
+        end
+        local existing = self:GetSlotOfSkill(skillId)
+        if existing ~= nil and existing == targetSlot then
+            return true
+        end
+        if existing ~= nil then
+            self:ClearSlotInternal(existing)
+        end
+        local action = self:SlotActionName(targetSlot)
+        self._T.slotSkill[targetSlot] = skillId
+        if holder == nil then
+            self._T.currentKeys[action] = key
+            self:ApplyControllerBindingForAction(action)
+        end
+        if existing ~= nil then
+            self:PushSlotToServer(existing)
+        end
+        self:PushSlotToServer(targetSlot)
+        self:PersistSkillLayout()
+        log("KeyBinding: AssignSkillToKey skill=" .. skillId .. " key=" .. tostring(key) .. " slot=" .. tostring(targetSlot))
+        return true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ClearSlotInternal(integer slot)
+        -- 슬롯 하나를 미배정으로 되돌린다(스킬 제거 + 키 해제 + 네이티브 바인딩 제거). 서버/로스터
+        -- 반영은 호출부가 한다(여러 슬롯을 바꾸는 흐름에서 한 번만 저장하기 위해).
+        local action = self:SlotActionName(slot)
+        self._T.slotSkill[slot] = ""
+        self._T.currentKeys[action] = KeyboardKey.None
+        self:ApplyControllerBindingForAction(action)
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean RemoveSkillFromSlot(integer slot)
+        -- 키 설정 창에서 스킬 아이콘을 키보드 밖으로 끌어냈을 때 - 그 슬롯을 비운다(스킬은 보유
+        -- 그대로, 키만 풀림).
+        self:EnsureInitialized()
+        if slot == nil or slot < 1 or slot > 8 or self._T.slotSkill[slot] == "" then
+            return false
+        end
+        self:ClearSlotInternal(slot)
+        self:PushSlotToServer(slot)
+        self:PersistSkillLayout()
+        log("KeyBinding: RemoveSkillFromSlot slot=" .. tostring(slot))
+        return true
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean AssignItemActionToKey(string actionName, any key)
+        -- 인벤토리 물약(UseHpPotion/UseMpPotion)을 키에 끌어다 놓았을 때. 빈 키에만 묶는다(이미 다른
+        -- 기능이 쓰는 키는 거부 - 같은 액션이 이미 그 키면 그대로 성공).
+        self:EnsureInitialized()
+        local entry = self:GetRegistryEntry(actionName)
+        if entry == nil or entry.kind ~= "itemAction" then
+            return false
+        end
+        if not self:IsValidRebindKey(key) then
+            return false
+        end
+        local holder = self:GetActionForKey(key)
+        if holder == actionName then
+            return true
+        end
+        if holder ~= nil then
+            log("KeyBinding: AssignItemActionToKey rejected, key held by " .. tostring(holder))
+            return false
+        end
+        self._T.currentKeys[actionName] = key
+        self:SaveBindings()
+        log("KeyBinding: AssignItemActionToKey " .. actionName .. " -> " .. tostring(key))
+        return true
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean ClearItemAction(string actionName)
+        -- 물약 키를 미배정으로 되돌린다(키 설정 창에서 물약 아이콘을 키보드 밖으로 끌어낼 때).
+        self:EnsureInitialized()
+        local entry = self:GetRegistryEntry(actionName)
+        if entry == nil or entry.kind ~= "itemAction" then
+            return false
+        end
+        if self._T.currentKeys[actionName] == KeyboardKey.None then
+            return false
+        end
+        self._T.currentKeys[actionName] = KeyboardKey.None
+        self:SaveBindings()
+        log("KeyBinding: ClearItemAction " .. actionName)
+        return true
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsRemovableAction(string actionName)
+        -- 키 설정 창에서 "키보드 밖으로 끌어내 해제"가 가능한 액션인가(스킬 슬롯, 물약). 공격/점프/창
+        -- 단축키/귀환/줍기는 없으면 게임 조작이 막히므로 이동만 가능.
+        local entry = self:GetRegistryEntry(actionName)
+        return entry ~= nil and (entry.kind == "skillSlot" or entry.kind == "itemAction")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PushSlotToServer(integer slot)
+        -- 슬롯 하나의 현재 스킬(빈 문자열이면 해제)을 서버 PlayerSkillComponent에 반영한다. 서버가
+        -- 보유 여부/본인 여부를 최종 검증한다.
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then
+            return
+        end
+        local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
+        if not isvalid(skillComp) then
+            return
+        end
+        skillComp:RequestAssignSkillToSlot(slot, self._T.slotSkill[slot] or "")
+    end
+
+    @ExecSpace("ClientOnly")
+    method table BuildSkillLayout()
+        -- 캐릭터별 로스터에 저장할 형태 { ["1"] = { key = "Q", skill = "id" }, ... } - 배정된 슬롯만.
+        self:EnsureInitialized()
+        local out = {}
+        for slot = 1, 8 do
+            local id = self._T.slotSkill[slot]
+            local key = self._T.currentKeys[self:SlotActionName(slot)]
+            if id ~= "" and key ~= nil and key ~= KeyboardKey.None then
+                out[tostring(slot)] = { key = tostring(key), skill = id }
+            end
+        end
+        return out
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PersistSkillLayout()
+        -- 현재 슬롯 배치를 활성 캐릭터의 로스터 데이터에 저장한다(캐릭터별 - 직업마다 스킬이 다르므로).
+        _CharacterRosterLogic:UpdateActiveSkillLayout(self:BuildSkillLayout())
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ApplySkillLayoutForActiveCharacter()
+        -- 캐릭터 진입/교체 직후 호출 - 활성 캐릭터의 저장된 스킬 배치를 복원한다. 먼저 8슬롯을 전부
+        -- 비워(이전 캐릭터의 배치가 남지 않게) 컨트롤러에 반영하고, 저장된 배치를 검증(유효한 키,
+        -- 다른 기능이 안 쓰는 키)해 채운 뒤, 서버에 8슬롯 전체를 한꺼번에 알린다. 서버가 보유 여부를
+        -- 최종 검증하므로 여기서는 보유 스킬 목록을 확인하지 않는다(티어 스킬 동기화가 늦어도 안전).
+        self:EnsureInitialized()
+        local layout = _CharacterRosterLogic:GetActiveSkillLayout()
+        for slot = 1, 8 do
+            self._T.slotSkill[slot] = ""
+            self._T.currentKeys[self:SlotActionName(slot)] = KeyboardKey.None
+        end
+        for slot = 1, 8 do
+            local rec = layout[tostring(slot)]
+            if rec ~= nil and rec.skill ~= nil and rec.skill ~= "" and rec.key ~= nil then
+                local key = KeyboardKey.CastFrom(rec.key)
+                if key ~= nil and self:IsValidRebindKey(key) and self:GetActionForKey(key) == nil then
+                    self._T.slotSkill[slot] = rec.skill
+                    self._T.currentKeys[self:SlotActionName(slot)] = key
+                end
+            end
+        end
+        for slot = 1, 8 do
+            self:ApplyControllerBindingForAction(self:SlotActionName(slot))
+        end
+        local localPlayer = _UserService.LocalPlayer
+        if isvalid(localPlayer) then
+            local skillComp = localPlayer:GetComponent("script.PlayerSkillComponent")
+            if isvalid(skillComp) then
+                local arr = {}
+                for slot = 1, 8 do
+                    arr[slot] = self._T.slotSkill[slot]
+                end
+                skillComp:RequestApplySkillLayout(arr)
+            end
+        end
+        log("KeyBinding: ApplySkillLayoutForActiveCharacter " .. self._T.slotSkill[1] .. "/" .. self._T.slotSkill[2] .. "/" .. self._T.slotSkill[3] .. "/" .. self._T.slotSkill[4] .. "/" .. self._T.slotSkill[5] .. "/" .. self._T.slotSkill[6] .. "/" .. self._T.slotSkill[7] .. "/" .. self._T.slotSkill[8])
     end
 
     @ExecSpace("ClientOnly")
@@ -326,7 +628,10 @@ script KeyBindingLogic extends Logic
     method void OnBindingsLoaded(table savedKeys)
         self:EnsureInitialized()
         for actionName, keyName in pairs(savedKeys) do
-            if self._T.currentKeys[actionName] ~= nil then
+            -- 2026-09-22 - 스킬 슬롯 키는 이제 캐릭터별 로스터(skillLayout)가 소유한다. 예전 버전이
+            -- 계정 저장소에 남긴 Skill/Skill2~8 값은 무시한다(다음 SaveBindings에서 자연히 사라짐).
+            local savedEntry = self:GetRegistryEntry(actionName)
+            if savedEntry ~= nil and savedEntry.kind ~= "skillSlot" and self._T.currentKeys[actionName] ~= nil then
                 local key = KeyboardKey.CastFrom(keyName)
                 if key ~= nil then
                     self._T.currentKeys[actionName] = key
@@ -355,11 +660,17 @@ script KeyBindingLogic extends Logic
         local fallback = { KeyboardKey.U, KeyboardKey.T, KeyboardKey.G, KeyboardKey.Z, KeyboardKey.X, KeyboardKey.V, KeyboardKey.N, KeyboardKey.M }
         local taken = {}
         for _, entry in ipairs(self._T.registry) do
-            taken[self._T.currentKeys[entry.actionName]] = true
+            local heldKey = self._T.currentKeys[entry.actionName]
+            if heldKey ~= KeyboardKey.None then
+                taken[heldKey] = true
+            end
         end
         for _, entry in ipairs(self._T.registry) do
             local key = self._T.currentKeys[entry.actionName]
-            if used[key] then
+            -- 미배정(None)은 여러 액션이 동시에 가져도 중복이 아니다.
+            if key == KeyboardKey.None then
+                -- skip
+            elseif used[key] then
                 local newKey = nil
                 if not taken[entry.defaultKey] then
                     newKey = entry.defaultKey
@@ -384,6 +695,7 @@ script KeyBindingLogic extends Logic
         end
         if changed then
             self:SaveBindings()
+            self:PersistSkillLayout()
         end
     end
 
@@ -399,7 +711,11 @@ script KeyBindingLogic extends Logic
         -- Client->Server RPC boundary directly (LEA-3036 InvalidCast).
         local payload = {}
         for actionName, key in pairs(self._T.currentKeys) do
-            payload[actionName] = tostring(key)
+            -- 스킬 슬롯은 캐릭터별 로스터에 저장되므로 계정 공통 저장소에서는 제외한다.
+            local entry = self:GetRegistryEntry(actionName)
+            if entry ~= nil and entry.kind ~= "skillSlot" then
+                payload[actionName] = tostring(key)
+            end
         end
         self:RequestSaveBindings(payload)
     end

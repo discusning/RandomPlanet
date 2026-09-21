@@ -223,6 +223,9 @@ script CharacterCardController extends Component
             controller:RequestEnterGame(self._T.look, self._T.equipment, stats, self._T.characterData.atkSkillId, self._T.characterData.buffSkillId, tierSkills)
             -- M2 Phase C(2026-09-06) - 진입 직후 현재 공격대 편성의 링크 패시브를 서버에 반영.
             _CharacterRosterLogic:PushSquadLinksToServer()
+            -- 2026-09-22 - 이 캐릭터의 저장된 스킬 핫키 배치를 복원(RequestEnterGame 이후에 보내야 서버가
+            -- 티어 스킬 복원을 마친 뒤 보유 여부를 검증한다 - 같은 클라이언트의 RPC는 순서대로 처리됨).
+            _KeyBindingLogic:ApplySkillLayoutForActiveCharacter()
         end
         self:HideCard()
     end

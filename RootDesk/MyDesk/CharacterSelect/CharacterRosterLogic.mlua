@@ -337,6 +337,36 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method table GetActiveSkillLayout()
+        -- 2026-09-22 키 설정 개편(Docs/RandomPlanet-KeyRework-Plan.md) - 활성 캐릭터의 스킬 핫키 배치
+        -- { ["1"] = { key = "Q", skill = "id" }, ... }. 직업(스킬 id)이 캐릭터마다 달라 계정 공통
+        -- 키바인딩 저장소가 아니라 캐릭터 데이터에 둔다. 저장된 게 없으면 빈 테이블.
+        local data = self:GetActiveCharacterData()
+        if data == nil or data.skillLayout == nil then
+            return {}
+        end
+        return data.skillLayout
+    end
+
+    @ExecSpace("ClientOnly")
+    method void UpdateActiveSkillLayout(table layout)
+        -- KeyBindingLogic이 스킬을 키에 배정/해제/이동할 때마다 호출. 배정이 하나도 없으면 필드를
+        -- 지운다(빈 테이블은 RequestSaveRoster의 JSONEncode가 [LEA-3001]로 실패하므로 아예 생략).
+        local idx = self:GetActiveIndex()
+        if idx == nil then return end
+        local data = self._T.data[idx]
+        if data == nil then return end
+        if layout == nil or next(layout) == nil then
+            if data.skillLayout == nil then return end
+            data.skillLayout = nil
+        else
+            data.skillLayout = layout
+        end
+        self:SaveRoster()
+        log("CharacterRoster: UpdateActiveSkillLayout idx=" .. tostring(idx))
+    end
+
+    @ExecSpace("ClientOnly")
     method void PushSquadLinksToServer()
         -- M2 Phase C(2026-09-06) - 확정된 squadLinks(최대 2개의 로스터 인덱스)를 실제 { trait, level }
         -- 배열로 풀어서 로컬 플레이어의 PlayerStatsComponent(서버 권한)에 전달. 로스터가 ClientOnly라
