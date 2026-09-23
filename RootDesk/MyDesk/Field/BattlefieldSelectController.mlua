@@ -18,9 +18,10 @@ script BattlefieldSelectController extends Component
     property Entity btnGate = "092f540c-81f9-4547-8c05-829a088f4cab"
     property TextGUIRendererComponent gateTicketText = "811baff0-839a-4ee6-9fcd-ef7ce0017d08"
     property any tickTimerId = nil
-    -- M2 Phase F(2026-09-08) - 난이도 4단계 선택 UI(전체 기획서 §5-1). FieldWaveSpawner.DifficultyTier
-    -- 로직/배율표는 이미 완성돼 있었으나(9-07) 유저가 직접 고를 UI가 없어 tier=1 고정이었다 - 이 4개
-    -- 토글 버튼으로 선택한 tier를 RequestEnterBattlefield에 전달한다(게이트는 자체 배율을 쓰므로 무관).
+    -- M2 Phase F(2026-09-08) - 난이도 4단계 선택 UI(전체 기획서 §5-1), 4개 토글 버튼.
+    -- 2026-09-24 유저 결정 - 원래는 토벌전장(1~3) 입장에 붙어 있었으나, 전장 자체가 이미 맵 단위로
+    -- 난이도가 나뉘어 있어 중복이었다 - "하급/중급/상급/최상급"은 몬스터 게이트 전용으로 재배치
+    -- (ApplyMode에서 isGate일 때만 노출). OnGateClicked가 이 값을 RequestEnterGate(tier)로 넘긴다.
     property Entity tierBtn1 = "ac9ac62e-6394-4c0f-9262-8a126b55a1d2"
     property Entity tierBtn2 = "f584aefb-637b-4169-993b-fef3d49e983c"
     property Entity tierBtn3 = "ad0308cf-c89b-4477-8058-9121e42fd1c5"
@@ -72,6 +73,8 @@ script BattlefieldSelectController extends Component
         self._T.gaugeNote = self.Entity:GetChildByName("GaugeNote", true)
         self._T.gaugeRule = self.Entity:GetChildByName("GaugeRule", true)
         self._T.tierLabel = self.Entity:GetChildByName("TierLabel", true)
+        self._T.gateNote = self.Entity:GetChildByName("GateNote", true)
+        self._T.gateRule = self.Entity:GetChildByName("GateRule", true)
         self.Entity.Enable = false
     end
 
@@ -129,16 +132,19 @@ script BattlefieldSelectController extends Component
         self.btnField1.Enable = isBattlefield
         self.btnField2.Enable = isBattlefield
         self.btnField3.Enable = isBattlefield
-        self.tierBtn1.Enable = isBattlefield
-        self.tierBtn2.Enable = isBattlefield
-        self.tierBtn3.Enable = isBattlefield
-        self.tierBtn4.Enable = isBattlefield
-        if isvalid(self._T.tierLabel) then self._T.tierLabel.Enable = isBattlefield end
         if isvalid(self._T.gaugeTrack) then self._T.gaugeTrack.Enable = isBattlefield end
         if isvalid(self._T.gaugeNote) then self._T.gaugeNote.Enable = isBattlefield end
         if isvalid(self._T.gaugeRule) then self._T.gaugeRule.Enable = isBattlefield end
         self.myPowerText.Enable = not isBoss
 
+        -- 2026-09-24 - 난이도(하급~최상급)는 이제 게이트 전용 - 토벌전장 모드에서는 완전히 숨긴다.
+        self.tierBtn1.Enable = isGate
+        self.tierBtn2.Enable = isGate
+        self.tierBtn3.Enable = isGate
+        self.tierBtn4.Enable = isGate
+        if isvalid(self._T.tierLabel) then self._T.tierLabel.Enable = isGate end
+        if isvalid(self._T.gateNote) then self._T.gateNote.Enable = isGate end
+        if isvalid(self._T.gateRule) then self._T.gateRule.Enable = isGate end
         self.btnGate.Enable = isGate
 
         if isvalid(self._T.gaugeLabel) then
@@ -215,8 +221,9 @@ script BattlefieldSelectController extends Component
     @ExecSpace("ClientOnly")
     method void OnGateClicked()
         -- 몬스터 게이트 입장 - 입장권 소모/검증은 서버(GateTicketLogic.RequestEnterGate)가 전담한다.
-        log("BattlefieldSelect: 몬스터 게이트 입장 시도")
-        _GateTicketLogic:RequestEnterGate()
+        -- 2026-09-24 - 하급~최상급 난이도가 게이트 전용으로 재배치되면서 selectedTier를 함께 넘긴다.
+        log("BattlefieldSelect: 몬스터 게이트 입장 시도 tier=" .. self.selectedTier)
+        _GateTicketLogic:RequestEnterGate(self.selectedTier)
         self:Hide()
     end
 
@@ -303,15 +310,17 @@ script BattlefieldSelectController extends Component
         -- same class of cross-map server call. Rest-gauge consumption happens server-side inside
         -- RequestEnterBattlefield itself, not here. No CP/level gate - purely informational
         -- (see RefreshRecommendations).
-        log("BattlefieldSelect: 토벌전장 1 선택 tier=" .. self.selectedTier)
-        _CharacterRosterLogic:RequestEnterBattlefield(1, self.selectedTier)
+        -- 2026-09-24 유저 결정 - 토벌전장은 전장1~3(맵) 자체가 난이도 구분이라 별도 tier 선택이
+        -- 필요 없음 - "하급~최상급" 4단계 선택 UI는 게이트 전용으로 재배치했으므로 항상 1 고정.
+        log("BattlefieldSelect: 토벌전장 1 선택")
+        _CharacterRosterLogic:RequestEnterBattlefield(1, 1)
         self:Hide()
     end
 
     @ExecSpace("ClientOnly")
     method void OnField2Clicked()
-        log("BattlefieldSelect: 토벌전장 2 선택 tier=" .. self.selectedTier)
-        _CharacterRosterLogic:RequestEnterBattlefield(2, self.selectedTier)
+        log("BattlefieldSelect: 토벌전장 2 선택")
+        _CharacterRosterLogic:RequestEnterBattlefield(2, 1)
         self:Hide()
     end
 
