@@ -448,6 +448,18 @@ script KeyBindingPopupController extends Component
             { key = KeyboardKey.LeftArrow, x = 431, y = -155 },
             { key = KeyboardKey.DownArrow, x = 493, y = -155 },
             { key = KeyboardKey.RightArrow, x = 555, y = -155 },
+            -- 2026-09-24 유저 요청("insert, prt, delete, home, end, pu, pd 등등 키 추가") - F12
+            -- 오른쪽 빈 공간에 얹은 작은 내비게이션 클러스터. ui/KeySettingGroup.ui의
+            -- Key_Print/Key_Insert/Key_Home/Key_PageUp/Key_Delete/Key_End/Key_PageDown 배경과 동일 좌표
+            -- (add_nav_keys.cjs로 생성). KeyboardKey.Print는 실제 PrintScreen(PrtScn) 키에 대응하는
+            -- 엔진 멤버명(별도 PrintScreen 멤버는 없음).
+            { key = KeyboardKey.Print, x = 444, y = 155 },
+            { key = KeyboardKey.Insert, x = 382, y = 93 },
+            { key = KeyboardKey.Home, x = 444, y = 93 },
+            { key = KeyboardKey.PageUp, x = 506, y = 93 },
+            { key = KeyboardKey.Delete, x = 382, y = 31 },
+            { key = KeyboardKey.End, x = 444, y = 31 },
+            { key = KeyboardKey.PageDown, x = 506, y = 31 },
         }
     end
 
