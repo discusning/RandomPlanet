@@ -144,7 +144,15 @@ script SkillCatalog extends Logic
             -- 각 스킬 모션의 체감 스윙 속도에 맞춘 추정치 - 실제 애니메이션 프레임 데이터를 정밀
             -- 측정한 것은 아니며, 실플레이 피드백에 따라 조정 예정.
             powerstrike = { id = "powerstrike", tier = 1, name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
-            slashblast = { id = "slashblast", tier = 1, name = "슬래시 블러스트", job = "검사", kind = "melee_single", coef = 1.0, wide = true, cooldown = 4.0, mpCost = 10, impactDelay = 0.2, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", desc = "전방의 넓은 범위를 베어 그 안의 모든 적에게 평타의 100% 피해를 입힙니다." },
+            -- 2026-09-24 유저 리포트("슬래시 블래스터 스킬(추가 뎀 100%)이 기본 공격과 같은 데미지를
+            -- 줌") - coef=1.0은 "평타의 100% 피해"(=평타와 완전히 동일)로 정확히 그 값대로 동작하고
+            -- 있었다(런타임 버그 아님). 하지만 위 2026-08-25 DPS계수(coef/cooldown) 방법론으로 보면
+            -- 이 스킬만 유일하게 "MP 소모+4초 쿨다운이 있는데 공짜 평타와 완전히 같은 데미지"인
+            -- 상태라 실질적으로 무의미했다(비율 1.0/4.0=0.25, 당시 최하위로 지적됐던 dash 0.35보다도
+            -- 낮음). 광역기 특성(다수 적 동시 타격)을 감안해 단일 표적 최고계수(powerstrike 1.8)보다는
+            -- 낮게, 그러나 평타보다는 확실히 세게 1.5로 상향(비율 0.375) - 첫 시도 값이라 추후 실플레이
+            -- 피드백에 따라 재조정 가능.
+            slashblast = { id = "slashblast", tier = 1, name = "슬래시 블러스트", job = "검사", kind = "melee_single", coef = 1.5, wide = true, cooldown = 4.0, mpCost = 10, impactDelay = 0.2, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", desc = "전방의 넓은 범위를 베어 그 안의 모든 적에게 평타의 150% 피해를 입힙니다." },
             -- 아이언 바디 (2026-08-19 전 스킬 이펙트 일괄 재검증 - 이번엔 GIF를 프레임 단위로 직접
             -- 열어서 확인): 이전 buffVfxRuid("1838b57c...", "파워 가드" affected 클립)는 실제로는
             -- 12프레임 중 겨우 3프레임에만 내용이 있고 그마저도 거의 흰색에 가까운 연한 살구색이라

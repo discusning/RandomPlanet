@@ -285,13 +285,22 @@ script LobbyStageController extends Component
         end
         local playerPos = localPlayer.TransformComponent.WorldPosition
 
-        -- The 3-story portal stack (portal-1/2/6, 1F/2F/3F) opens the battlefield-select popup
-        -- instead of teleporting directly - checked first since it's a separate box from the return
-        -- portal and the two never overlap. 2026-09-22: 예전엔 1F만 처리해서 2/3F 포탈은 ↑가 무반응이었다.
+        -- The 3-story portal stack (portal-1/2/6) - 유저 확인(2026-09-24): 1층=토벌전장, 2층=카오스
+        -- 게이트, 3층=보스 포탈(미구현). 2026-09-22엔 셋 다 같은 화면을 열었는데, 그 화면 안에 토벌전장
+        -- 선택과 게이트 입장이 함께 있어 "게이트가 아래쪽에 있어 헷갈린다"는 QA로 이어졌다 - 이제 층마다
+        -- 팝업의 모드를 다르게 열어(BattlefieldSelectController.Show(mode)) 단일 목적 화면처럼 만든다.
         local floor = self:GetBattlefieldPortalFloor(playerPos)
-        if floor > 0 then
-            log("LobbyStage: up-arrow at battlefield portal (" .. floor .. "F), opening battlefield-select popup")
-            self:OpenBattlefieldSelect()
+        if floor == 1 then
+            log("LobbyStage: up-arrow at battlefield portal (1F), opening 토벌전장 select")
+            self:OpenBattlefieldSelect("battlefield")
+            return
+        elseif floor == 2 then
+            log("LobbyStage: up-arrow at gate portal (2F), opening 카오스게이트 select")
+            self:OpenBattlefieldSelect("gate")
+            return
+        elseif floor == 3 then
+            log("LobbyStage: up-arrow at boss portal (3F, not yet implemented), showing placeholder")
+            self:OpenBattlefieldSelect("boss")
             return
         end
 
@@ -369,9 +378,10 @@ script LobbyStageController extends Component
     end
 
     @ExecSpace("ClientOnly")
-    method void OpenBattlefieldSelect()
+    method void OpenBattlefieldSelect(string mode)
         -- Mirrors OpenSquadFormation's mutual-exclusion sweep below - close every other window
-        -- first so this popup never stacks on top of one already open.
+        -- first so this popup never stacks on top of one already open. mode = "battlefield"|"gate"|"boss"
+        -- (portal floor 1/2/3 - see OnKeyDown).
         local bottomBar = _WindowHotkeyLogic:GetBottomBar()
         if isvalid(bottomBar) then
             bottomBar:CloseOtherWindows("")
@@ -379,7 +389,7 @@ script LobbyStageController extends Component
         if isvalid(self.battlefieldSelectGroup) then
             local popup = self.battlefieldSelectGroup:GetComponent("script.BattlefieldSelectController")
             if isvalid(popup) then
-                popup:Show()
+                popup:Show(mode)
             end
         end
     end

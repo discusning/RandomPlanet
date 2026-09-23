@@ -26,6 +26,12 @@ script BattlefieldSelectController extends Component
     property Entity tierBtn3 = "ad0308cf-c89b-4477-8058-9121e42fd1c5"
     property Entity tierBtn4 = "450e5efd-900f-4120-9faf-6371d46f1db0"
     property integer selectedTier = 1
+    -- 2026-09-24 유저 요청 - 로비 우측 포탈 3개(1층 토벌전장/2층 카오스게이트/3층 보스포탈)가 실제로는
+    -- 전부 1층 포탈에서만 열리는 이 팝업 하나에 뭉쳐 있었다(토벌전장1~3 + 게이트가 같은 카드 안,
+    -- 게이트가 맨 아래쪽이라 헷갈린다는 QA 피드백과 동일 원인). LobbyStageController가 층별로
+    -- Show(mode)를 다르게 호출해 같은 팝업을 세 가지 단일 목적 화면처럼 보이게 한다 - 배경/버튼
+    -- 좌표는 그대로 재사용하고 관련 없는 구획만 숨긴다("battlefield"|"gate"|"boss").
+    @HideFromInspector property string mode = "battlefield"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -58,6 +64,14 @@ script BattlefieldSelectController extends Component
         table.insert(self._T.handlers, { entity = self.tierBtn3, eventHandler = hTier3 })
         local hTier4 = self.tierBtn4:ConnectEvent(ButtonClickEvent, self.OnTier4Clicked)
         table.insert(self._T.handlers, { entity = self.tierBtn4, eventHandler = hTier4 })
+        -- 2026-09-24 - 모드별로 켜고 끌 구획들(전장 전용/게이트 전용) - 별도 바인딩 프로퍼티 없이
+        -- 이름으로 한 번만 찾아 캐시(정적 하이어라키라 재조회 불필요, ApplyMode가 반복 호출됨).
+        self._T.title = self.Entity:GetChildByName("Title", true)
+        self._T.gaugeLabel = self.Entity:GetChildByName("GaugeLabel", true)
+        self._T.gaugeTrack = self.Entity:GetChildByName("GaugeTrack", true)
+        self._T.gaugeNote = self.Entity:GetChildByName("GaugeNote", true)
+        self._T.gaugeRule = self.Entity:GetChildByName("GaugeRule", true)
+        self._T.tierLabel = self.Entity:GetChildByName("TierLabel", true)
         self.Entity.Enable = false
     end
 
@@ -80,18 +94,72 @@ script BattlefieldSelectController extends Component
         if not self.Entity.Enable then
             return
         end
-        self:RefreshRecommendations()
+        if self.mode == "battlefield" then
+            self:RefreshRecommendations()
+        end
     end
 
     @ExecSpace("ClientOnly")
-    method void Show()
-        -- Opens the popup. Called by LobbyStageController when the player presses up-arrow at the
-        -- 1st-floor (토벌전장) portal.
+    method void Show(string mode)
+        -- Opens the popup in one of 3 single-purpose modes, called by LobbyStageController based on
+        -- which floor's portal (1F/2F/3F) the player pressed up-arrow at:
+        --   "battlefield" (1F) - 토벌전장 1~3 선택 + 난이도 + 휴식 게이지
+        --   "gate"        (2F) - 카오스(몬스터) 게이트 입장만
+        --   "boss"        (3F) - 보스 포탈, 아직 미구현 - 안내 문구만 표시
+        -- 2026-09-24 QA("게이트는 아래에서 가능해서 헷갈림") - 이전엔 이 셋이 전부 1F 포탈 하나에서
+        -- 열리는 같은 화면에 뒤섞여 있었다. 좌표/버튼은 그대로 재사용하고 모드별로 관련 없는 구획만
+        -- 숨겨 세 포탈이 각자 단일 목적 화면을 여는 것처럼 보이게 한다.
+        self.mode = mode
         self.Entity.Enable = true
         self:RefreshGauge()
         self:RefreshRecommendations()
         self:RefreshGateTicketDisplay()
         self:RefreshTierButtons()
+        self:ApplyMode()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ApplyMode()
+        -- 모드에 따라 관련 없는 구획을 Enable=false로 숨긴다(부모 Enable이 자식까지 그대로 가려서
+        -- 각 행의 Badge/Name/Recommend 텍스트도 함께 숨겨짐 - 프로젝트 전역에서 쓰는 패턴).
+        local isBattlefield = self.mode == "battlefield"
+        local isGate = self.mode == "gate"
+        local isBoss = self.mode == "boss"
+
+        self.btnField1.Enable = isBattlefield
+        self.btnField2.Enable = isBattlefield
+        self.btnField3.Enable = isBattlefield
+        self.tierBtn1.Enable = isBattlefield
+        self.tierBtn2.Enable = isBattlefield
+        self.tierBtn3.Enable = isBattlefield
+        self.tierBtn4.Enable = isBattlefield
+        if isvalid(self._T.tierLabel) then self._T.tierLabel.Enable = isBattlefield end
+        if isvalid(self._T.gaugeTrack) then self._T.gaugeTrack.Enable = isBattlefield end
+        if isvalid(self._T.gaugeNote) then self._T.gaugeNote.Enable = isBattlefield end
+        if isvalid(self._T.gaugeRule) then self._T.gaugeRule.Enable = isBattlefield end
+        self.myPowerText.Enable = not isBoss
+
+        self.btnGate.Enable = isGate
+
+        if isvalid(self._T.gaugeLabel) then
+            if isBoss then
+                self._T.gaugeLabel.Enable = true
+                self._T.gaugeLabel.TextGUIRendererComponent.Text = "보스 포탈은 아직 준비 중입니다"
+            else
+                self._T.gaugeLabel.Enable = isBattlefield
+                self._T.gaugeLabel.TextGUIRendererComponent.Text = "휴식 게이지"
+            end
+        end
+
+        if isvalid(self._T.title) then
+            local titleText = "토벌 전장 선택"
+            if isGate then
+                titleText = "몬스터 게이트"
+            elseif isBoss then
+                titleText = "보스 포탈"
+            end
+            self._T.title.TextGUIRendererComponent.Text = titleText
+        end
     end
 
     @ExecSpace("ClientOnly")
