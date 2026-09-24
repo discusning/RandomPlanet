@@ -623,7 +623,56 @@ script PlayerStatsComponent extends Component
             -- "15레벨 이상" 조건이 실질적으로 영원히 충족 불가능했다. 레벨업마다 로스터에 즉시
             -- 반영해 이 조건이 실제로 동작하게 한다.
             _CharacterRosterLogic:UpdateActiveLevel(value)
+        elseif name == "Str" or name == "Dex" or name == "Intel" or name == "Luk" then
+            -- 2026-09-24 유저 QA "추가 스탯 찍을 때 어떤 스탯이 올랐는지 안 보임" - 레벨업 자동
+            -- +1x4(LevelProgressionLogic.GrantXp), 이능 "추가 스탯"(AbilityChoiceLogic.ApplyBonusStats),
+            -- 고급 스탯 구슬(AbilityChoiceLogic.GrantPremiumStatBonus) 모두 이 4개 필드를 직접
+            -- 바꾸는 공통 경로라 여기 한 곳에서만 감지하면 모든 소스를 자동으로 커버한다. Str/Dex/
+            -- Intel/Luk은 각각 독립된 @Sync라 같은 프레임에 4개가 동시에 바뀌어도 OnSyncProperty는
+            -- 4번 따로 불린다 - 위 RunEnded/AbilityChoicePending과 동일한 "같은 틱 @Sync 지연" 대응
+            -- 패턴으로, 마지막 도착 후 0.15초 debounce로 묶어서 한 번만 알림을 띄운다.
+            if self._T.statGainTimerId then
+                _TimerService:ClearTimer(self._T.statGainTimerId)
+            end
+            self._T.statGainTimerId = _TimerService:SetTimerOnce(self.ShowStatGainDelta, 0.15)
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ShowStatGainDelta()
+        -- 위 OnSyncProperty debounce 타이머의 콜백 - Str/Dex/Intel/Luk 각각을 마지막으로 알림을
+        -- 띄운 값(lastNotified*)과 비교해 오른 스탯만 "STR +1" 형태로 모아 PlayerHUDController에
+        -- 전달한다. 다른 플레이어의 PlayerStatsComponent도 @Sync를 받으므로(본인 소유가 아닌 엔티티도
+        -- 이 콜백을 탈 수 있음) 로컬 플레이어 소유 엔티티가 아니면 무시한다. 캐시가 비어있는 최초
+        -- 도착(캐릭터 진입 시 초기값 세팅)은 델타 계산 없이 baseline만 저장 - 진입하자마자 "+1"이
+        -- 뜨는 오탐을 막는다. 스탯 재분배(ApplyStatRedistribute)처럼 오르는 스탯과 내려가는 스탯이
+        -- 섞여도 오른 스탯만 그대로 표시 - 사용자에게 유의미한 정보라 굳이 필터링하지 않는다.
+        if not isvalid(self.Entity) then return end
+        if not isvalid(_UserService.LocalPlayer) or self.Entity ~= _UserService.LocalPlayer then return end
+        local parts = {}
+        local lastStr = self._T.lastNotifiedStr
+        if lastStr ~= nil and self.Str > lastStr then
+            table.insert(parts, "STR +" .. tostring(self.Str - lastStr))
+        end
+        self._T.lastNotifiedStr = self.Str
+        local lastDex = self._T.lastNotifiedDex
+        if lastDex ~= nil and self.Dex > lastDex then
+            table.insert(parts, "DEX +" .. tostring(self.Dex - lastDex))
+        end
+        self._T.lastNotifiedDex = self.Dex
+        local lastIntel = self._T.lastNotifiedIntel
+        if lastIntel ~= nil and self.Intel > lastIntel then
+            table.insert(parts, "INT +" .. tostring(self.Intel - lastIntel))
+        end
+        self._T.lastNotifiedIntel = self.Intel
+        local lastLuk = self._T.lastNotifiedLuk
+        if lastLuk ~= nil and self.Luk > lastLuk then
+            table.insert(parts, "LUK +" .. tostring(self.Luk - lastLuk))
+        end
+        self._T.lastNotifiedLuk = self.Luk
+        if #parts == 0 then return end
+        log("PlayerStats: ShowStatGainDelta -> " .. table.concat(parts, " · "))
+        _PlayerHUDController:ShowStatGainNotification(table.concat(parts, " · "))
     end
 
     method integer ComputeXpToNextLevel(integer level)

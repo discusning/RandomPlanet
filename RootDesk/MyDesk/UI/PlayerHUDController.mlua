@@ -52,6 +52,12 @@ script PlayerHUDController extends Logic
     -- 화면 전체를 덮는 반투명 빨간 오버레이 - 평소엔 alpha=0으로 숨겨져 있다가 체력비율이 낮을 때만
     -- Tick()에서 사인파로 깜빡인다. raycast=false라 클릭을 가리지 않음.
     property SpriteGUIRendererComponent lowHpOverlay = "173e2209-6131-450e-ad25-e9e458ae6bd7"
+    -- 2026-09-24 유저 QA "추가 스탯 찍을 때 어떤 스탯이 올랐는지 안 보임" - 레벨업 자동 증가/이능
+    -- "추가 스탯"/고급 스탯 구슬 등 스탯이 오르는 모든 경로가 PlayerStatsComponent.ShowStatGainDelta를
+    -- 거쳐 ShowStatGainNotification 하나로 모인다. 텍스트 표시 -> 타이머로 숨김(ShowGateDenied와
+    -- 동일한 "표시 후 타이머 원복" 패턴, 여기서는 텍스트 복원 대신 Enable=false로 숨김).
+    property Entity statGainTextEntity = "8fa1caec-8c83-4bbc-8688-5bdae43cf726"
+
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -245,6 +251,25 @@ script PlayerHUDController extends Logic
     @ExecSpace("ClientOnly")
     method void Hide()
         self.hudGroup.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ShowStatGainNotification(string message)
+        -- 2026-09-24 유저 QA "추가 스탯 찍을 때 어떤 스탯이 올랐는지 안 뜬다" - 레벨업 자동 증가/
+        -- 이능 "추가 스탯"/고급 스탯 구슬 등 스탯이 오르는 모든 경로가 PlayerStatsComponent.
+        -- ShowStatGainDelta를 거쳐 여기 하나로 모인다. BattlefieldSelectController.ShowGateDenied와
+        -- 동일한 "표시 -> 타이머로 원복" 패턴이되, 여기서는 문구를 복원하는 대신 Enable=false로 숨긴다.
+        if not isvalid(self.statGainTextEntity) then return end
+        self.statGainTextEntity.TextGUIRendererComponent.Text = message
+        self.statGainTextEntity.Enable = true
+        if self._T.statGainHideTimerId then
+            _TimerService:ClearTimer(self._T.statGainHideTimerId)
+        end
+        self._T.statGainHideTimerId = _TimerService:SetTimerOnce(function()
+            if isvalid(self.statGainTextEntity) then
+                self.statGainTextEntity.Enable = false
+            end
+        end, 1.8)
     end
 
 end
