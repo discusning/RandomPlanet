@@ -27,6 +27,13 @@ script BattlefieldSelectController extends Component
     property Entity tierBtn3 = "ad0308cf-c89b-4477-8058-9121e42fd1c5"
     property Entity tierBtn4 = "450e5efd-900f-4120-9faf-6371d46f1db0"
     property integer selectedTier = 1
+    -- 2026-09-24 유저 요청 - 게이트 난이도(하급~최상급)마다 토벌전장처럼 권장 전투력 표시. 게이트는
+    -- 토벌전장3(권장 800)을 게이트 배율(FieldWaveSpawner: 3.0 x 1/1.5/2.25/3.4)로 강화한 것이라
+    -- 권장치도 800 x 배율(2400/3600/5400/8160). 배율을 바꾸면 이 값도 같이 조정할 것.
+    property number gateRecommendedCp1 = 2400
+    property number gateRecommendedCp2 = 3600
+    property number gateRecommendedCp3 = 5400
+    property number gateRecommendedCp4 = 8160
     -- 2026-09-24 유저 요청 - 로비 우측 포탈 3개(1층 토벌전장/2층 카오스게이트/3층 보스포탈)가 실제로는
     -- 전부 1층 포탈에서만 열리는 이 팝업 하나에 뭉쳐 있었다(토벌전장1~3 + 게이트가 같은 카드 안,
     -- 게이트가 맨 아래쪽이라 헷갈린다는 QA 피드백과 동일 원인). LobbyStageController가 층별로
@@ -75,6 +82,14 @@ script BattlefieldSelectController extends Component
         self._T.tierLabel = self.Entity:GetChildByName("TierLabel", true)
         self._T.gateNote = self.Entity:GetChildByName("GateNote", true)
         self._T.gateRule = self.Entity:GetChildByName("GateRule", true)
+        -- 난이도 버튼마다 하나씩 붙은 "권장 N" 라벨(Tier1~4/Rec).
+        self._T.tierRecs = {}
+        for i, btn in ipairs({ self.tierBtn1, self.tierBtn2, self.tierBtn3, self.tierBtn4 }) do
+            local recEntity = btn:GetChildByName("Rec", true)
+            if isvalid(recEntity) then
+                self._T.tierRecs[i] = recEntity.TextGUIRendererComponent
+            end
+        end
         self.Entity.Enable = false
     end
 
@@ -297,6 +312,19 @@ script BattlefieldSelectController extends Component
         self:ApplyRecommendColor(self.recommend1, self.recommendedCp1, cp)
         self:ApplyRecommendColor(self.recommend2, self.recommendedCp2, cp)
         self:ApplyRecommendColor(self.recommend3, self.recommendedCp3, cp)
+        -- 게이트 난이도별 권장치(하급~최상급) - 토벌전장 행과 같은 초록/주황 색 규칙.
+        local gateCps = { self.gateRecommendedCp1, self.gateRecommendedCp2, self.gateRecommendedCp3, self.gateRecommendedCp4 }
+        for i, label in pairs(self._T.tierRecs or {}) do
+            if isvalid(label) then
+                local recommended = gateCps[i]
+                label.Text = "권장 " .. tostring(math.floor(recommended))
+                if cp >= recommended then
+                    label.FontColor = Color(0.16, 0.45, 0.16, 1)
+                else
+                    label.FontColor = Color(0.72, 0.32, 0.1, 1)
+                end
+            end
+        end
     end
 
     method number GetLiveCp()
