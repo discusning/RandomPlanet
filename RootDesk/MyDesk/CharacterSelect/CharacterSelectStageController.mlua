@@ -418,8 +418,8 @@ script CharacterSelectStageController extends Component
         -- server's true value, so a same-value server write here would be a silent no-op that never
         -- re-syncs to the client. The client calls ShowLocalPlayer() itself instead (see that method).
 
-        -- Lands on the "town square" ground foothold (y=-1.22, spans x=54.05~66.15) between
-        -- portal-3 (x=55.37) and the squad NPC (x=63.6) - the zone that actually has content now.
-        _TeleportService:TeleportToMapPosition(player, Vector3(58, -0.82, 0), "Lobby")
+        -- 2026-09-24 로비 개편(마가티아 모티브) - 광장 바닥(y=-1.92)의 안내인/상인/공격대 관리인
+        -- NPC 근처 x=-17에 착지시킨다(예전 좌표 58,-0.82는 옛 로비 기준).
+        _TeleportService:TeleportToMapPosition(player, Vector3(-17, -1.5, 0), "Lobby")
     end
 end
