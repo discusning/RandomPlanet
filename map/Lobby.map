@@ -23766,6 +23766,108 @@
             "replaced_model_id": null
           }
         }
+      },
+      {
+        "id": "ae6ba6c3-aab7-4736-8c68-2d13a83062e5",
+        "path": "/maps/Lobby/npc-guide",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.RigidbodyComponent,MOD.Core.StateComponent,MOD.Core.ChatBalloonComponent,MOD.Core.StateAnimationComponent,MOD.Core.NameTagComponent,MOD.Core.TouchReceiveComponent",
+        "jsonString": {
+          "name": "npc-guide",
+          "path": "/maps/Lobby/npc-guide",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": false,
+          "displayOrder": 25,
+          "pathConstraints": "///",
+          "revision": 1,
+          "modelId": null,
+          "@components": [
+            {
+              "@type": "MOD.Core.TransformComponent",
+              "Rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 76,
+                "y": -1.145,
+                "z": 999.999
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "ZRotation": 0,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteRendererComponent",
+              "ActionSheet": {},
+              "EndFrameIndex": 0,
+              "RenderSetting": 1,
+              "SortingLayer": "MapLayer0",
+              "SpriteRUID": "869a65290540492a92e11230a2455dae",
+              "StartFrameIndex": 0,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.RigidbodyComponent",
+              "MoveVelocity": {
+                "x": 0,
+                "y": 0
+              },
+              "RealMoveVelocity": {
+                "x": 0,
+                "y": 0
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.StateComponent",
+              "IsLegacy": false,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.ChatBalloonComponent",
+              "ChatBalloonRUID": {
+                "DataId": "7b6bd117bd0446a5bacec8ea6831c997"
+              },
+              "ChatModeEnabled": false,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.StateAnimationComponent",
+              "ActionSheet": {
+                "stand": "869a65290540492a92e11230a2455dae",
+                "say": "6638858df8474bb0960296bc85ac0db5"
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.NameTagComponent",
+              "Name": "안내인",
+              "NameTagRUID": {
+                "DataId": "9bf18287398c44699c20fc5123d1a1ae"
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TouchReceiveComponent",
+              "AutoFitToSize": true,
+              "Enable": true
+            }
+          ],
+          "@version": 1
+        }
       }
     ]
   }

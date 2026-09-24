@@ -1,0 +1,48 @@
+@Component
+script GuideNPCController extends Component
+    -- 2026-09-24 QA("퀘스트 npc 필요한거 같음 처음에 어떻게 게임이 돌아가는지 모름") - 초반 진행
+    -- 안내 전용 팝업. 실제 퀘스트 추적/보상 로직은 없고, Lobby의 새 안내 NPC를 터치하면 이 카드가
+    -- 열려 핵심 진행 방식(포탈/상인 NPC/하단바/단축키)을 텍스트로 안내한다. 다른 풀카드 팝업
+    -- (SquadFormationController/BattlefieldSelectController)과 동일하게 팝업 그룹 루트에 붙어
+    -- self.Entity.Enable로 카드 전체를 껐다 켠다.
+    property Entity btnClose = "e720b2db-99cb-4a07-b067-b20bd3acdc1c"
+    property Entity btnConfirm = "420990bd-2e27-4ccd-9b63-874909f4cc15"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- Hidden by default - LobbyStageController.OnGuideNpcTouched calls Show() on touch.
+        self._T.handlers = {}
+        local hClose = self.btnClose:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        table.insert(self._T.handlers, { entity = self.btnClose, eventHandler = hClose })
+        local hConfirm = self.btnConfirm:ConnectEvent(ButtonClickEvent, self.OnCloseClicked)
+        table.insert(self._T.handlers, { entity = self.btnConfirm, eventHandler = hConfirm })
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- Releases the close/confirm button click handlers.
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        log("GuideNPC: showing beginner guide popup")
+        self.Entity.Enable = true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        -- Also the target of BottomBarController.CloseOtherWindows' mutual exclusion sweep,
+        -- same as the squad-formation and battlefield-select full-card popups.
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        log("GuideNPC: closed guide popup")
+        self:Hide()
+    end
+end

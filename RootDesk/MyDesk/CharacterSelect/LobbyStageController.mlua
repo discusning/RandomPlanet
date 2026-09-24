@@ -9,6 +9,11 @@ script LobbyStageController extends Component
     property Entity npc = "8e42aaa6-04c1-41cc-811e-7a3f86f8f17e"
     -- 물약 상인 NPC(npc-shop, 2026-09-20 QA "물약 상점 없음") - 누르면 PotionShopUIController 팝업.
     property Entity shopNpc = "9efc41ef-15ea-40fb-bca6-948be621b2d8"
+    -- 안내인 NPC(npc-guide, 2026-09-24 QA "퀘스트 npc 필요한거 같음 처음에 어떻게 게임이 돌아가는지
+    -- 모름") - 누르면 GuideNPCController 안내 팝업(진행 방식/포탈/NPC/단축키 설명, 실제 퀘스트
+    -- 추적 로직은 없음).
+    property Entity guideNpc = "ae6ba6c3-aab7-4736-8c68-2d13a83062e5"
+    property Entity guideGroup = "caaae76e-64cd-4831-b5ef-d08be31453b9"
     property Entity squadGroup = "5f96f6e4-814c-42e0-b42a-2b5926f6723b"
     property Entity portal = "3857eb19-aa56-462a-9700-de2d00d22c5e"
     property Entity portalField1 = "298492af-60a8-4ab0-a06e-3ea36232bfa5"
@@ -37,6 +42,11 @@ script LobbyStageController extends Component
         if isvalid(self.shopNpc) then
             local hShopNpc = self.shopNpc:ConnectEvent(TouchEvent, self.OnShopNpcTouched)
             table.insert(self._T.handlers, { entity = self.shopNpc, eventType = TouchEvent, eventHandler = hShopNpc })
+        end
+
+        if isvalid(self.guideNpc) then
+            local hGuideNpc = self.guideNpc:ConnectEvent(TouchEvent, self.OnGuideNpcTouched)
+            table.insert(self._T.handlers, { entity = self.guideNpc, eventType = TouchEvent, eventHandler = hGuideNpc })
         end
 
         local hKey = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
@@ -210,6 +220,21 @@ script LobbyStageController extends Component
             bottomBar:CloseOtherWindows("")
         end
         _PotionShopUIController:Show()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnGuideNpcTouched(TouchEvent event)
+        -- 안내인 NPC. 다른 창들과 동일한 상호배타 처리 후 초반 진행 안내 팝업을 연다.
+        local bottomBar = _WindowHotkeyLogic:GetBottomBar()
+        if isvalid(bottomBar) then
+            bottomBar:CloseOtherWindows("")
+        end
+        if isvalid(self.guideGroup) then
+            local guide = self.guideGroup:GetComponent("script.GuideNPCController")
+            if isvalid(guide) then
+                guide:Show()
+            end
+        end
     end
 
     @ExecSpace("ClientOnly")

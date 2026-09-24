@@ -145,6 +145,8 @@ script BottomBarController extends Component
         -- Same again for the battlefield-select popup (opened from the Lobby's 1F portal,
         -- up-arrow) - identical full-card-on-top shape as the squad-formation popup above.
         self:CloseWindow("/ui/BattlefieldSelectGroup", "script.BattlefieldSelectController")
+        -- 2026-09-24 - 안내인 NPC 안내 팝업도 같은 이유로 동일 처리(NPC 터치로만 열리는 풀카드 팝업).
+        self:CloseWindow("/ui/GuideGroup", "script.GuideNPCController")
     end
 
     @ExecSpace("ClientOnly")
