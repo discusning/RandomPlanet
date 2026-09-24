@@ -33,7 +33,12 @@ script BattlefieldProgressHUDController extends Logic
     -- false -> true 엣지를 4Hz 폴링으로 감지(별도 RPC 불필요, 파티 전원에게 동일하게 발동).
     property TextGUIRendererComponent clearText = "c40688a9-e025-4597-87c4-812ebe9fe508"
     property string clearRuid = "976774bd563a4c4b9e02e5deb04686c7"
-    property string clearSoundRuid = "84a187fe4d514e6a9376069c89ceafe3"
+    -- 2026-09-24 유저 QA - 기존 사운드(84a187fe...)가 "웅장하고 짧은 오케스트라 팡파르"(brass/dramatic/
+    -- orchestral 태그)라 "뚜두두둔 뚜두두둔" 하는 무거운 느낌으로 게임 톤과 안 맞는다는 피드백. msw-search로
+    -- 재검색해 "MonsterBattleWin"(sound/game.img) 서브패스의 밝고 경쾌한 알림음으로 교체 - 태그가
+    -- bright/celebration/notification/success/upbeat뿐이고 dramatic/orchestral/brass가 없어 더 가볍다.
+    -- 길이(3.19초)도 팝인+유지 타이밍(0.6+2.4=3.0초)과 거의 맞아떨어진다.
+    property string clearSoundRuid = "401ca227c0c844569422a53bd21ab647"
     property number clearEffectYOffset = 1.4
     property integer clearPopEndFrame = 5
     property number clearPopSeconds = 0.6
