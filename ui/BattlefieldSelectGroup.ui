@@ -116,7 +116,8 @@
             },
             {
               "@type": "script.BattlefieldSelectController",
-              "Enable": true
+              "Enable": true,
+              "mode": "battlefield"
             }
           ],
           "@version": 1
@@ -4924,11 +4925,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": 150,
-                "y": -180
+                "y": -170
               },
               "OffsetMin": {
                 "x": -150,
-                "y": -202
+                "y": -192
               },
               "Pivot": {
                 "x": 0.5,
@@ -4947,16 +4948,11 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 0,
-                "y": -180
-              },
-              "Rotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0
+                "y": -170
               },
               "Position": {
                 "x": 0,
-                "y": 146,
+                "y": 0,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -4970,7 +4966,6 @@
                 "y": 1,
                 "z": 1
               },
-              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -5118,11 +5113,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": 200,
-                "y": -260
+                "y": -410
               },
               "OffsetMin": {
                 "x": -200,
-                "y": -334
+                "y": -484
               },
               "Pivot": {
                 "x": 0.5,
@@ -5141,7 +5136,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 0,
-                "y": -260
+                "y": -410
               },
               "Position": {
                 "x": 0,
@@ -5185,10 +5180,10 @@
               "SortingLayer": "UI",
               "StartFrameIndex": 0,
               "Color": {
-                "r": 0.101960786,
-                "g": 0.101960786,
-                "b": 0.101960786,
-                "a": 0
+                "r": 0.85,
+                "g": 0.65,
+                "b": 0.18,
+                "a": 1
               },
               "DropShadow": false,
               "DropShadowAngle": 120,
@@ -5363,8 +5358,8 @@
                 "y": -60
               },
               "Pivot": {
-                "x": 0.5,
-                "y": 1
+                "x": 1,
+                "y": 0.5
               },
               "RectSize": {
                 "x": 140,
@@ -5410,16 +5405,16 @@
               "BestFit": false,
               "ConstraintX": 100,
               "ConstraintY": 100,
-              "Font": "Default",
+              "Font": "Maple",
               "FontColor": {
-                "r": 1,
-                "g": 1,
-                "b": 1,
+                "r": 0.23137255,
+                "g": 0.141176477,
+                "b": 0.0627451,
                 "a": 1
               },
-              "FontSize": 22,
+              "FontSize": 18,
               "FontStyle": 0,
-              "HorizontalAlignment": 2,
+              "HorizontalAlignment": 4,
               "IgnoreMapLayerCheck": false,
               "MaxSize": 40,
               "MinSize": 10,
@@ -5441,7 +5436,7 @@
               },
               "SizeFit": false,
               "SortingLayer": "UI",
-              "Text": "게이트",
+              "Text": "입장 ▶",
               "Underlay": false,
               "UseConstraintX": false,
               "UseConstraintY": false,
@@ -5557,8 +5552,8 @@
                 "y": -12
               },
               "Pivot": {
-                "x": 0.5,
-                "y": 1
+                "x": 0,
+                "y": 0.5
               },
               "RectSize": {
                 "x": 220,
@@ -5604,16 +5599,16 @@
               "BestFit": false,
               "ConstraintX": 100,
               "ConstraintY": 100,
-              "Font": "Default",
+              "Font": "Maple",
               "FontColor": {
-                "r": 1,
-                "g": 1,
-                "b": 1,
+                "r": 0.23137255,
+                "g": 0.141176477,
+                "b": 0.0627451,
                 "a": 1
               },
               "FontSize": 20,
               "FontStyle": 0,
-              "HorizontalAlignment": 2,
+              "HorizontalAlignment": 1,
               "IgnoreMapLayerCheck": false,
               "MaxSize": 40,
               "MinSize": 10,
@@ -5751,8 +5746,8 @@
                 "y": -34
               },
               "Pivot": {
-                "x": 0.5,
-                "y": 1
+                "x": 0,
+                "y": 0.5
               },
               "RectSize": {
                 "x": 220,
@@ -5798,11 +5793,11 @@
               "BestFit": false,
               "ConstraintX": 100,
               "ConstraintY": 100,
-              "Font": "Default",
+              "Font": "Maple",
               "FontColor": {
-                "r": 1,
-                "g": 1,
-                "b": 1,
+                "r": 0.16,
+                "g": 0.45,
+                "b": 0.16,
                 "a": 1
               },
               "FontSize": 15,
@@ -5938,11 +5933,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": 100,
-                "y": -73
+                "y": 97
               },
               "OffsetMin": {
                 "x": -100,
-                "y": -95
+                "y": 75
               },
               "Pivot": {
                 "x": 0.5,
@@ -5961,7 +5956,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 0,
-                "y": -84
+                "y": 86
               },
               "Position": {
                 "x": 0,
@@ -6126,11 +6121,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": -105,
-                "y": -104
+                "y": 46
               },
               "OffsetMin": {
                 "x": -195,
-                "y": -144
+                "y": 6
               },
               "Pivot": {
                 "x": 0.5,
@@ -6149,7 +6144,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": -150,
-                "y": -124
+                "y": 26
               },
               "Position": {
                 "x": 0,
@@ -6364,11 +6359,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": -5,
-                "y": -104
+                "y": 46
               },
               "OffsetMin": {
                 "x": -95,
-                "y": -144
+                "y": 6
               },
               "Pivot": {
                 "x": 0.5,
@@ -6387,7 +6382,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": -50,
-                "y": -124
+                "y": 26
               },
               "Position": {
                 "x": 0,
@@ -6602,11 +6597,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": 95,
-                "y": -104
+                "y": 46
               },
               "OffsetMin": {
                 "x": 5,
-                "y": -144
+                "y": 6
               },
               "Pivot": {
                 "x": 0.5,
@@ -6625,7 +6620,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 50,
-                "y": -124
+                "y": 26
               },
               "Position": {
                 "x": 0,
@@ -6840,11 +6835,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": 195,
-                "y": -104
+                "y": 46
               },
               "OffsetMin": {
                 "x": 105,
-                "y": -144
+                "y": 6
               },
               "Pivot": {
                 "x": 0.5,
@@ -6863,7 +6858,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 150,
-                "y": -124
+                "y": 26
               },
               "Position": {
                 "x": 0,
@@ -7034,6 +7029,339 @@
               "UseConstraintX": false,
               "UseConstraintY": false,
               "VerticalAlignment": 512,
+              "Enable": true
+            }
+          ],
+          "@version": 1
+        }
+      },
+      {
+        "id": "6fce255e-8e37-4663-b679-4416f16004f0",
+        "path": "/ui/BattlefieldSelectGroup/Card/Inner/GateNote",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.TextGUIRendererComponent,MOD.Core.SpriteGUIRendererComponent",
+        "jsonString": {
+          "name": "GateNote",
+          "path": "/ui/BattlefieldSelectGroup/Card/Inner/GateNote",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": true,
+          "displayOrder": 16,
+          "pathConstraints": "/////",
+          "revision": 0,
+          "origin": {
+            "type": "Model",
+            "entry_id": "UITextGUIRenderer",
+            "sub_entity_id": null,
+            "root_entity_id": null,
+            "replaced_model_id": null
+          },
+          "modelId": "uitextguirenderer",
+          "@components": [
+            {
+              "@type": "MOD.Core.UITransformComponent",
+              "ActivePlatform": 255,
+              "AlignmentOption": 3,
+              "AnchorsMax": {
+                "x": 0.5,
+                "y": 1
+              },
+              "AnchorsMin": {
+                "x": 0.5,
+                "y": 1
+              },
+              "MobileOnly": false,
+              "OffsetMax": {
+                "x": 200,
+                "y": -350
+              },
+              "OffsetMin": {
+                "x": -200,
+                "y": -382
+              },
+              "Pivot": {
+                "x": 0.5,
+                "y": 1
+              },
+              "RectSize": {
+                "x": 400,
+                "y": 32
+              },
+              "UIMode": 1,
+              "UIScale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "UIVersion": 2,
+              "anchoredPosition": {
+                "x": 0,
+                "y": -350
+              },
+              "Position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TextGUIRendererComponent",
+              "BestFit": false,
+              "ConstraintX": 100,
+              "ConstraintY": 100,
+              "Font": "Default",
+              "FontColor": {
+                "r": 0.4,
+                "g": 0.32,
+                "b": 0.22,
+                "a": 0.85
+              },
+              "FontSize": 13,
+              "FontStyle": 0,
+              "HorizontalAlignment": 2,
+              "IgnoreMapLayerCheck": false,
+              "MaxSize": 40,
+              "MinSize": 10,
+              "OrderInLayer": 0,
+              "OutlineColor": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 1
+              },
+              "OutlineWidth": 0,
+              "Overflow": 0,
+              "OverrideSorting": false,
+              "Padding": {
+                "left": 0,
+                "right": 0,
+                "top": 0,
+                "bottom": 0
+              },
+              "SizeFit": false,
+              "SortingLayer": "UI",
+              "Text": "난이도가 높을수록 몬스터가 강해지고 더 많이 등장하며 보상도 늘어납니다.",
+              "Underlay": false,
+              "UseConstraintX": false,
+              "UseConstraintY": false,
+              "VerticalAlignment": 512,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteGUIRendererComponent",
+              "AnimClipPlayType": 0,
+              "EndFrameIndex": 2147483647,
+              "IgnoreMapLayerCheck": false,
+              "ImageRUID": {
+                "DataId": ""
+              },
+              "LocalPosition": {
+                "x": 0,
+                "y": 0
+              },
+              "LocalScale": {
+                "x": 1,
+                "y": 1
+              },
+              "MaterialId": "",
+              "OrderInLayer": 0,
+              "OverrideSorting": false,
+              "PlayRate": 1,
+              "PreserveSprite": 0,
+              "SortingLayer": "UI",
+              "StartFrameIndex": 0,
+              "Color": {
+                "r": 0.101960786,
+                "g": 0.101960786,
+                "b": 0.101960786,
+                "a": 0
+              },
+              "DropShadow": false,
+              "DropShadowAngle": 120,
+              "DropShadowColor": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 0.72
+              },
+              "DropShadowDistance": 3,
+              "FillAmount": 1,
+              "FillCenter": true,
+              "FillClockWise": true,
+              "FillMethod": 0,
+              "FillOrigin": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "FrameColumn": 1,
+              "FrameRate": 0,
+              "FrameRow": 1,
+              "Outline": false,
+              "OutlineColor": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 1
+              },
+              "OutlineWidth": 3,
+              "RaycastTarget": false,
+              "Type": 0,
+              "Enable": true
+            }
+          ],
+          "@version": 1
+        }
+      },
+      {
+        "id": "acae830c-0d74-486e-b159-38aa41dd4179",
+        "path": "/ui/BattlefieldSelectGroup/Card/Inner/GateRule",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
+        "jsonString": {
+          "name": "GateRule",
+          "path": "/ui/BattlefieldSelectGroup/Card/Inner/GateRule",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": true,
+          "displayOrder": 17,
+          "pathConstraints": "/////",
+          "revision": 0,
+          "origin": {
+            "type": "Model",
+            "entry_id": "UISprite",
+            "sub_entity_id": null,
+            "root_entity_id": null,
+            "replaced_model_id": null
+          },
+          "modelId": "uisprite",
+          "@components": [
+            {
+              "@type": "MOD.Core.UITransformComponent",
+              "ActivePlatform": 255,
+              "AlignmentOption": 3,
+              "AnchorsMax": {
+                "x": 0.5,
+                "y": 1
+              },
+              "AnchorsMin": {
+                "x": 0.5,
+                "y": 1
+              },
+              "MobileOnly": false,
+              "OffsetMax": {
+                "x": 170,
+                "y": -386
+              },
+              "OffsetMin": {
+                "x": -170,
+                "y": -387
+              },
+              "Pivot": {
+                "x": 0.5,
+                "y": 1
+              },
+              "RectSize": {
+                "x": 340,
+                "y": 1
+              },
+              "UIMode": 1,
+              "UIScale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "UIVersion": 2,
+              "anchoredPosition": {
+                "x": 0,
+                "y": -386
+              },
+              "Position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteGUIRendererComponent",
+              "AnimClipPlayType": 0,
+              "EndFrameIndex": 2147483647,
+              "IgnoreMapLayerCheck": false,
+              "ImageRUID": {
+                "DataId": "2860136c06ab075439721c027de365af"
+              },
+              "LocalPosition": {
+                "x": 0,
+                "y": 0
+              },
+              "LocalScale": {
+                "x": 1,
+                "y": 1
+              },
+              "MaterialId": "",
+              "OrderInLayer": 0,
+              "OverrideSorting": false,
+              "PlayRate": 1,
+              "PreserveSprite": 0,
+              "SortingLayer": "UI",
+              "StartFrameIndex": 0,
+              "Color": {
+                "r": 0.75,
+                "g": 0.55,
+                "b": 0.13,
+                "a": 0.5
+              },
+              "DropShadow": false,
+              "DropShadowAngle": 120,
+              "DropShadowColor": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 0.72
+              },
+              "DropShadowDistance": 3,
+              "FillAmount": 1,
+              "FillCenter": true,
+              "FillClockWise": true,
+              "FillMethod": 0,
+              "FillOrigin": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "FrameColumn": 1,
+              "FrameRate": 0,
+              "FrameRow": 1,
+              "Outline": false,
+              "OutlineColor": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 1
+              },
+              "OutlineWidth": 3,
+              "RaycastTarget": false,
+              "Type": 1,
               "Enable": true
             }
           ],
@@ -7278,339 +7606,6 @@
               "UseConstraintX": false,
               "UseConstraintY": false,
               "VerticalAlignment": 512,
-              "Enable": true
-            }
-          ],
-          "@version": 1
-        }
-      },
-      {
-        "id": "6fce255e-8e37-4663-b679-4416f16004f0",
-        "path": "/ui/BattlefieldSelectGroup/Card/Inner/GateNote",
-        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
-        "jsonString": {
-          "name": "GateNote",
-          "path": "/ui/BattlefieldSelectGroup/Card/Inner/GateNote",
-          "nameEditable": true,
-          "enable": true,
-          "visible": true,
-          "localize": true,
-          "displayOrder": 16,
-          "pathConstraints": "/////",
-          "revision": 0,
-          "origin": {
-            "type": "Model",
-            "entry_id": "UITextGUIRenderer",
-            "sub_entity_id": null,
-            "root_entity_id": null,
-            "replaced_model_id": null
-          },
-          "modelId": "uitextguirenderer",
-          "@components": [
-            {
-              "@type": "MOD.Core.UITransformComponent",
-              "ActivePlatform": 255,
-              "AlignmentOption": 3,
-              "AnchorsMax": {
-                "x": 0.5,
-                "y": 1
-              },
-              "AnchorsMin": {
-                "x": 0.5,
-                "y": 1
-              },
-              "MobileOnly": false,
-              "OffsetMax": {
-                "x": 200,
-                "y": -352
-              },
-              "OffsetMin": {
-                "x": -200,
-                "y": -384
-              },
-              "Pivot": {
-                "x": 0.5,
-                "y": 1
-              },
-              "RectSize": {
-                "x": 400,
-                "y": 32
-              },
-              "UIMode": 1,
-              "UIScale": {
-                "x": 1,
-                "y": 1,
-                "z": 1
-              },
-              "UIVersion": 2,
-              "anchoredPosition": {
-                "x": 0,
-                "y": -352
-              },
-              "Position": {
-                "x": 0,
-                "y": 0,
-                "z": 0
-              },
-              "QuaternionRotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "w": 1
-              },
-              "Scale": {
-                "x": 1,
-                "y": 1,
-                "z": 1
-              },
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.SpriteGUIRendererComponent",
-              "AnimClipPlayType": 0,
-              "EndFrameIndex": 2147483647,
-              "ImageRUID": {
-                "DataId": ""
-              },
-              "IgnoreMapLayerCheck": false,
-              "LocalPosition": {
-                "x": 0,
-                "y": 0
-              },
-              "LocalScale": {
-                "x": 1,
-                "y": 1
-              },
-              "MaterialId": "",
-              "OrderInLayer": 0,
-              "OverrideSorting": false,
-              "PlayRate": 1,
-              "PreserveSprite": 0,
-              "SortingLayer": "UI",
-              "StartFrameIndex": 0,
-              "Color": {
-                "r": 0.10196078431372549,
-                "g": 0.10196078431372549,
-                "b": 0.10196078431372549,
-                "a": 0
-              },
-              "DropShadow": false,
-              "DropShadowAngle": 120,
-              "DropShadowColor": {
-                "r": 0,
-                "g": 0,
-                "b": 0,
-                "a": 0.72
-              },
-              "DropShadowDistance": 3,
-              "FillAmount": 1,
-              "FillCenter": true,
-              "FillClockWise": true,
-              "FillMethod": 0,
-              "FillOrigin": 0,
-              "FlipX": false,
-              "FlipY": false,
-              "FrameColumn": 1,
-              "FrameRate": 0,
-              "FrameRow": 1,
-              "Outline": false,
-              "OutlineColor": {
-                "r": 0,
-                "g": 0,
-                "b": 0,
-                "a": 1
-              },
-              "OutlineWidth": 3,
-              "RaycastTarget": false,
-              "Type": 0,
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.TextGUIRendererComponent",
-              "BestFit": false,
-              "ConstraintX": 100,
-              "ConstraintY": 100,
-              "Font": "Default",
-              "FontColor": {
-                "r": 0.4,
-                "g": 0.32,
-                "b": 0.22,
-                "a": 0.85
-              },
-              "FontSize": 13,
-              "FontStyle": 0,
-              "HorizontalAlignment": 2,
-              "IgnoreMapLayerCheck": false,
-              "MaxSize": 40,
-              "MinSize": 10,
-              "OrderInLayer": 0,
-              "OutlineColor": {
-                "r": 0,
-                "g": 0,
-                "b": 0,
-                "a": 1
-              },
-              "OutlineWidth": 0,
-              "Overflow": 0,
-              "OverrideSorting": false,
-              "Padding": {
-                "left": 0,
-                "right": 0,
-                "top": 0,
-                "bottom": 0
-              },
-              "SizeFit": false,
-              "SortingLayer": "UI",
-              "Text": "난이도가 높을수록 몬스터가 강해지고 더 많이 등장하며 보상도 늘어납니다.",
-              "Underlay": false,
-              "UseConstraintX": false,
-              "UseConstraintY": false,
-              "VerticalAlignment": 512,
-              "Enable": true
-            }
-          ],
-          "@version": 1
-        }
-      },
-      {
-        "id": "acae830c-0d74-486e-b159-38aa41dd4179",
-        "path": "/ui/BattlefieldSelectGroup/Card/Inner/GateRule",
-        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
-        "jsonString": {
-          "name": "GateRule",
-          "path": "/ui/BattlefieldSelectGroup/Card/Inner/GateRule",
-          "nameEditable": true,
-          "enable": true,
-          "visible": true,
-          "localize": true,
-          "displayOrder": 17,
-          "pathConstraints": "/////",
-          "revision": 0,
-          "origin": {
-            "type": "Model",
-            "entry_id": "UISprite",
-            "sub_entity_id": null,
-            "root_entity_id": null,
-            "replaced_model_id": null
-          },
-          "modelId": "uisprite",
-          "@components": [
-            {
-              "@type": "MOD.Core.UITransformComponent",
-              "ActivePlatform": 255,
-              "AlignmentOption": 3,
-              "AnchorsMax": {
-                "x": 0.5,
-                "y": 1
-              },
-              "AnchorsMin": {
-                "x": 0.5,
-                "y": 1
-              },
-              "MobileOnly": false,
-              "OffsetMax": {
-                "x": 170,
-                "y": -388
-              },
-              "OffsetMin": {
-                "x": -170,
-                "y": -389
-              },
-              "Pivot": {
-                "x": 0.5,
-                "y": 1
-              },
-              "RectSize": {
-                "x": 340,
-                "y": 1
-              },
-              "UIMode": 1,
-              "UIScale": {
-                "x": 1,
-                "y": 1,
-                "z": 1
-              },
-              "UIVersion": 2,
-              "anchoredPosition": {
-                "x": 0,
-                "y": -388
-              },
-              "Position": {
-                "x": 0,
-                "y": 0,
-                "z": 0
-              },
-              "QuaternionRotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "w": 1
-              },
-              "Scale": {
-                "x": 1,
-                "y": 1,
-                "z": 1
-              },
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.SpriteGUIRendererComponent",
-              "AnimClipPlayType": 0,
-              "EndFrameIndex": 2147483647,
-              "ImageRUID": {
-                "DataId": "2860136c06ab075439721c027de365af"
-              },
-              "IgnoreMapLayerCheck": false,
-              "LocalPosition": {
-                "x": 0,
-                "y": 0
-              },
-              "LocalScale": {
-                "x": 1,
-                "y": 1
-              },
-              "MaterialId": "",
-              "OrderInLayer": 0,
-              "OverrideSorting": false,
-              "PlayRate": 1,
-              "PreserveSprite": 0,
-              "SortingLayer": "UI",
-              "StartFrameIndex": 0,
-              "Color": {
-                "r": 0.75,
-                "g": 0.55,
-                "b": 0.13,
-                "a": 0.5
-              },
-              "DropShadow": false,
-              "DropShadowAngle": 120,
-              "DropShadowColor": {
-                "r": 0,
-                "g": 0,
-                "b": 0,
-                "a": 0.72
-              },
-              "DropShadowDistance": 3,
-              "FillAmount": 1,
-              "FillCenter": true,
-              "FillClockWise": true,
-              "FillMethod": 0,
-              "FillOrigin": 0,
-              "FlipX": false,
-              "FlipY": false,
-              "FrameColumn": 1,
-              "FrameRate": 0,
-              "FrameRow": 1,
-              "Outline": false,
-              "OutlineColor": {
-                "r": 0,
-                "g": 0,
-                "b": 0,
-                "a": 1
-              },
-              "OutlineWidth": 3,
-              "RaycastTarget": false,
-              "Type": 1,
               "Enable": true
             }
           ],
