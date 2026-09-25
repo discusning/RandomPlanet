@@ -418,8 +418,8 @@ script CharacterSelectStageController extends Component
         -- server's true value, so a same-value server write here would be a silent no-op that never
         -- re-syncs to the client. The client calls ShowLocalPlayer() itself instead (see that method).
 
-        -- 2026-09-24 로비 개편(마가티아 모티브) - 광장 바닥(y=-1.92)의 안내인/상인/공격대 관리인
-        -- NPC 근처 x=-17에 착지시킨다(예전 좌표 58,-0.82는 옛 로비 기준).
-        _TeleportService:TeleportToMapPosition(player, Vector3(-17, -1.5, 0), "Lobby")
+        -- 2026-09-25 로비 재개편(루디브리엄 모티브) - 광장 도로(y=-1.02) 링크 발판 아래 x=-5에 착지
+        -- (NPC 3명 사이). 이전 좌표들은 옛 로비(58,-0.82 / 마가티아 -17,-1.5) 기준.
+        _TeleportService:TeleportToMapPosition(player, Vector3(-5.0, -0.62, 0), "Lobby")
     end
 end

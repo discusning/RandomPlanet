@@ -151,8 +151,8 @@ script BattlefieldReturnLogic extends Logic
         self._T.channeling = false
         self.IsChanneling = false
         if isvalid(player) then
-            -- 2026-09-24 로비 개편 - 1층 포탈(portal-1, 광장 거리 x=-3.7, y=-1.92) 바로 앞.
-            _TeleportService:TeleportToMapPosition(player, Vector3(-3.7, -1.5, 0), "Lobby")
+            -- 2026-09-25 로비 재개편(루디브리엄) - 1층 포탈(portal-1, 도로 x=7.9, y=-0.97) 바로 앞.
+            _TeleportService:TeleportToMapPosition(player, Vector3(7.9, -0.62, 0), "Lobby")
             log("BattlefieldReturn: returned to Lobby")
         end
     end

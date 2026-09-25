@@ -71,8 +71,10 @@ script SystemUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void OnEndPlay()
-        for _, rec in ipairs(self._T.handlers) do
-            rec.entity:DisconnectEvent(rec.eventType, rec.eventHandler)
+        for _, rec in ipairs(self._T.handlers or {}) do
+            if isvalid(rec.entity) and rec.eventType ~= nil and rec.eventHandler ~= nil then
+                rec.entity:DisconnectEvent(rec.eventType, rec.eventHandler)
+            end
         end
     end
 
@@ -83,7 +85,7 @@ script SystemUIController extends Component
             return
         end
         local h = target:ConnectEvent(evType, cb)
-        table.insert(self._T.handlers, { entity = target, eventType = eventType, eventHandler = h })
+        table.insert(self._T.handlers, { entity = target, eventType = evType, eventHandler = h })
     end
 
     @ExecSpace("ClientOnly")
