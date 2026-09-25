@@ -135,7 +135,7 @@ script AbilityChoiceUIController extends Logic
     method string TraitBlurb(string trait)
         -- M2 Phase B(2026-09-06) - TraitCatalog(115종) 조회로 교체. legacy 6종은 기존 하드코딩
         -- 문구를 그대로 유지(실측 검증된 정확한 수치 표현), 나머지 109종은 catalog의 basicDesc.
-        if trait == "상인" then return "드랍률+15% (물약 드랍 확률에 실제 반영)"
+        if trait == "상인" then return "드랍률 +15% (물약 드랍 확률에 반영)"
         elseif trait == "버서크" then return "실제로 맞아서 체력이 깎일수록 공격력↑ (최대 +60%, 자해 없음)"
         elseif trait == "단단함" then return "전투력 생존 배율 +12%"
         elseif trait == "날렵함" then return "이동 속도 +0.6"

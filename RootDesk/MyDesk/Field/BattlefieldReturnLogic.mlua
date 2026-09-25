@@ -124,6 +124,18 @@ script BattlefieldReturnLogic extends Logic
         if _TimeStopLogic.Stopped then
             return
         end
+        -- 2026-09-25 QA - 채널 중 사망(RunEnded)하거나 플레이어가 사라졌으면/전장을 벗어났으면 채널을
+        -- 취소한다(안 그러면 죽은 캐릭터가 그대로 로비로 텔레포트돼 Ending UI가 로비에서 뜬다).
+        local channelPlayer = self._T.channelPlayer
+        if not isvalid(channelPlayer) or not self:IsBattlefieldMap(channelPlayer.CurrentMapName) then
+            self:CancelChannel("플레이어 이탈")
+            return
+        end
+        local statsComp = channelPlayer:GetComponent("script.PlayerStatsComponent")
+        if isvalid(statsComp) and statsComp.RunEnded then
+            self:CancelChannel("사망")
+            return
+        end
         self.ChannelRemaining = self.ChannelRemaining - delta
         if self.ChannelRemaining <= 0 then
             self:CompleteReturn()

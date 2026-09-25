@@ -347,7 +347,8 @@ script LobbyStageController extends Component
     @ExecSpace("ClientOnly")
     method integer GetBattlefieldPortalFloor(Vector3 playerPos)
         -- 플레이어가 서 있는 전장 포탈의 층(1/2/3)을 돌려준다. 어느 포탈 판정에도 안 걸리면 0.
-        -- (로비 x≈88.3의 포탈 3개 - 위 OnKeyDown 주석 참고. 판정 박스는 IsPlayerAtPortal 공용.)
+        -- (2026-09-24 로비 개편 후: 1층 portal-1은 광장 거리 x=-3.7, 2/3층 portal-2/6은 탑 턱 x=-1.4 -
+        -- 위 OnKeyDown 주석 참고. 판정 박스는 IsPlayerAtPortal 공용.)
         -- 위쪽 점프 여유(+0.8) 때문에 인접 층의 판정 박스가 일부 겹치므로(3층 바닥이 2층 박스에도 걸림),
         -- 걸린 포탈 중 세로 거리가 가장 가까운 층을 고른다 - 세 포탈 모두 같은 팝업을 여니 동작엔 영향이
         -- 없고, 로그의 층 표기만 정확하게 하려는 것.

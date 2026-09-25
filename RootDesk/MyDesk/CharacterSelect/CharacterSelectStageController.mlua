@@ -378,8 +378,8 @@ script CharacterSelectStageController extends Component
         -- Client (the character card's PLAY button) asked to enter the village lobby. Applies the
         -- chosen slot's rolled look + equipped gear onto the actual player entity via the shared
         -- roster logic - the player's own MSW-account avatar is never shown (DefaultPlayer.model
-        -- has UseCustomEquipOnly=true), only this random look. Destination is the Lobby map's main
-        -- ground foothold (y=-1.25, spans x=5.54~33.16), landing 0.4 units above it per the standard
+        -- has UseCustomEquipOnly=true), only this random look. Destination is the Lobby plaza's
+        -- street foothold (2026-09-24 개편 - y=-1.92), landing ~0.4 units above it per the standard
         -- MapleTile spawn-clearance convention.
         local player = _UserService:GetUserEntityByUserId(senderUserId)
         if not isvalid(player) then
