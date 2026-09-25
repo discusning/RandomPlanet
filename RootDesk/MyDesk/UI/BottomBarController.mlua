@@ -61,6 +61,8 @@ script BottomBarController extends Component
             -- 2026-09-20 물약 상점(로비 물약 상인 NPC로만 열림 - 하단바 버튼은 없다). 다른 창을 열거나
             -- 하단바가 숨겨질 때 같이 닫히도록 상호배타 목록에만 편입.
             { path = "/ui/PotionShopGroup", scriptType = "script.PotionShopUIController" },
+            -- 시스템 설정(음량) 창 - 설정 창의 버튼으로만 열린다. 다른 창을 열면 같이 닫히도록 편입.
+            { path = "/ui/SystemGroup", scriptType = "script.SystemUIController" },
         }
     end
 

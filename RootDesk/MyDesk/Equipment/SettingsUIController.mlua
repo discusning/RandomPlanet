@@ -10,6 +10,8 @@ script SettingsUIController extends Component
     property Entity dragHandle = "1e8644e5-2095-455a-a040-956fcec66d4b"
     property UITransformComponent cardTransform = "8bf82fcd-7253-4829-ab55-99b486ebbd41"
     property Entity btnKeySetting = "61c0f86f-7ed6-47b2-ae3c-19cfe24d949f"
+    -- 시스템 설정(음량) 창 열기 버튼 - UIBuilder bind로 UUID 주입.
+    property Entity btnSystem = "3f2ebe3b-973f-4515-b9eb-d1c35715974b"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -23,6 +25,10 @@ script SettingsUIController extends Component
         if isvalid(self.btnKeySetting) then
             local hKeySetting = self.btnKeySetting:ConnectEvent(ButtonClickEvent, self.OnKeySettingClicked)
             table.insert(self._T.handlers, { entity = self.btnKeySetting, eventType = ButtonClickEvent, eventHandler = hKeySetting })
+        end
+        if isvalid(self.btnSystem) then
+            local hSystem = self.btnSystem:ConnectEvent(ButtonClickEvent, self.OnSystemClicked)
+            table.insert(self._T.handlers, { entity = self.btnSystem, eventType = ButtonClickEvent, eventHandler = hSystem })
         end
         self.Entity.Enable = false
     end
@@ -62,6 +68,22 @@ script SettingsUIController extends Component
     @ExecSpace("ClientOnly")
     method void OnCloseClicked()
         self:Hide()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSystemClicked()
+        -- 시스템 설정(배경/플레이어 음량) 창을 연다. SystemUIController는 /ui/SystemGroup 루트에 붙어 있다.
+        log("SettingsUI: OnSystemClicked")
+        self:Hide()
+        local systemGroup = _EntityService:GetEntityByPath("/ui/SystemGroup")
+        if not isvalid(systemGroup) then
+            log_warning("SettingsUI: SystemGroup not found")
+            return
+        end
+        local popup = systemGroup:GetComponent("script.SystemUIController")
+        if isvalid(popup) then
+            popup:Show()
+        end
     end
 
     @ExecSpace("ClientOnly")

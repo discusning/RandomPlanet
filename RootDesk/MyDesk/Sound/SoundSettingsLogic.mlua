@@ -1,0 +1,257 @@
+@Logic
+script SoundSettingsLogic extends Logic
+    -- 계정 단위 음량 설정 (배경 음량 BGM / 플레이어 음량 SFX). 각각 1~10 정수 레벨.
+    -- 게인 = level / 10 (LevelToGain 한 곳에서만 계산 - 나중에 곡선을 바꾸려면 여기만 수정).
+    -- 저장: 계정 UserDataStorage(profileCode) "SystemSettings" 키에 JSON {bgm=n, sfx=n}.
+    property string StorageName = "SystemSettings"
+    property integer MinLevel = 1
+    property integer MaxLevel = 10
+    property integer DefaultBgmLevel = 10
+    property integer DefaultSfxLevel = 10
+    property number SaveDebounceSeconds = 0.6
+    property number MapPollSeconds = 1.0
+    -- PlayPreviewSfx용 짧은 UI 클릭음 (effect, 길이 약 0.47초, "UI 버튼을 클릭할 때 발생하는 짧고 경쾌한 클릭음")
+    property string PreviewSfxRuid = "ca67bc50e89240c3941219be17328df0"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- 기본값으로 시작하고, 서버에서 로드가 끝나면 덮어쓴다. 맵 변경 감지용 반복 타이머 시작.
+        self._T.bgmLevel = self.DefaultBgmLevel
+        self._T.sfxLevel = self.DefaultSfxLevel
+        self._T.loaded = false
+        self._T.saveTimer = 0
+        self._T.pollTimer = 0
+        self._T.lastMapName = ""
+        self._T.volumeWriteWarned = false
+        self._T.pollTimer = _TimerService:SetTimerRepeat(self.PollMapChange, self.MapPollSeconds)
+        self:RequestLoad()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 타이머 해제 (필수)
+        if self._T.pollTimer ~= nil and self._T.pollTimer ~= 0 then
+            _TimerService:ClearTimer(self._T.pollTimer)
+            self._T.pollTimer = 0
+        end
+        if self._T.saveTimer ~= nil and self._T.saveTimer ~= 0 then
+            _TimerService:ClearTimer(self._T.saveTimer)
+            self._T.saveTimer = 0
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer ClampLevel(number level)
+        -- 1~10 범위로 정수 고정.
+        local v = math.floor(level + 0.5)
+        if v < self.MinLevel then v = self.MinLevel end
+        if v > self.MaxLevel then v = self.MaxLevel end
+        return v
+    end
+
+    @ExecSpace("ClientOnly")
+    method number LevelToGain(integer level)
+        -- 레벨 -> 게인 변환의 유일한 지점. 현재는 선형 (level/10).
+        return level / 10.0
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer GetBgmLevel()
+        -- 현재 배경 음량 레벨(1~10).
+        return self._T.bgmLevel or self.DefaultBgmLevel
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer GetSfxLevel()
+        -- 현재 플레이어 음량 레벨(1~10).
+        return self._T.sfxLevel or self.DefaultSfxLevel
+    end
+
+    @ExecSpace("ClientOnly")
+    method number GetBgmGain()
+        -- 배경 음량 게인(0~1).
+        return self:LevelToGain(self:GetBgmLevel())
+    end
+
+    @ExecSpace("ClientOnly")
+    method number GetSfxGain()
+        -- 플레이어 음량 게인(0~1).
+        return self:LevelToGain(self:GetSfxLevel())
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsLoaded()
+        -- 서버 저장값 로드 완료 여부.
+        return self._T.loaded == true
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetBgmLevel(integer level)
+        -- 배경 음량 설정: 정수가 아니면 무시, 1~10 클램프, 즉시 적용 + 저장 예약.
+        local n = tonumber(level)
+        if n == nil or n ~= math.floor(n) then return end
+        self._T.bgmLevel = self:ClampLevel(n)
+        self:ApplyBgm()
+        self:ScheduleSave()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetSfxLevel(integer level)
+        -- 플레이어 음량 설정: 정수가 아니면 무시, 1~10 클램프, 저장 예약. (효과음은 재생 시점에 게인 적용)
+        local n = tonumber(level)
+        if n == nil or n ~= math.floor(n) then return end
+        self._T.sfxLevel = self:ClampLevel(n)
+        log("SoundSettings: sfx level=" .. tostring(self._T.sfxLevel))
+        self:ScheduleSave()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ResetDefaults()
+        -- 두 채널 모두 기본값(10)으로 복원.
+        self._T.bgmLevel = self.DefaultBgmLevel
+        self._T.sfxLevel = self.DefaultSfxLevel
+        self:ApplyBgm()
+        self:ScheduleSave()
+        log("SoundSettings: reset to defaults")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PlaySfx(string ruid, number baseVolume)
+        -- 효과음 재생: baseVolume에 플레이어 음량 게인을 곱해 SoundService로 재생.
+        if ruid == nil or ruid == "" then return end
+        local v = (baseVolume or 1.0) * self:GetSfxGain()
+        if v < 0 then v = 0 end
+        if v > 1 then v = 1 end
+        _SoundService:PlaySound(ruid, v)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PlayPreviewSfx()
+        -- 설정창 슬라이더 조작 시 현재 플레이어 음량으로 짧은 샘플음 재생.
+        self:PlaySfx(self.PreviewSfxRuid, 1.0)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ApplyBgm()
+        -- SetBGMVolume(PlayBGM 경로) + 현재 맵 루트 SoundComponent(Bgm=true)의 Volume 둘 다 적용.
+        local gain = self:GetBgmGain()
+        _SoundService:SetBGMVolume(gain)
+        local player = _UserService.LocalPlayer
+        if isvalid(player) then
+            local map = player.CurrentMap
+            if isvalid(map) then
+                local sc = map.SoundComponent
+                if isvalid(sc) and sc.Bgm == true then
+                    sc.Volume = gain
+                    -- float 정밀도(0.3 -> 0.30000001) 때문에 == 비교 대신 허용 오차로 판정.
+                    if math.abs(sc.Volume - gain) > 0.001 and not self._T.volumeWriteWarned then
+                        self._T.volumeWriteWarned = true
+                        log_warning("SoundSettings: SoundComponent.Volume client write did not stick, relying on SetBGMVolume")
+                    end
+                end
+            end
+        end
+        log("SoundSettings: apply bgm level=" .. tostring(self:GetBgmLevel()) .. " gain=" .. tostring(gain))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PollMapChange()
+        -- 로컬 플레이어의 맵이 바뀌면(Logic은 OnMapEnter를 받지 못함) BGM 음량을 다시 적용.
+        local player = _UserService.LocalPlayer
+        if not isvalid(player) then return end
+        local name = player.CurrentMapName
+        if name == nil or name == "" then return end
+        if name ~= self._T.lastMapName then
+            self._T.lastMapName = name
+            log("SoundSettings: map changed -> " .. tostring(name))
+            self:ApplyBgm()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ScheduleSave()
+        -- 디바운스(약 0.6초): 마지막 변경 후 한 번만 서버로 저장 요청.
+        if self._T.saveTimer ~= nil and self._T.saveTimer ~= 0 then
+            _TimerService:ClearTimer(self._T.saveTimer)
+        end
+        self._T.saveTimer = _TimerService:SetTimerOnce(self.FlushSave, self.SaveDebounceSeconds)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void FlushSave()
+        -- 디바운스 만료: 현재 값을 서버에 전달.
+        self._T.saveTimer = 0
+        log("SoundSettings: save request bgm=" .. tostring(self:GetBgmLevel()) .. " sfx=" .. tostring(self:GetSfxLevel()))
+        self:RequestSave(self:GetBgmLevel(), self:GetSfxLevel())
+    end
+
+    @ExecSpace("Server")
+    method void RequestLoad()
+        -- Client->server: 계정 저장소에서 읽어 호출자에게만 되돌려준다.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local profileCode = player.PlayerComponent.ProfileCode
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local errorCode, raw = storage:GetAndWait(self.StorageName)
+        local bgm, sfx, found = self.DefaultBgmLevel, self.DefaultSfxLevel, false
+        if errorCode == 0 and raw ~= nil and raw ~= "" then
+            local decoded = _HttpService:JSONDecode(raw)
+            if decoded ~= nil then
+                local b = tonumber(decoded.bgm)
+                local s = tonumber(decoded.sfx)
+                if b ~= nil then bgm = math.max(self.MinLevel, math.min(self.MaxLevel, math.floor(b + 0.5))) end
+                if s ~= nil then sfx = math.max(self.MinLevel, math.min(self.MaxLevel, math.floor(s + 0.5))) end
+                found = true
+            end
+        end
+        self:OnLoaded(bgm, sfx, found)
+    end
+
+    @ExecSpace("Client")
+    method void OnLoaded(integer bgm, integer sfx, boolean found)
+        -- 서버 로드 결과 반영 후 BGM 적용 + 설정창 갱신.
+        self._T.bgmLevel = bgm
+        self._T.sfxLevel = sfx
+        self._T.loaded = true
+        log("SoundSettings: loaded bgm=" .. tostring(bgm) .. " sfx=" .. tostring(sfx) .. " found=" .. tostring(found))
+        self:ApplyBgm()
+        self:NotifyUIIfOpen()
+    end
+
+    @ExecSpace("Server")
+    method void RequestSave(integer bgm, integer sfx)
+        -- Client->server: 범위 검증 후 계정 저장소에 JSON 저장.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local b = tonumber(bgm)
+        local s = tonumber(sfx)
+        if b == nil or s == nil then return end
+        b = math.max(self.MinLevel, math.min(self.MaxLevel, math.floor(b + 0.5)))
+        s = math.max(self.MinLevel, math.min(self.MaxLevel, math.floor(s + 0.5)))
+        local profileCode = player.PlayerComponent.ProfileCode
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local json = _HttpService:JSONEncode({ bgm = b, sfx = s })
+        storage:SetAsync(self.StorageName, json, function(errorCode, key)
+            if errorCode ~= 0 then
+                log_error("SoundSettings: SetAsync failed, errorCode=" .. tostring(errorCode))
+            end
+        end)
+        log("SoundSettings: saved bgm=" .. tostring(b) .. " sfx=" .. tostring(s) .. " profileCode=" .. tostring(profileCode))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void NotifyUIIfOpen()
+        -- 설정창(SystemGroup)이 있으면 갱신 요청. 없거나 컴포넌트가 없으면 조용히 무시.
+        local e = _EntityService:GetEntityByPath("/ui/SystemGroup")
+        if isvalid(e) then
+            local ctrl = e:GetComponent("script.SystemUIController")
+            if isvalid(ctrl) then
+                ctrl:OnSettingsChanged()
+            end
+        end
+    end
+end

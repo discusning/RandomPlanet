@@ -1,0 +1,206 @@
+@Component
+script SystemUIController extends Component
+    -- 시스템 설정 창(/ui/SystemGroup) - 설정 창의 "시스템 설정" 버튼으로 열린다.
+    -- 배경 음량(맵 BGM) / 플레이어 음량(스킬·효과음·음성) 두 개를 1~10 단계로 조절한다.
+    -- 실제 값은 _SoundSettingsLogic이 들고 있고(저장/적용 포함), 이 컨트롤러는 표시와 입력만 담당한다.
+    -- 아래 UUID는 UIBuilder write({bind})로 주입된다.
+    property Entity btnClose = "c7a8aa38-1f1e-4745-b58a-6ea00ae6ab89"
+    property Entity dragHandle = "e4088a0b-6391-4084-aeb0-f2bd98c39861"
+    property UITransformComponent cardTransform = "94a32fa4-9317-4ef3-91e5-56fb19d45e3a"
+    property Entity btnConfirm = "28c8735c-3200-4502-bdcf-7ce4ecc686cd"
+    property Entity btnReset = "649c2abe-e861-4241-a0ca-08594344b070"
+    property Entity btnBgmDown = "7a991190-2f42-4753-b668-7abea66ef1b8"
+    property Entity btnBgmUp = "91df2350-c42b-4070-890b-efaff58b0094"
+    property TextGUIRendererComponent bgmValue = "0e3e897d-d33f-451c-a2ce-63704e2813ea"
+    property Entity btnSfxDown = "dc61b898-6411-4bbb-bf11-822271d1986e"
+    property Entity btnSfxUp = "552ea5fb-d06e-48bd-82ee-f18c8603855d"
+    property TextGUIRendererComponent sfxValue = "495709bf-558b-4629-94f1-4720d02abd6c"
+    property Entity bgmSeg1 = "2a21b118-4be2-40e0-b2c0-4ff55fbeefdf"
+    property Entity bgmSeg2 = "4266c5d8-384e-4693-830a-08f952d048a1"
+    property Entity bgmSeg3 = "9d8af005-d1ce-428f-9f6d-dbcf36fd991c"
+    property Entity bgmSeg4 = "9964f914-46d6-4c0c-8c1a-eff3f7d84680"
+    property Entity bgmSeg5 = "1e0e77d8-d9b3-49e3-93f8-5a968ed2caf4"
+    property Entity bgmSeg6 = "769a72e3-fd32-4a7a-991c-f0ff1e611a96"
+    property Entity bgmSeg7 = "3e0933bc-dcae-4190-b322-8ab93b69e07f"
+    property Entity bgmSeg8 = "ad5d4c85-b065-4b2e-9e70-0dd669e4e68a"
+    property Entity bgmSeg9 = "12e63f33-df7c-401c-9cca-d4c7cc99c0a6"
+    property Entity bgmSeg10 = "a8956d28-9986-44e8-8413-2d344dc9f8f7"
+    property Entity sfxSeg1 = "b8546abf-5215-4f81-aaf3-ce9792bb7db8"
+    property Entity sfxSeg2 = "a682eaec-a7a5-4f42-ada0-ff2fc94782f8"
+    property Entity sfxSeg3 = "25e8b7bb-b744-4b17-b0d4-66f00937ffec"
+    property Entity sfxSeg4 = "86886009-08fc-42b9-91af-69278f8366a7"
+    property Entity sfxSeg5 = "9fb363a0-578e-4eff-89ca-ce97cd954618"
+    property Entity sfxSeg6 = "926c1387-f1f3-4765-bd9f-2d6d71f49bb9"
+    property Entity sfxSeg7 = "f03eb49a-3f47-4873-9e84-a1c952a75613"
+    property Entity sfxSeg8 = "71d36730-ebad-4c63-b8fa-827282760f9d"
+    property Entity sfxSeg9 = "acc0eb5f-b394-4489-aef7-c7e1fe10a175"
+    property Entity sfxSeg10 = "ce5a90aa-93e4-46d2-bbea-a9c195a91b82"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.handlers = {}
+        self._T.bgmSegs = { self.bgmSeg1, self.bgmSeg2, self.bgmSeg3, self.bgmSeg4, self.bgmSeg5, self.bgmSeg6, self.bgmSeg7, self.bgmSeg8, self.bgmSeg9, self.bgmSeg10 }
+        self._T.sfxSegs = { self.sfxSeg1, self.sfxSeg2, self.sfxSeg3, self.sfxSeg4, self.sfxSeg5, self.sfxSeg6, self.sfxSeg7, self.sfxSeg8, self.sfxSeg9, self.sfxSeg10 }
+
+        self:Bind(self.btnClose, ButtonClickEvent, self.OnCloseClicked)
+        self:Bind(self.btnConfirm, ButtonClickEvent, self.OnCloseClicked)
+        self:Bind(self.btnReset, ButtonClickEvent, self.OnResetClicked)
+        self:Bind(self.btnBgmDown, ButtonClickEvent, self.OnBgmDownClicked)
+        self:Bind(self.btnBgmUp, ButtonClickEvent, self.OnBgmUpClicked)
+        self:Bind(self.btnSfxDown, ButtonClickEvent, self.OnSfxDownClicked)
+        self:Bind(self.btnSfxUp, ButtonClickEvent, self.OnSfxUpClicked)
+        self:Bind(self.dragHandle, UITouchDragEvent, self.OnDrag)
+
+        -- 단계 막대: 칸 i를 누르면 i단계로 바로 설정.
+        for i = 1, 10 do
+            local bgmSeg = self._T.bgmSegs[i]
+            if isvalid(bgmSeg) then
+                local hB = bgmSeg:ConnectEvent(ButtonClickEvent, function() self:OnBgmSegClicked(i) end)
+                table.insert(self._T.handlers, { entity = bgmSeg, eventType = ButtonClickEvent, eventHandler = hB })
+            end
+            local sfxSeg = self._T.sfxSegs[i]
+            if isvalid(sfxSeg) then
+                local hS = sfxSeg:ConnectEvent(ButtonClickEvent, function() self:OnSfxSegClicked(i) end)
+                table.insert(self._T.handlers, { entity = sfxSeg, eventType = ButtonClickEvent, eventHandler = hS })
+            end
+        end
+
+        self.Entity.Enable = false
+        log("SystemUI: OnBeginPlay bound")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            rec.entity:DisconnectEvent(rec.eventType, rec.eventHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Bind(Entity target, any evType, any cb)
+        -- 이벤트 연결 + 해제용 기록을 한 번에.
+        if not isvalid(target) then
+            return
+        end
+        local h = target:ConnectEvent(evType, cb)
+        table.insert(self._T.handlers, { entity = target, eventType = eventType, eventHandler = h })
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnDrag(UITouchDragEvent event)
+        _WindowHotkeyLogic:ApplyDragDelta(self.cardTransform, event)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        self.Entity.Enable = true
+        self:RefreshView()
+        log("SystemUI: Show")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Toggle()
+        if self.Entity.Enable then
+            self:Hide()
+        else
+            self:Show()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSettingsChanged()
+        -- 설정 로드가 끝났거나 외부에서 값이 바뀌었을 때 _SoundSettingsLogic이 호출할 수 있다.
+        self:RefreshView()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PaintSegments(table segs, integer level)
+        -- 칸 i는 i <= level 이면 켜진 색(따뜻한 금색), 아니면 흐린 갈색.
+        for i = 1, 10 do
+            local seg = segs[i]
+            if isvalid(seg) then
+                local sprite = seg.SpriteGUIRendererComponent
+                if sprite ~= nil then
+                    if i <= level then
+                        sprite.Color = Color(0.85, 0.62, 0.15, 1)
+                    else
+                        sprite.Color = Color(0.29, 0.18, 0.09, 0.35)
+                    end
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshView()
+        local bgm = _SoundSettingsLogic:GetBgmLevel()
+        local sfx = _SoundSettingsLogic:GetSfxLevel()
+        if isvalid(self.bgmValue) then
+            self.bgmValue.Text = tostring(bgm)
+        end
+        if isvalid(self.sfxValue) then
+            self.sfxValue.Text = tostring(sfx)
+        end
+        self:PaintSegments(self._T.bgmSegs, bgm)
+        self:PaintSegments(self._T.sfxSegs, sfx)
+        log("SystemUI: RefreshView bgm=" .. tostring(bgm) .. " sfx=" .. tostring(sfx))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnBgmDownClicked()
+        _SoundSettingsLogic:SetBgmLevel(_SoundSettingsLogic:GetBgmLevel() - 1)
+        self:RefreshView()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnBgmUpClicked()
+        _SoundSettingsLogic:SetBgmLevel(_SoundSettingsLogic:GetBgmLevel() + 1)
+        self:RefreshView()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnBgmSegClicked(integer level)
+        log("SystemUI: bgm seg " .. tostring(level))
+        _SoundSettingsLogic:SetBgmLevel(level)
+        self:RefreshView()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSfxDownClicked()
+        _SoundSettingsLogic:SetSfxLevel(_SoundSettingsLogic:GetSfxLevel() - 1)
+        _SoundSettingsLogic:PlayPreviewSfx()
+        self:RefreshView()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSfxUpClicked()
+        _SoundSettingsLogic:SetSfxLevel(_SoundSettingsLogic:GetSfxLevel() + 1)
+        _SoundSettingsLogic:PlayPreviewSfx()
+        self:RefreshView()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSfxSegClicked(integer level)
+        log("SystemUI: sfx seg " .. tostring(level))
+        _SoundSettingsLogic:SetSfxLevel(level)
+        _SoundSettingsLogic:PlayPreviewSfx()
+        self:RefreshView()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnResetClicked()
+        log("SystemUI: reset defaults")
+        _SoundSettingsLogic:ResetDefaults()
+        self:RefreshView()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCloseClicked()
+        self:Hide()
+    end
+end

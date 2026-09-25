@@ -173,7 +173,11 @@ script BattlefieldProgressHUDController extends Logic
         local player = _UserService.LocalPlayer
         if not isvalid(player) then return end
         log("BattlefieldProgressHUD: PlayClearFx triggered gate=" .. tostring(isGate))
-        _SoundService:PlaySound(self.clearSoundRuid, 1.0)
+        if _SoundSettingsLogic ~= nil then
+            _SoundSettingsLogic:PlaySfx(self.clearSoundRuid, 1.0)
+        else
+            _SoundService:PlaySound(self.clearSoundRuid, 1.0)
+        end
         local cam = _CameraService:GetCurrentCameraComponent()
         if isvalid(cam) then
             cam:ShakeCamera(0.6, 0.35)
