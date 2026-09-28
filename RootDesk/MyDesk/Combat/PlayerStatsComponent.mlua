@@ -631,10 +631,19 @@ script PlayerStatsComponent extends Component
             -- Intel/Luk은 각각 독립된 @Sync라 같은 프레임에 4개가 동시에 바뀌어도 OnSyncProperty는
             -- 4번 따로 불린다 - 위 RunEnded/AbilityChoicePending과 동일한 "같은 틱 @Sync 지연" 대응
             -- 패턴으로, 마지막 도착 후 0.15초 debounce로 묶어서 한 번만 알림을 띄운다.
+            -- 2026-09-28 버그 수정(유저 QA "능력치가 920→520→620로 요동") - 알림 표시와는 별개로,
+            -- 값이 바뀔 때마다 즉시 로스터에도 반영한다(디바운스 없이 - 드물게만 발생하고
+            -- UpdateActiveLevel과 같은 패턴이라 매번 저장해도 무해함). 이 호출이 없으면 이능으로
+            -- 오른 스탯이 선택 창 왕복 한 번에 전부 사라진다.
+            _CharacterRosterLogic:UpdateActiveBaseStat(name, value)
             if self._T.statGainTimerId then
                 _TimerService:ClearTimer(self._T.statGainTimerId)
             end
             self._T.statGainTimerId = _TimerService:SetTimerOnce(self.ShowStatGainDelta, 0.15)
+        elseif name == "Trait" then
+            -- 2026-09-28 버그 수정 - 레벨업 이능 "특성 변경"으로 바뀐 특성도 위와 같은 이유로 로스터에
+            -- 저장되지 않아 선택 복귀 시 원래 특성으로 되돌아갔다.
+            _CharacterRosterLogic:UpdateActiveTrait(value)
         end
     end
 

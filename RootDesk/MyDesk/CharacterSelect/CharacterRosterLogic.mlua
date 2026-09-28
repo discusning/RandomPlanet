@@ -337,6 +337,54 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method void UpdateActiveBaseStat(string statName, integer liveValue)
+        -- 버그 수정(2026-09-28, 유저 QA "능력치가 920→520→620로 요동" / "선택 창 가면 능력치 적용
+        -- 안 됨") - UpdateActiveLevel/UpdateActiveTierSkill과 정확히 같은 이유(로스터 필드가 생성
+        -- 시점 이후 갱신 안 됨)로, 레벨업 이능(추가 스탯/재분배/특성 변경)·고급 스탯 구슬이 올린
+        -- Str/Dex/Intel/Luk이 지금까지 로스터에 전혀 저장되지 않아 재입장/선택 복귀 때마다 전부
+        -- 날아갔다. PlayerStatsComponent.OnSyncProperty(Str/Dex/Intel/Luk)가 값이 바뀔 때마다 호출.
+        -- liveValue는 "로스터 기본값 + 장비 보너스"가 섞인 값이라, 장비 보너스만큼 되빼서 순수
+        -- 기본값만 저장한다 - CharacterInfoUIController.RefreshStatTab이 이미 쓰는 것과 같은 역산
+        -- (GetEffectiveStat(data, stat) - data[field])이라 장비 교체가 원인인 호출은 대입 시점의
+        -- data[field]로 정확히 상쇄되어 사실상 아무 변화도 안 생긴다(자기무결성 확인됨).
+        -- 예외: "스탯 재분배"류(이능 재분배, 룰렛 특성의 진입 시 재분배)는 델타가 아니라 4종 합계를
+        -- 유지한 채 값을 완전히 새로 굴리므로, 장비 보너스가 큰 상태에서 재분배로 낮은 값이 나오면
+        -- 이론상 기본값이 음수가 될 수 있다(전투력 합계 자체는 다음 진입 때도 수학적으로 보존되지만
+        -- 캐릭터 선택 카드에 "STR : -14" 같은 값이 노출되는 표시 결함이 생김) - 0 미만으로는 내려가지
+        -- 않게 클램프한다(그 경우 다음 진입 때 합계가 살짝 올라가는 정도의 사소한 트레이드오프).
+        local idx = self:GetActiveIndex()
+        if idx == nil then return end
+        local data = self._T.data[idx]
+        if data == nil then return end
+        local baseFieldMap = { Str = "str", Dex = "dex", Intel = "intel", Luk = "luk" }
+        local effStatMap = { Str = "str", Dex = "dex", Intel = "int", Luk = "luk" }
+        local field = baseFieldMap[statName]
+        local effKey = effStatMap[statName]
+        if field == nil then return end
+        local equipBonus = _EquipmentLogic:GetEffectiveStat(data, effKey) - (data[field] or 0)
+        local newBase = math.max(0, liveValue - equipBonus)
+        if data[field] == newBase then return end
+        data[field] = newBase
+        self:SaveRoster()
+        log("CharacterRoster: UpdateActiveBaseStat " .. field .. " -> " .. newBase .. " (live=" .. liveValue .. " equipBonus=" .. equipBonus .. ")")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void UpdateActiveTrait(string trait)
+        -- 버그 수정(2026-09-28) - 위와 같은 이유로, 레벨업 이능 "특성 변경"으로 바뀐 특성이 로스터에
+        -- 저장되지 않아 선택 복귀/재입장 시 원래 특성으로 되돌아갔다. Trait2(3차 전직 추가 특성)는
+        -- 기존 설계대로 영구 저장 대상이 아니므로(PlayerStatsComponent.mlua 관련 주석 참고) 그대로
+        -- 둔다 - 여기서는 1차 특성(Trait)만 다룬다.
+        local idx = self:GetActiveIndex()
+        if idx == nil then return end
+        local data = self._T.data[idx]
+        if data == nil or data.trait == trait then return end
+        data.trait = trait
+        self:SaveRoster()
+        log("CharacterRoster: UpdateActiveTrait -> " .. trait)
+    end
+
+    @ExecSpace("ClientOnly")
     method table GetActiveSkillLayout()
         -- 2026-09-22 키 설정 개편(Docs/RandomPlanet-KeyRework-Plan.md) - 활성 캐릭터의 스킬 핫키 배치
         -- { ["1"] = { key = "Q", skill = "id" }, ... }. 직업(스킬 id)이 캐릭터마다 달라 계정 공통
