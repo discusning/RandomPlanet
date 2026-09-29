@@ -245,7 +245,11 @@ script SkillCatalog extends Logic
             -- RevertBuff에 ironbody(maxhp)와 동일한 "델타 저장 후 복원" 패턴으로 구현.
 
             -- ── 2차 (레벨 5) ──
-            doubleswing = { id = "doubleswing", tier = 2, name = "더블 스윙", job = "검사", kind = "melee_single", coef = 1.5, cooldown = 3.0, mpCost = 9, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "5c61ff8df1544c05a200e598ea9164ce", desc = "전방의 적을 두 번 베어 평타의 150% 피해를 입힙니다." },
+            -- 2026-09-29 QA 수정("스킬 설명과 스킬 동작이 맞지 않는 스킬들") - 더블 스윙/더블 스탭 모두
+            -- kind="melee_single"이라 PlayerSkillExecutionLogic.DoMeleeSingle이 AttackFast를 정확히
+            -- 1회만 호출한다(hits 필드도 없음) - "두 번" 표현이 실제 판정(단일 타격, 150%)과 안 맞아
+            -- 삭제. 데미지 수치 자체는 정확해 coef/기타 값은 그대로 둠.
+            doubleswing = { id = "doubleswing", tier = 2, name = "더블 스윙", job = "검사", kind = "melee_single", coef = 1.5, cooldown = 3.0, mpCost = 9, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "5c61ff8df1544c05a200e598ea9164ce", desc = "전방의 적을 강하게 베어 평타의 150% 피해를 입힙니다." },
             powerguard = { id = "powerguard", tier = 2, name = "파워 가드", job = "검사", kind = "buff", duration = 8.0, testableEffect = "dmgreduction", dmgReductionBonus = 0.15, cooldown = 18.0, mpCost = 16, auraType = "Enchant", auraColor = Color(0.6, 0.65, 0.75, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 받는 피해가 15% 감소합니다." },
             -- 썬더 볼트 (2026-09-29 QA 수정, 유저 리포트 "썬더볼트가 매직클로에서 색만 바뀐 버전임") -
             -- 위 226-237 주석대로 2/3/4차 스킬 VFX는 같은 직업 1차 스킬 RUID를 임시로 재사용했는데,
@@ -258,7 +262,7 @@ script SkillCatalog extends Logic
             meditation = { id = "meditation", tier = 2, name = "메디테이션", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "skilldmg", skillDmgBonus = 0.2, cooldown = 18.0, mpCost = 16, auraType = "SpinField", auraColor = Color(0.7, 0.4, 1.0, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 스킬 피해가 20% 증가합니다." },
             doubleshot = { id = "doubleshot", tier = 2, name = "더블 샷", job = "궁수", kind = "multi_hit", coef = 0.75, hits = 2, cooldown = 3.0, mpCost = 10, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "화살을 2연속으로 쏘아 각 타격마다 평타의 75% 피해를 입힙니다." },
             soularrow = { id = "soularrow", tier = 2, name = "소울 애로우", job = "궁수", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 18.0, mpCost = 12, auraType = "SpinField", auraColor = Color(0.85, 1.0, 0.6, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 공격 속도가 증가합니다." },
-            doublestab = { id = "doublestab", tier = 2, name = "더블 스탭", job = "도적", kind = "melee_single", coef = 1.5, cooldown = 3.0, mpCost = 9, impactDelay = 0.1, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "단검으로 두 번 찔러 평타의 150% 피해를 입힙니다." },
+            doublestab = { id = "doublestab", tier = 2, name = "더블 스탭", job = "도적", kind = "melee_single", coef = 1.5, cooldown = 3.0, mpCost = 9, impactDelay = 0.1, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "단검으로 강하게 찔러 평타의 150% 피해를 입힙니다." },
             haste = { id = "haste", tier = 2, name = "헤이스트", job = "도적", kind = "buff", duration = 10.0, testableEffect = "movespeed", moveSpeedBonus = 2.0, cooldown = 20.0, mpCost = 12, auraType = "Buff", auraColor = Color(1.0, 0.9, 0.4, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 이동 속도가 크게 증가합니다." },
             flamethrower = { id = "flamethrower", tier = 2, name = "플레임 스로어", job = "해적", kind = "ranged_pierce", coef = 1.1, cooldown = 3.5, mpCost = 11, projectileVfxRuid = "64096440f11f4c9b9c96df38e0e3852e", iconRuid = "543decec44e3488d98cf82e8580572f7", projectileTintColor = Color(1.0, 0.45, 0.2, 1.0), desc = "전방에 화염을 뿜어 관통하는 적 전부에게 평타의 110% 피해를 입힙니다." },
             reload = { id = "reload", tier = 2, name = "리로드", job = "해적", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 18.0, mpCost = 14, auraType = "LightningOrbSoft", auraColor = Color(0.9, 0.2, 0.2, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 공격 속도가 증가합니다." },
@@ -283,7 +287,11 @@ script SkillCatalog extends Logic
             hurricane = { id = "hurricane", tier = 4, name = "허리케인", job = "궁수", kind = "multi_hit", coef = 0.5, hits = 5, cooldown = 5.0, mpCost = 18, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "화살을 폭풍처럼 쏟아내 5연속 타격마다 평타의 50% 피해를 입힙니다." },
             eagleeye = { id = "eagleeye", tier = 4, name = "이글 아이", job = "궁수", kind = "buff", duration = 10.0, testableEffect = "critchance", critChanceBonus = 0.35, cooldown = 24.0, mpCost = 18, auraType = "SpinField", auraColor = Color(1.0, 0.8, 0.1, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 치명타 확률이 35% 증가합니다." },
             asura = { id = "asura", tier = 4, name = "아수라", job = "도적", kind = "melee_single", coef = 2.2, wide = true, cooldown = 5.5, mpCost = 20, impactDelay = 0.15, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "무수한 단검을 휘둘러 넓은 범위의 적 전부에게 평타의 220% 피해를 입힙니다." },
-            markofassassin = { id = "markofassassin", tier = 4, name = "마크 오브 어쌔신", job = "도적", kind = "buff", duration = 10.0, testableEffect = "atkbonus", atkBonusPercent = 0.2, cooldown = 24.0, mpCost = 18, auraType = "Buff", auraColor = Color(0.3, 0.15, 0.4, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "적에게 표식을 새겨 일정 시간 공격력이 20% 증가합니다." },
+            -- 2026-09-29 QA 수정 - "적에게 표식을 새겨"는 대상 지정/마킹 메커니즘이 있는 것처럼 들리지만
+            -- 실제로는 PlayerBuffLogic.mlua의 testableEffect="atkbonus" 분기(rage/battleship과
+            -- 완전히 동일한 패턴)로, 시전자 자신의 AttackDamage만 올리는 순수 자가 버프 - 적을
+            -- 대상으로 하는 로직 자체가 없다. rage/battleship과 같은 자가 버프 표현으로 수정.
+            markofassassin = { id = "markofassassin", tier = 4, name = "마크 오브 어쌔신", job = "도적", kind = "buff", duration = 10.0, testableEffect = "atkbonus", atkBonusPercent = 0.2, cooldown = 24.0, mpCost = 18, auraType = "Buff", auraColor = Color(0.3, 0.15, 0.4, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "표식의 기운을 두르고 일정 시간 공격력이 20% 증가합니다." },
             rapidfire = { id = "rapidfire", tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 0.6, hits = 4, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "쌍권총을 난사해 4연속 타격마다 평타의 60% 피해를 입힙니다." },
             battleship = { id = "battleship", tier = 4, name = "배틀쉽", job = "해적", kind = "buff", duration = 10.0, testableEffect = "atkbonus", atkBonusPercent = 0.2, cooldown = 25.0, mpCost = 20, auraType = "LightningOrbSoft", auraColor = Color(0.2, 0.35, 0.6, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "함선의 화력을 빌려 일정 시간 공격력이 20% 증가합니다." },
         }
