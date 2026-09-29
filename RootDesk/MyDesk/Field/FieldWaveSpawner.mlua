@@ -5,9 +5,13 @@ script FieldWaveSpawner extends Component
     property number LeftSpawnX = -8.5
     property number RightSpawnX = 8.5
     property number SpawnY = -2.9
-    property number BaseSpawnInterval = 4.0
-    property number MinSpawnInterval = 1.2
-    property number IntervalDecayPerWave = 0.25
+    -- 유저 QA(2026-09-29) "몬스터 나오는 속도를 빠르게 하는게 좋을거 같음(버그를 고치면서
+    -- 게임이 너무 루즈해짐)" - 기존 4.0초(웨이브당 -0.25, 최저 1.2초, 5웨이브 한정 게임이라
+    -- 실제로는 4.0~3.0초 구간만 쓰였음)는 체감상 너무 느리다는 지적. 초반부터 확실히 빨라지도록
+    -- 기준값을 거의 절반으로, 감소폭도 키움 - 웨이브1=2.2초, 웨이브5=1.0초로 도달.
+    property number BaseSpawnInterval = 2.2
+    property number MinSpawnInterval = 0.8
+    property number IntervalDecayPerWave = 0.3
     property number WaveDurationSeconds = 30
     property integer MaxAlive = 10
     property integer BaseAlivePerWaveCap = 4
