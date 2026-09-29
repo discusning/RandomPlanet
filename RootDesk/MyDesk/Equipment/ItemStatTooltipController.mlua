@@ -40,11 +40,17 @@ script ItemStatTooltipController extends Logic
 
         -- 0인 스탯 라인은 숨기고, 보이는 라인끼리는 빈 줄 없이 위로 당겨 붙인다(진짜 메이플스토리
         -- 툴팁처럼 "이 장비가 실제로 올려주는 스탯만" 보이도록).
+        -- 2026-09-30 QA 수정(유저 리포트 "장비 강화해도 스탯 오름이 안 보임") - 지금까지 여기 표시되는
+        -- 값이 tpl.bonus*(아이템 템플릿의 고정 기본값)뿐이었고, 주문서 강화로 targetInst.bonus*에
+        -- 누적되는 인스턴스 보너스(EquipmentLogic.ApplyScroll이 쓰고, GetEffectiveStat이 실제 전투
+        -- 스탯 계산 시 이미 합산해오던 값)는 전혀 반영하지 않았다 - inst 파라미터는 강화 횟수
+        -- 표시에만 쓰이고 스탯 라인 계산에서는 빠져있던 게 원인. 강화 자체(실제 전투력)는 항상
+        -- 정상 적용되고 있었고, 이 툴팁의 표시값만 강화 전 수치에 고정돼 있었다.
         local lines = {
-            { label = "STR", value = tpl.bonusStr or 0, text = self.statStrText },
-            { label = "DEX", value = tpl.bonusDex or 0, text = self.statDexText },
-            { label = "INT", value = tpl.bonusInt or 0, text = self.statIntText },
-            { label = "LUK", value = tpl.bonusLuk or 0, text = self.statLukText },
+            { label = "STR", value = (tpl.bonusStr or 0) + (inst ~= nil and (inst.bonusStr or 0) or 0), text = self.statStrText },
+            { label = "DEX", value = (tpl.bonusDex or 0) + (inst ~= nil and (inst.bonusDex or 0) or 0), text = self.statDexText },
+            { label = "INT", value = (tpl.bonusInt or 0) + (inst ~= nil and (inst.bonusInt or 0) or 0), text = self.statIntText },
+            { label = "LUK", value = (tpl.bonusLuk or 0) + (inst ~= nil and (inst.bonusLuk or 0) or 0), text = self.statLukText },
         }
         local y = self.statStartY
         for _, line in ipairs(lines) do
