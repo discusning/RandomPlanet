@@ -42,6 +42,24 @@ script EnhancementUIController extends Logic
         return Color(0.5, 1.0, 0.6, 1)
     end
 
+    method Color _InProgressColor()
+        -- 2026-09-30 강화 이펙트 추가(유저 요청 "강화 시에 강화 이펙트 생겼으면 좋겠음") - "강화 중"
+        -- 단계를 성공(초록)/실패(빨강) 플래시와 뚜렷이 구분되는 금색으로 표시한다.
+        return Color(1.0, 0.85, 0.3, 1)
+    end
+
+    method Color _SuccessColor()
+        -- 2026-09-30 강화 이펙트 - 제거됐던 EquipmentUIController.PlayScrollFeedback의 성공 색을
+        -- 그대로 재사용(이미 검증된 값).
+        return Color(0.4, 1.0, 0.4, 1)
+    end
+
+    method Color _FailureColor()
+        -- 2026-09-30 강화 이펙트 - 제거됐던 EquipmentUIController.PlayScrollFeedback의 실패 색을
+        -- 그대로 재사용(이미 검증된 값).
+        return Color(1.0, 0.35, 0.35, 1)
+    end
+
     method Color _MaterialDefaultColor()
         -- 2026-09-30 QA 수정 (실기 스크린샷에서 발견) - 재료 버튼에 _FilledColor()(흰색)를 쓰면
         -- 버튼 텍스트 기본색(흰색)과 겹쳐 완전히 안 보였다. 텍스트가 항상 읽히도록 불투명한 어두운
@@ -69,6 +87,7 @@ script EnhancementUIController extends Logic
         self._T.materialButtons = { self.scroll1, self.scroll2, self.scroll3, self.scroll4 }
         self._T.selectedSlot = nil
         self._T.selectedScrollId = nil
+        self._T.enhanceInProgress = false
 
         if isvalid(self.enhancementGroup) then
             self.enhancementGroup.Enable = false
@@ -141,6 +160,9 @@ script EnhancementUIController extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnSlotSelected(string slot)
+        -- 2026-09-30 강화 이펙트 추가 - 강화 연출(진행 중 -> 결과 플래시) 도중에는 슬롯 재선택을
+        -- 무시해 애니메이션이 다른 슬롯을 가리키게 되거나 중간에 끊기는 경합을 막는다.
+        if self._T.enhanceInProgress then return end
         local data = self:GetActiveCharacterData()
         if data == nil then return end
         local equipment = data.equipment or {}
@@ -157,6 +179,9 @@ script EnhancementUIController extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnMaterialSelected(integer buttonIndex)
+        -- 2026-09-30 강화 이펙트 추가 - OnSlotSelected와 동일한 이유로 강화 연출 도중 재료 재선택을
+        -- 무시한다.
+        if self._T.enhanceInProgress then return end
         local templates = _EquipmentLogic:ListScrollTemplates()
         local tpl = templates[buttonIndex]
         if tpl == nil then return end
@@ -185,6 +210,20 @@ script EnhancementUIController extends Logic
         for index, inst in ipairs(data.inventory) do
             if inst.scrollId == scrollId then
                 return index
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetSlotButton(string slot)
+        -- 슬롯 이름(weapon/cap/coat/...)으로 대응하는 슬롯 버튼 Entity를 찾는다. slotButtons
+        -- 배열은 EquipmentLogic.GetSlotList()가 반환하는 순서와 인덱스로 1:1 대응한다 (OnBeginPlay와
+        -- 동일한 가정).
+        local slotList = _EquipmentLogic:GetSlotList()
+        for i, s in ipairs(slotList) do
+            if s == slot then
+                return self._T.slotButtons[i]
             end
         end
         return nil
@@ -274,6 +313,12 @@ script EnhancementUIController extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnEnhanceClicked()
+        -- 2026-09-30 강화 이펙트 추가(유저 요청 "강화 시에 강화 이펙트 생겼으면 좋겠음, 성공하면
+        -- 성공 이펙트 실패하면 실패 이펙트") - 검증 통과 후 곧바로 ApplyScroll을 부르는 대신 "강화
+        -- 중" 연출을 위한 인위적 지연(0.4초)을 먼저 재생하고, 그 뒤에야 실제 판정을 내려 성공/실패
+        -- 플래시로 이어간다. enhanceInProgress가 true인 동안은 이 메서드도, 슬롯/재료 재선택도
+        -- 전부 무시되어 애니메이션 도중 상태가 꼬이지 않는다.
+        if self._T.enhanceInProgress then return end
         if self._T.selectedSlot == nil then
             self:SetStatus("강화할 장비를 먼저 선택하세요.")
             return
@@ -291,9 +336,64 @@ script EnhancementUIController extends Logic
             self:RefreshDisplay()
             return
         end
-        local result = _EquipmentLogic:ApplyScroll(data, scrollIndex, self._T.selectedSlot)
+
+        local targetSlot = self._T.selectedSlot
+        local targetScrollIndex = scrollIndex
+        self._T.enhanceInProgress = true
+        if isvalid(self.btnEnhance) and isvalid(self.btnEnhance.ButtonComponent) then
+            self.btnEnhance.ButtonComponent.Enable = false
+        end
+        self:SetStatus("강화 중...")
+        log("EnhancementUI: phase=inprogress slot=" .. targetSlot)
+        self:PlayInProgressEffect(targetSlot)
+
+        _TimerService:SetTimerOnce(function()
+            self:ResolveEnhance(targetSlot, targetScrollIndex)
+        end, 0.4)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PlayInProgressEffect(string slot)
+        -- "강화 중" 연출 - 대상 슬롯 버튼을 금색(_InProgressColor)으로 물들이고, 0.2초 확대 ->
+        -- 0.2초 축소로 이어지는 펄스를 재생해 OnEnhanceClicked이 예약한 0.4초 딜레이를 시각적으로
+        -- 채운다. RefreshDisplay()는 ResolveEnhance/EndEnhanceSequence가 판정을 마칠 때까지 호출되지
+        -- 않으므로 이 색/스케일이 도중에 덮어써질 일은 없다.
+        local btn = self:GetSlotButton(slot)
+        if not isvalid(btn) then return end
+        local sprite = btn.SpriteGUIRendererComponent
+        if isvalid(sprite) then
+            sprite.Color = self:_InProgressColor()
+        end
+        if not isvalid(btn.UITransformComponent) then return end
+        _TweenLogic:PlayTween(Vector2(1, 1), Vector2(1.15, 1.15), 0.2, EaseType.SineEaseOut, function(v)
+            if isvalid(btn) and isvalid(btn.UITransformComponent) then
+                btn.UITransformComponent.UIScale = Vector3(v.x, v.y, 1)
+            end
+        end)
+        _TimerService:SetTimerOnce(function()
+            if isvalid(btn) and isvalid(btn.UITransformComponent) then
+                _TweenLogic:PlayTween(Vector2(1.15, 1.15), Vector2(1, 1), 0.2, EaseType.SineEaseIn, function(v)
+                    if isvalid(btn) and isvalid(btn.UITransformComponent) then
+                        btn.UITransformComponent.UIScale = Vector3(v.x, v.y, 1)
+                    end
+                end)
+            end
+        end, 0.2)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ResolveEnhance(string targetSlot, integer scrollIndex)
+        -- "강화 중" 딜레이가 끝난 뒤 실제 EquipmentLogic.ApplyScroll을 호출해 성공/실패를 판정한다.
+        -- targetSlot/scrollIndex는 클릭 시점 값을 그대로 캡처해 쓰므로, enhanceInProgress 가드로
+        -- 막혀 있는 동안 선택이 바뀔 수 없는 것과 별개로 항상 클릭했던 슬롯/주문서를 강화한다.
+        local data = self:GetActiveCharacterData()
+        if data == nil then
+            self:EndEnhanceSequence()
+            return
+        end
+        local result = _EquipmentLogic:ApplyScroll(data, scrollIndex, targetSlot)
         self:SetStatus(result.message)
-        log("EnhancementUI: " .. result.message)
+        log("EnhancementUI: phase=result slot=" .. targetSlot .. " applied=" .. tostring(result.applied) .. " success=" .. tostring(result.success) .. " message=" .. result.message)
         if result.applied then
             -- 2026-09-15 장비 변경/강화 후 전투 스탯 미반영 버그 수정 패턴 재사용 - EquipmentUI/
             -- InventoryUI의 "changed" 경로와 동일하게 유효 스탯을 서버에 전달 + 로스터 저장.
@@ -304,11 +404,52 @@ script EnhancementUIController extends Logic
             -- 소모돼 인벤토리에서 빠진 주문서를 계속 선택해둔 상태로 남기지 않는다 - 같은 주문서가
             -- 더 있으면 재료 목록에 계속 나타나므로 재선택은 클릭 한 번이면 충분하다.
             self._T.selectedScrollId = nil
+            -- 인벤토리(주문서 개수)/장비창(스탯 요약)이 열려 있으면 함께 갱신.
+            _CharacterRosterLogic:RefreshUIWindowIfOpen("/ui/InventoryGroup", "script.InventoryUIController")
+            _CharacterRosterLogic:RefreshUIWindowIfOpen("/ui/EquipmentGroup", "script.EquipmentUIController")
+            -- 실제로 주문서가 소모된 판정(성공/실패 둘 다)일 때만 결과 플래시를 재생한다.
+            self:PlayResultFlash(targetSlot, result.success)
+        else
+            -- applied가 false인 경우(대상 슬롯이 그 사이 비었거나 강화 횟수를 모두 쓴 등 무효 클릭)는
+            -- 과거 fde6686 커밋에서 고친 "무효 클릭에 오도성 실패 플래시" 버그를 재현하지 않도록
+            -- 플래시 없이 바로 정리한다.
+            self:EndEnhanceSequence()
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PlayResultFlash(string slot, boolean success)
+        -- 성공/실패 이펙트 - 대상 슬롯을 0.35초간 초록(성공)/빨강(실패)으로 물들인 뒤
+        -- EndEnhanceSequence에서 RefreshDisplay()로 정상 상태(장착 아이템 썸네일 흰색 또는 빈 슬롯
+        -- 탠 색)를 복원한다. 색은 제거됐던 EquipmentUIController.PlayScrollFeedback과 동일한 값을
+        -- 재사용해 "강화 중" 금색과 뚜렷이 구분되게 한다.
+        log("EnhancementUI: phase=flash slot=" .. slot .. " success=" .. tostring(success))
+        local btn = self:GetSlotButton(slot)
+        if not isvalid(btn) then
+            self:EndEnhanceSequence()
+            return
+        end
+        local sprite = btn.SpriteGUIRendererComponent
+        if isvalid(sprite) then
+            sprite.Color = success and self:_SuccessColor() or self:_FailureColor()
+        end
+        _TimerService:SetTimerOnce(function()
+            self:EndEnhanceSequence()
+        end, 0.35)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void EndEnhanceSequence()
+        -- 강화 연출(진행 중 -> 결과 플래시)의 마지막 단계 - RefreshDisplay()로 화면을 정상 상태로
+        -- 되돌리고 강화하기 버튼을 재활성화한 뒤 enhanceInProgress를 해제해 다음 강화를 허용한다.
+        -- ResolveEnhance의 어느 분기(성공/실패/무효 클릭)에서 오든 항상 이 메서드를 거치게 해,
+        -- 버튼이 영구히 잠기거나 슬롯 색/스케일이 복원되지 않은 채 남는 경우가 없게 한다.
         self:RefreshDisplay()
-        -- 인벤토리(주문서 개수)/장비창(스탯 요약)이 열려 있으면 함께 갱신.
-        _CharacterRosterLogic:RefreshUIWindowIfOpen("/ui/InventoryGroup", "script.InventoryUIController")
-        _CharacterRosterLogic:RefreshUIWindowIfOpen("/ui/EquipmentGroup", "script.EquipmentUIController")
+        if isvalid(self.btnEnhance) and isvalid(self.btnEnhance.ButtonComponent) then
+            self.btnEnhance.ButtonComponent.Enable = true
+        end
+        self._T.enhanceInProgress = false
+        log("EnhancementUI: phase=end")
     end
 
 end
