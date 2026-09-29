@@ -326,6 +326,9 @@ script KeyBindingPopupController extends Component
         -- SkillUIController.ColorForKind와 동일한 색 규칙을 여기서도 씀(간단한 표라 별도 공용
         -- 헬퍼로 뽑기보단 그대로 복제 - 두 파일 다 매우 짧은 표).
         -- 2026-09-22 - 배정 정보는 이제 KeyBindingLogic(클라이언트)이 진실 소스라 거기서 읽는다.
+        -- 2026-09-29 QA 수정("스킬 이모티콘이 있어서 가독성이 없음") - SkillUIController와 동일하게
+        -- 종류색 배경+이름 텍스트 대신 실제 아이콘 스프라이트로 교체. 슬롯이 작아 텍스트를 겹치면
+        -- 더 지저분해지므로 텍스트는 비운다(아이콘 자체로 식별 가능).
         if not isvalid(icon) then return end
         local textComp = icon.TextGUIRendererComponent
         local spriteComp = icon.SpriteGUIRendererComponent
@@ -337,8 +340,13 @@ script KeyBindingPopupController extends Component
         end
         local def = _SkillCatalog:GetSkillDef(skillId)
         if def == nil then return end
-        if isvalid(textComp) then textComp.Text = def.name end
-        if isvalid(spriteComp) then spriteComp.Color = self:ColorForKind(def.kind) end
+        if isvalid(textComp) then textComp.Text = "" end
+        if isvalid(spriteComp) then
+            if def.iconRuid ~= nil then
+                spriteComp.ImageRUID = DataRef(def.iconRuid)
+            end
+            spriteComp.Color = Color(1, 1, 1, 1)
+        end
     end
 
     method Color ColorForKind(string kind)
