@@ -49,6 +49,19 @@ script EnhancementUIController extends Logic
         return Color(0.15, 0.15, 0.18, 0.95)
     end
 
+    method Color _MaterialStatColor(string stat)
+        -- 2026-09-30 UI 정리(유저 피드백 "주문서들이 난잡하게 정리 안 되어 있음") - InventoryUIController
+        -- 의 스탯별 색상 코드(STR 빨강/DEX 초록/INT 파랑/LUK 노랑)를 재료 버튼 배경에도 그대로
+        -- 적용해, 4종 주문서를 텍스트를 읽지 않고도 색으로 즉시 구분할 수 있게 한다. 흰 글씨가 계속
+        -- 잘 읽히도록 원색보다 어둡게 눌러 채도를 낮췄다.
+        if stat == "str" then return Color(0.42, 0.16, 0.15, 0.95)
+        elseif stat == "dex" then return Color(0.14, 0.30, 0.18, 0.95)
+        elseif stat == "int" then return Color(0.15, 0.22, 0.40, 0.95)
+        elseif stat == "luk" then return Color(0.40, 0.34, 0.10, 0.95)
+        end
+        return self:_MaterialDefaultColor()
+    end
+
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         self._T.handlers = {}
@@ -218,6 +231,10 @@ script EnhancementUIController extends Logic
             end
         end
 
+        -- 2026-09-30 UI 정리 - 주문서 카탈로그의 name 필드 자체가 "STR 주문서 60%"처럼 이미 성공률을
+        -- 포함하고 있어서, 기존 코드가 뒤에 "성공률 60%"를 또 붙이면 60%가 두 번 찍혀 지저분했다.
+        -- 짧은 스탯 라벨만 따로 떼어 "STR 강화 · 성공률 60% · 보유 N개" 한 줄로 정리.
+        local statLabels = { str = "STR", dex = "DEX", int = "INT", luk = "LUK" }
         local templates = _EquipmentLogic:ListScrollTemplates()
         for i, btn in ipairs(self._T.materialButtons) do
             local tpl = templates[i]
@@ -228,8 +245,9 @@ script EnhancementUIController extends Logic
                 sprite.Color = self:_MaterialDefaultColor()
             else
                 local owned = self:CountOwnedScroll(tpl.id)
-                text.Text = tpl.name .. " (보유 " .. owned .. "개, 성공률 " .. tpl.successRate .. "%)"
-                sprite.Color = (self._T.selectedScrollId == tpl.id) and self:_SelectedColor() or self:_MaterialDefaultColor()
+                local label = statLabels[tpl.stat] or tpl.stat
+                text.Text = label .. " 강화 주문서 · 성공률 " .. tpl.successRate .. "% · 보유 " .. owned .. "개"
+                sprite.Color = (self._T.selectedScrollId == tpl.id) and self:_SelectedColor() or self:_MaterialStatColor(tpl.stat)
             end
         end
 
