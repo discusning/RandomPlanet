@@ -70,6 +70,23 @@ script LocalPlayerPresenceLogic extends Logic
         if isvalid(localPlayer.PlayerControllerComponent) then
             localPlayer.PlayerControllerComponent.Enable = true
         end
+        -- 2026-09-29 QA 수정(유저 리포트 "캐릭터 변경 시에 획득한 스탯이 뜨는 현상... 레벨업 혹은
+        -- 스탯 구슬 획득했을 때만 떠야하는데") - PlayerStatsComponent.ShowStatGainDelta는 Str/Dex/
+        -- Intel/Luk이 "마지막으로 알림을 띄운 값(_T.lastNotified*)"보다 올랐을 때만 알림을 띄우는데,
+        -- 이 캐시는 컴포넌트 인스턴스(=실제 플레이어 엔티티, 캐릭터를 바꿔도 계속 같은 엔티티를 씀)에
+        -- 붙어있어 이전 캐릭터의 마지막 값이 그대로 남는다. 예: 캐릭터A(STR 5)로 플레이하다 선택
+        -- 화면으로 돌아가 스탯이 더 높은 캐릭터B(STR 20)를 골라 다시 입장하면, ApplyStats가
+        -- self.Str=20으로 동기화되는 순간 "20 > 5(이전 캐릭터 캐시)"로 오판해 가짜 "STR +15" 알림이
+        -- 뜬다. ShowLocalPlayer는 RequestEnterGame 직전에 매 입장/캐릭터 전환마다 정확히 한 번
+        -- 호출되므로, 여기서 캐시를 비워 다음 ApplyStats 동기화가 "최초 도착"으로 처리되게 한다
+        -- (ShowStatGainDelta 자체의 "캐시 비어있으면 baseline만 저장" 로직 재사용 - 새 코드 불필요).
+        local statsComp = localPlayer:GetComponent("script.PlayerStatsComponent")
+        if isvalid(statsComp) then
+            statsComp._T.lastNotifiedStr = nil
+            statsComp._T.lastNotifiedDex = nil
+            statsComp._T.lastNotifiedIntel = nil
+            statsComp._T.lastNotifiedLuk = nil
+        end
         self._T.gameplayActive = true
         _PlayerHUDController:Show()
         self:SetBottomBarVisible(true)
