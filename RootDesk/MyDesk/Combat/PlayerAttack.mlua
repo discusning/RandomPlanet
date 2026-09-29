@@ -17,26 +17,58 @@ script PlayerAttack extends AttackComponent
     @HideFromInspector property any Shape = nil
     @HideFromInspector property number LastAttackTime = -999
 
-    @ExecSpace("ServerOnly")
     method void OnBeginPlay()
-        -- Prepares the reusable frontal hit box.
-        self.Shape = BoxShape(Vector2.zero, Vector2(1.2, 1.2), 0)
-        -- DefaultPlayer ships with no HitComponent (Global/DefaultPlayer.model is read-only for AI
-        -- edits) - attach the contact-damage receiver here at spawn time instead, per model.md
-        -- §2.5's AddComponent workaround. See Combat/PlayerHit.mlua for the collider/HP-loss logic
-        -- this enables (monster attacks were previously a no-op with nothing to receive them).
-        if not isvalid(self.Entity:GetComponent("script.PlayerHit")) then
-            self.Entity:AddComponent("script.PlayerHit")
+        -- 2026-09-30 QA 수정(유저 리포트 "공격키 꾹 눌러도 반복 안됨") - ExecSpace를 ServerOnly에서
+        -- 미지정(양쪽 다 실행)으로 바꿔 클라이언트 쪽 셋업(아래 KeyHoldEvent 구독)도 같은 OnBeginPlay
+        -- 안에서 처리한다(mlua는 같은 생명주기 메서드를 ExecSpace별로 두 번 선언할 수 없음 - "MSW ≠
+        -- Unity" 문서의 IsServer/IsClient 분기 패턴). 기존 서버 전용 로직은 그대로 IsServer() 분기 안으로.
+        if self:IsServer() then
+            -- Prepares the reusable frontal hit box.
+            self.Shape = BoxShape(Vector2.zero, Vector2(1.2, 1.2), 0)
+            -- DefaultPlayer ships with no HitComponent (Global/DefaultPlayer.model is read-only for AI
+            -- edits) - attach the contact-damage receiver here at spawn time instead, per model.md
+            -- §2.5's AddComponent workaround. See Combat/PlayerHit.mlua for the collider/HP-loss logic
+            -- this enables (monster attacks were previously a no-op with nothing to receive them).
+            if not isvalid(self.Entity:GetComponent("script.PlayerHit")) then
+                self.Entity:AddComponent("script.PlayerHit")
+            end
+            -- 유저 요청(2026-08-19) "인게임 플레이어 데미지 스킨을 일반 데미지 스킨으로 바꿔줘" - 현재
+            -- Global/DefaultPlayer.model의 damageSkinId 기본값이 커스텀 스킨으로 설정되어 있는데, Global/
+            -- 은 AI가 직접 수정할 수 없는 읽기 전용 파일(위 PlayerHit과 동일한 제약) - Monster.mlua가
+            -- DamageSkinSettingComponent.DamageSkinId를 스폰 시점에 덮어쓰는 것과 같은 패턴으로 여기서도
+            -- 엔진 기본("일반") 히트 스킨 RUID로 강제 override한다.
+            local skinSetting = self.Entity.DamageSkinSettingComponent
+            if isvalid(skinSetting) then
+                skinSetting.DamageSkinId = DataRef("3271c3e79bf04ecba9a107d55495970d")
+            end
         end
-        -- 유저 요청(2026-08-19) "인게임 플레이어 데미지 스킨을 일반 데미지 스킨으로 바꿔줘" - 현재
-        -- Global/DefaultPlayer.model의 damageSkinId 기본값이 커스텀 스킨으로 설정되어 있는데, Global/
-        -- 은 AI가 직접 수정할 수 없는 읽기 전용 파일(위 PlayerHit과 동일한 제약) - Monster.mlua가
-        -- DamageSkinSettingComponent.DamageSkinId를 스폰 시점에 덮어쓰는 것과 같은 패턴으로 여기서도
-        -- 엔진 기본("일반") 히트 스킨 RUID로 강제 override한다.
-        local skinSetting = self.Entity.DamageSkinSettingComponent
-        if isvalid(skinSetting) then
-            skinSetting.DamageSkinId = DataRef("3271c3e79bf04ecba9a107d55495970d")
+        if self:IsClient() then
+            -- 2026-09-30 QA 수정 - PlayerControllerComponent:SetActionKey로 연결된 "Attack" 액션은
+            -- 공식 문서 예제도 "Tap the B key to Attack"이라고 표현하듯 키다운 1회성 이벤트라, 꾹
+            -- 누르고 있어도 두 번째 공격이 자동으로 나가지 않았다(이 프로젝트에 "키가 눌려있는 동안"을
+            -- 감지하는 코드가 어디에도 없었던 게 진짜 원인). InputService의 KeyHoldEvent(매 프레임
+            -- 발생)를 구독해, 그 순간 키 설정에 바인딩된 실제 Attack 키와 일치할 때만 서버에 공격을
+            -- 요청한다 - DoAttack 자체가 이미 AttackCooldownSeconds로 막혀 있어 매 프레임 호출해도
+            -- 쿨다운 안에서는 그냥 no-op(스팸 아님).
+            self._T.attackKeyHoldHandler = _InputService:ConnectEvent(KeyHoldEvent, self.OnAttackKeyHold)
         end
+    end
+
+    method void OnEndPlay()
+        if self:IsClient() and self._T.attackKeyHoldHandler ~= nil then
+            _InputService:DisconnectEvent(KeyHoldEvent, self._T.attackKeyHoldHandler)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnAttackKeyHold(KeyHoldEvent event)
+        if event.key ~= _KeyBindingLogic:GetKeyForAction("Attack") then return end
+        self:RequestHoldAttack()
+    end
+
+    @ExecSpace("Server")
+    method void RequestHoldAttack()
+        self:DoAttack()
     end
 
     @ExecSpace("ServerOnly")
