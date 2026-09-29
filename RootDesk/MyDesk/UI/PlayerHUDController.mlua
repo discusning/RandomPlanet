@@ -16,28 +16,39 @@ script PlayerHUDController extends Logic
     -- 2026-09-16 유저 요청("메이플처럼 우측 상단에 스킬 쿨타임 UI") - 기존 하단 skillNameText/
     -- skillName2Text(2슬롯 전용)는 Enable=false로 고정하고, 보유 스킬 최대 8개를 전부 보여주는
     -- 우측 상단 바로 대체한다. 빈 슬롯(미보유)은 topSkillSlotEntityN 자체를 숨긴다.
+    -- 2026-09-29 QA 수정("스킬 이모티콘이 있어서 가독성이 없음") - 이 8슬롯도 아이콘 없이 텍스트로만
+    -- 스킬 이름을 표시하고 있었다(진짜 원인, SkillCatalog.iconRuid 주석 참고). 각 슬롯 엔티티는
+    -- 이미 SpriteGUIRendererComponent를 갖고 있어(같은 UUID) 새 프로퍼티만 추가해 바인딩한다.
     property Entity topSkillSlotEntity1 = "21a28001-3f0d-48ff-a2f4-794756438d43"
+    property SpriteGUIRendererComponent topSkillIcon1 = "21a28001-3f0d-48ff-a2f4-794756438d43"
     property TextGUIRendererComponent topSkillName1 = "950c0b25-4b3b-43ca-ad24-9aa8e8ca9333"
     property TextGUIRendererComponent topSkillStatus1 = "c18dd625-3fa8-46f5-afb6-9577d55f134b"
     property Entity topSkillSlotEntity2 = "df159909-69bb-48cd-8795-486481e02241"
+    property SpriteGUIRendererComponent topSkillIcon2 = "df159909-69bb-48cd-8795-486481e02241"
     property TextGUIRendererComponent topSkillName2 = "ff4ac057-ee17-4c1f-8e00-13614df416d1"
     property TextGUIRendererComponent topSkillStatus2 = "04acaf1e-e986-40c3-aea6-7f12e3b79c2b"
     property Entity topSkillSlotEntity3 = "0e9c72ae-8e9b-4dc5-92c0-c5b9a1d3aa75"
+    property SpriteGUIRendererComponent topSkillIcon3 = "0e9c72ae-8e9b-4dc5-92c0-c5b9a1d3aa75"
     property TextGUIRendererComponent topSkillName3 = "08173709-d74b-489b-95f5-45ae435d8d51"
     property TextGUIRendererComponent topSkillStatus3 = "62750971-6d15-4227-b47e-dfe522cb5807"
     property Entity topSkillSlotEntity4 = "87598429-8290-4ac6-9e80-6652ce3f0304"
+    property SpriteGUIRendererComponent topSkillIcon4 = "87598429-8290-4ac6-9e80-6652ce3f0304"
     property TextGUIRendererComponent topSkillName4 = "4a234b6f-766a-4eb2-b67d-1e51be035dd2"
     property TextGUIRendererComponent topSkillStatus4 = "2a6c11a0-f6bf-4600-9aa7-c972fd2678d8"
     property Entity topSkillSlotEntity5 = "e4a48994-a3e8-4813-951d-b386c10ed931"
+    property SpriteGUIRendererComponent topSkillIcon5 = "e4a48994-a3e8-4813-951d-b386c10ed931"
     property TextGUIRendererComponent topSkillName5 = "48a29dad-78aa-49d4-9186-35982b3395fc"
     property TextGUIRendererComponent topSkillStatus5 = "39104284-908f-4ffd-9325-ef63519c7660"
     property Entity topSkillSlotEntity6 = "8d5dfcd1-a336-4c8f-a546-5f345a0d7b7e"
+    property SpriteGUIRendererComponent topSkillIcon6 = "8d5dfcd1-a336-4c8f-a546-5f345a0d7b7e"
     property TextGUIRendererComponent topSkillName6 = "fa98c060-08d1-4c30-837c-acd0a8384215"
     property TextGUIRendererComponent topSkillStatus6 = "bd4649d6-8d2e-461f-bc09-a612a21af7c9"
     property Entity topSkillSlotEntity7 = "c23bf254-08c6-499f-ad3b-cdf38b2f1fbb"
+    property SpriteGUIRendererComponent topSkillIcon7 = "c23bf254-08c6-499f-ad3b-cdf38b2f1fbb"
     property TextGUIRendererComponent topSkillName7 = "c822bdfd-b53e-46f6-aa29-bfa7bf751aad"
     property TextGUIRendererComponent topSkillStatus7 = "3a090384-4209-48bf-8887-3151810f6a29"
     property Entity topSkillSlotEntity8 = "cee3f594-387d-4d1c-8020-2d29cf5d8050"
+    property SpriteGUIRendererComponent topSkillIcon8 = "cee3f594-387d-4d1c-8020-2d29cf5d8050"
     property TextGUIRendererComponent topSkillName8 = "14e7347e-4416-400a-8cd2-52afbf1d4796"
     property TextGUIRendererComponent topSkillStatus8 = "2b1c306a-9c2a-4535-a17e-5b911d3ffaaf"
     -- 2026-08-19 유저 요청 - "버프 스킬 유지 시간이 전혀 안 보인다". PlayerSkillComponent에 이미
@@ -141,6 +152,10 @@ script PlayerHUDController extends Logic
                 self.topSkillStatus1, self.topSkillStatus2, self.topSkillStatus3, self.topSkillStatus4,
                 self.topSkillStatus5, self.topSkillStatus6, self.topSkillStatus7, self.topSkillStatus8,
             }
+            local topIcons = {
+                self.topSkillIcon1, self.topSkillIcon2, self.topSkillIcon3, self.topSkillIcon4,
+                self.topSkillIcon5, self.topSkillIcon6, self.topSkillIcon7, self.topSkillIcon8,
+            }
             local slotActionNames = { "Skill", "Skill2", "Skill3", "Skill4", "Skill5", "Skill6", "Skill7", "Skill8" }
             local wasReadyKeys = { "topSkill1WasReady", "topSkill2WasReady", "topSkill3WasReady", "topSkill4WasReady", "topSkill5WasReady", "topSkill6WasReady", "topSkill7WasReady", "topSkill8WasReady" }
             local flashUntilKeys = { "topSkill1FlashUntil", "topSkill2FlashUntil", "topSkill3FlashUntil", "topSkill4FlashUntil", "topSkill5FlashUntil", "topSkill6FlashUntil", "topSkill7FlashUntil", "topSkill8FlashUntil" }
@@ -153,7 +168,7 @@ script PlayerHUDController extends Logic
                     else
                         slotEntity.Enable = true
                         local keyLabel = "[" .. _KeyBindingLogic:GetSymbol(_KeyBindingLogic:GetKeyForAction(slotActionNames[slot])) .. "] "
-                        self:UpdateSkillSlotDisplay(equippedId, skill:GetLastUseTime(slot), keyLabel, topNameTexts[slot], topStatusTexts[slot], wasReadyKeys[slot], flashUntilKeys[slot])
+                        self:UpdateSkillSlotDisplay(equippedId, skill:GetLastUseTime(slot), keyLabel, topNameTexts[slot], topStatusTexts[slot], wasReadyKeys[slot], flashUntilKeys[slot], topIcons[slot])
                     end
                 end
             end
@@ -185,7 +200,7 @@ script PlayerHUDController extends Logic
     end
 
     @ExecSpace("ClientOnly")
-    method void UpdateSkillSlotDisplay(string equippedSkillId, number lastUseTime, string keyLabel, TextGUIRendererComponent nameText, TextGUIRendererComponent statusText, string wasReadyKey, string flashUntilKey)
+    method void UpdateSkillSlotDisplay(string equippedSkillId, number lastUseTime, string keyLabel, TextGUIRendererComponent nameText, TextGUIRendererComponent statusText, string wasReadyKey, string flashUntilKey, SpriteGUIRendererComponent icon)
         -- 2026-09-15 코드 최적화 - 1번(Q)/2번(W) 스킬 슬롯 표시(이름/쿨다운/레디 펄스)가 필드명만
         -- 다르고 완전히 동일했던 로직을 통합. wasReadyKey/flashUntilKey로 self._T의 슬롯별 상태를
         -- 구분한다(레디 펄스는 슬롯마다 독립적으로 트리거돼야 함).
@@ -200,7 +215,13 @@ script PlayerHUDController extends Logic
         if def == nil then
             return
         end
-        nameText.Text = keyLabel .. def.name
+        -- 2026-09-29 QA 수정("스킬 이모티콘이 있어서 가독성이 없음") - 이름 텍스트 대신 실제 아이콘
+        -- 스프라이트로 스킬을 표시(icon은 이 메서드가 새로 받는 파라미터, 값이 없을 수도 있는
+        -- 레거시 호출 대비 isvalid 가드). 키 라벨만 이름 자리에 작게 남긴다.
+        if isvalid(icon) and def.iconRuid ~= nil then
+            icon.ImageRUID = DataRef(def.iconRuid)
+        end
+        nameText.Text = keyLabel
         -- lastUseTime is stamped server-side (PlayerSkillComponent.UseSkillSlot, ServerOnly) using
         -- the server's own ElapsedSeconds - this Tick runs ClientOnly, where plain ElapsedSeconds is
         -- a SEPARATE client-local clock (confirmed via maker_execute_script: client ElapsedSeconds

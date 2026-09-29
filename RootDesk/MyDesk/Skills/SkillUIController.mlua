@@ -357,19 +357,22 @@ script SkillUIController extends Component
             sprite.Color = Color(0.3, 0.26, 0.2, 0.4)
             return
         end
-        -- 2026-09-10 QA(유저 피드백 "어색한 UI 찾아서 고쳐줘") - 예전엔 이름을 2글자로 잘라
-        -- "매직"/"디스"처럼 불완전한 단어로 보이게 표시했음(원래 각각 "매직 가드"/"디스에이블") -
-        -- 슬롯이 120x120으로 충분히 크고 텍스트가 폭에 맞춰 자동 줄바꿈되므로 전체 이름을 그대로 표시.
-        -- 2026-09-22 - 키에 배정된 스킬은 이름 밑에 [키]를 함께 보이고 선명한 색으로, 미배정 스킬은
-        -- 색을 반쯤 죽여 한눈에 구분한다(배정 = 사용 가능).
+        -- 2026-09-29 QA 수정("스킬 이모티콘이 있어서 가독성이 없음") - 예전엔 실제 아이콘 스프라이트
+        -- 없이 종류별 4색 배경(ColorForKind) 위에 스킬 이름 텍스트만 얹어 보여줬다(이모티콘처럼
+        -- 보였던 진짜 원인, SkillCatalog.iconRuid 신규 추가 주석 참고). 이제 sprite.ImageRUID에 실제
+        -- 스킬 아이콘을 채우고, 종류별 색 구분은 더 이상 필요 없어(아이콘 자체가 스킬을 구분) 흰색
+        -- 유지 - 텍스트는 배정된 키만 작게 표시(이름은 아이콘이 대신 전달, 클릭 시 detailName에
+        -- 전체 이름이 뜸).
         local key = _KeyBindingLogic:GetKeyForSkill(skillId)
-        local kindColor = self:ColorForKind(def.kind)
+        if def.iconRuid ~= nil then
+            sprite.ImageRUID = DataRef(def.iconRuid)
+        end
         if key ~= nil then
-            text.Text = def.name .. "\n[" .. _KeyBindingLogic:GetSymbol(key) .. "]"
-            sprite.Color = kindColor
+            text.Text = "[" .. _KeyBindingLogic:GetSymbol(key) .. "]"
+            sprite.Color = Color(1, 1, 1, 1)
         else
-            text.Text = def.name
-            sprite.Color = Color(kindColor.r * 0.45, kindColor.g * 0.45, kindColor.b * 0.45, 0.55)
+            text.Text = ""
+            sprite.Color = Color(0.55, 0.55, 0.55, 0.6)
         end
     end
 
