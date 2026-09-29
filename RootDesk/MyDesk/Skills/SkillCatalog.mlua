@@ -239,7 +239,14 @@ script SkillCatalog extends Logic
             -- ── 2차 (레벨 5) ──
             doubleswing = { id = "doubleswing", tier = 2, name = "더블 스윙", job = "검사", kind = "melee_single", coef = 1.5, cooldown = 3.0, mpCost = 9, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", desc = "전방의 적을 두 번 베어 평타의 150% 피해를 입힙니다." },
             powerguard = { id = "powerguard", tier = 2, name = "파워 가드", job = "검사", kind = "buff", duration = 8.0, testableEffect = "dmgreduction", dmgReductionBonus = 0.15, cooldown = 18.0, mpCost = 16, auraType = "Enchant", auraColor = Color(0.6, 0.65, 0.75, 0.9), desc = "일정 시간 받는 피해가 15% 감소합니다." },
-            thunderbolt = { id = "thunderbolt", tier = 2, name = "썬더 볼트", job = "마법사", kind = "ranged_single", coef = 1.4, magic = true, cooldown = 3.0, mpCost = 12, projectileVfxRuid = "64096440f11f4c9b9c96df38e0e3852e", projectileTintColor = Color(0.5, 0.5, 1.0, 1.0), desc = "전방으로 번개를 날려 평타의 140% 마법 피해를 입힙니다." },
+            -- 썬더 볼트 (2026-09-29 QA 수정, 유저 리포트 "썬더볼트가 매직클로에서 색만 바뀐 버전임") -
+            -- 위 226-237 주석대로 2/3/4차 스킬 VFX는 같은 직업 1차 스킬 RUID를 임시로 재사용했는데,
+            -- 마법사 1차(magicclaw)와 완전히 같은 클립(64096440...)을 그대로 써서 색상 틴트만 다른
+            -- 상태였다 - 리포트대로 사실상 같은 이펙트. msw-search로 재검색해 마법사 매직 클로의
+            -- "초승달 발톱" 모양과 뚜렷이 구분되는 가로형 파란/하얀 섬광 클립(animationclip-662899,
+            -- 143x67, 5프레임)으로 교체 - DoRanged가 FlipX로만 좌우를 뒤집으므로(회전 없음) 세로로
+            -- 긴 낙뢰형 클립은 옆으로 날아갈 때 이상하게 보여 제외하고, 가로로 넓은 섬광형을 선택.
+            thunderbolt = { id = "thunderbolt", tier = 2, name = "썬더 볼트", job = "마법사", kind = "ranged_single", coef = 1.4, magic = true, cooldown = 3.0, mpCost = 12, projectileVfxRuid = "7dbd8b9ffda84ac4a627e0a9ec6a139b", projectileTintColor = Color(0.5, 0.5, 1.0, 1.0), desc = "전방으로 번개를 날려 평타의 140% 마법 피해를 입힙니다." },
             meditation = { id = "meditation", tier = 2, name = "메디테이션", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "skilldmg", skillDmgBonus = 0.2, cooldown = 18.0, mpCost = 16, auraType = "SpinField", auraColor = Color(0.7, 0.4, 1.0, 0.9), desc = "일정 시간 스킬 피해가 20% 증가합니다." },
             doubleshot = { id = "doubleshot", tier = 2, name = "더블 샷", job = "궁수", kind = "multi_hit", coef = 0.75, hits = 2, cooldown = 3.0, mpCost = 10, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", desc = "화살을 2연속으로 쏘아 각 타격마다 평타의 75% 피해를 입힙니다." },
             soularrow = { id = "soularrow", tier = 2, name = "소울 애로우", job = "궁수", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 18.0, mpCost = 12, auraType = "SpinField", auraColor = Color(0.85, 1.0, 0.6, 0.9), desc = "일정 시간 공격 속도가 증가합니다." },
