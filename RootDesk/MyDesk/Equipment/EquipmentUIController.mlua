@@ -171,50 +171,20 @@ script EquipmentUIController extends Component
 
     @ExecSpace("ClientOnly")
     method void OnSlotClicked(string slot)
+        -- 2026-09-30 QA 수정(유저 피드백 "주문서 강화 UX가 이상함") - 이 슬롯은 더 이상 "인벤토리에서
+        -- 무장한 아이템/주문서를 적용"하는 두 번째 클릭 대상이 아니다(그 무장 상태 자체를 제거 -
+        -- EquipmentLogic.selectedInventoryIndex 삭제). 장비 장착은 InventoryUIController에서 클릭 한
+        -- 번으로 즉시 이루어지고, 주문서 강화는 로비의 대장장이 NPC 팝업(EnhancementUIController)으로
+        -- 옮겨갔다 - 이제 이 창의 슬롯 클릭은 "장착 해제" 하나만 한다.
         local data = self:GetActiveCharacterData()
         if data == nil then
             return
         end
 
-        local changed = false
-        local selectedIdx = _EquipmentLogic:GetSelectedInventoryIndex()
-        if selectedIdx == nil then
-            -- Nothing armed in the Inventory window - clicking a filled slot unequips it.
-            changed = _EquipmentLogic:UnequipSlot(data, slot)
-        else
-            local inst = (data.inventory or {})[selectedIdx]
-            if inst ~= nil and inst.itemId ~= nil then
-                -- A gear item is armed - only equip it if the clicked slot matches the item's own
-                -- slot (clicking an unrelated slot box is a silent no-op).
-                local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
-                if tpl ~= nil and tpl.slot == slot then
-                    changed = _EquipmentLogic:EquipItem(data, selectedIdx)
-                end
-            elseif inst ~= nil and inst.scrollId ~= nil then
-                -- A scroll is armed - apply it to whatever is equipped in the clicked slot.
-                local result = _EquipmentLogic:ApplyScroll(data, selectedIdx, slot)
-                log("EquipmentUI: " .. result.message)
-                -- 2026-09-12 시스템 업그레이드 - 강화(주문서) 성공/실패 피드백(클래식 메이플스토리
-                -- 관행). 지금까지 결과가 log()에만 찍히고 화면엔 스탯이 조용히 바뀌는 것 말고 아무
-                -- 표시가 없어, 성공/실패를 플레이어가 전혀 알 수 없었다. Refresh() 호출 후(아래) 슬롯
-                -- 색을 짧게 초록/빨강으로 물들여 결과를 알린다.
-                -- 2026-09-12 QA(전반적 QA 3차 확장) - `changed`/플래시 둘 다 `result.applied`로
-                -- 게이팅하도록 수정. 이전에는 ApplyScroll의 6가지 "아무것도 소모 안 됨" 이른 반환
-                -- (주문서 없음/대상 슬롯 비어있음/강화 횟수 초과 등)도 실제 롤 실패와 똑같이
-                -- `success=false`만 봐서 무조건 `changed=true`(불필요한 로스터 저장)였고, 새로 추가한
-                -- 빨간 실패 플래시까지 "아무 일도 안 일어났는데 실패했다"고 잘못 표시할 뻔했다.
-                changed = result.applied == true
-                if result.applied then
-                    self._T.pendingScrollFlash = { slot = slot, success = result.success }
-                end
-            end
-            _EquipmentLogic:SetSelectedInventoryIndex(nil)
-        end
-
+        local changed = _EquipmentLogic:UnequipSlot(data, slot)
         if changed then
             -- 2026-09-15 - 장비 변경 후 전투 스탯 미반영 버그 수정 계기로 유효 스탯(기본값+장비
-            -- 보너스)도 함께 서버에 전달(코스튬만 갱신되고 공격력 등은 그대로였던 문제). 이 창의
-            -- "changed"는 장착/해제/주문서 강화 세 경로를 모두 포괄하므로 한 곳에서 처리 충분.
+            -- 보너스)도 함께 서버에 전달(코스튬만 갱신되고 공격력 등은 그대로였던 문제).
             _CharacterRosterLogic:RequestApplyEquipmentToPlayer(data.equipment,
                 _EquipmentLogic:GetEffectiveStat(data, "str"), _EquipmentLogic:GetEffectiveStat(data, "dex"),
                 _EquipmentLogic:GetEffectiveStat(data, "int"), _EquipmentLogic:GetEffectiveStat(data, "luk"))
@@ -222,27 +192,6 @@ script EquipmentUIController extends Component
         end
         self:Refresh()
         self:RefreshInventoryWindowIfOpen()
-        if self._T.pendingScrollFlash ~= nil then
-            self:PlayScrollFeedback(self._T.pendingScrollFlash.slot, self._T.pendingScrollFlash.success)
-            self._T.pendingScrollFlash = nil
-        end
-    end
-
-    @ExecSpace("ClientOnly")
-    method void PlayScrollFeedback(string slot, boolean success)
-        -- 강화 슬롯을 짧게(0.35초) 초록(성공)/빨강(실패)으로 물들인 뒤 Refresh()로 원래 상태(장착된
-        -- 아이템 썸네일의 정상 흰색, 혹은 빈 슬롯의 탠 색)를 다시 계산해 복원한다 - 색을 하드코딩해
-        -- 복원하는 대신 기존 Refresh 로직을 재사용해 그 사이 상태가 바뀌어도 항상 정확하다.
-        local btn = self._T.slotButtons[slot]
-        if not isvalid(btn) then return end
-        local sprite = btn.SpriteGUIRendererComponent
-        if not isvalid(sprite) then return end
-        sprite.Color = success and Color(0.4, 1.0, 0.4, 1) or Color(1.0, 0.35, 0.35, 1)
-        _TimerService:SetTimerOnce(function()
-            if isvalid(self.Entity) then
-                self:Refresh()
-            end
-        end, 0.35)
     end
 
     @ExecSpace("ClientOnly")

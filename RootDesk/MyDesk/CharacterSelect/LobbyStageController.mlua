@@ -9,6 +9,8 @@ script LobbyStageController extends Component
     property Entity npc = "8e42aaa6-04c1-41cc-811e-7a3f86f8f17e"
     -- 물약 상인 NPC(npc-shop, 2026-09-20 QA "물약 상점 없음") - 누르면 PotionShopUIController 팝업.
     property Entity shopNpc = "9efc41ef-15ea-40fb-bca6-948be621b2d8"
+    -- 대장장이 NPC(npc-blacksmith, 2026-09-30 "장비 강화 UX 개선") - 누르면 EnhancementUIController 팝업.
+    property Entity blacksmithNpc = "6a1aada1-21f0-4b6b-a578-2a5ab9ab2026"
     -- 안내인 NPC(npc-guide, 2026-09-24 QA "퀘스트 npc 필요한거 같음 처음에 어떻게 게임이 돌아가는지
     -- 모름") - 누르면 GuideNPCController 안내 팝업(진행 방식/포탈/NPC/단축키 설명, 실제 퀘스트
     -- 추적 로직은 없음).
@@ -42,6 +44,11 @@ script LobbyStageController extends Component
         if isvalid(self.shopNpc) then
             local hShopNpc = self.shopNpc:ConnectEvent(TouchEvent, self.OnShopNpcTouched)
             table.insert(self._T.handlers, { entity = self.shopNpc, eventType = TouchEvent, eventHandler = hShopNpc })
+        end
+
+        if isvalid(self.blacksmithNpc) then
+            local hBlacksmithNpc = self.blacksmithNpc:ConnectEvent(TouchEvent, self.OnBlacksmithNpcTouched)
+            table.insert(self._T.handlers, { entity = self.blacksmithNpc, eventType = TouchEvent, eventHandler = hBlacksmithNpc })
         end
 
         if isvalid(self.guideNpc) then
@@ -220,6 +227,13 @@ script LobbyStageController extends Component
             bottomBar:CloseOtherWindows("")
         end
         _PotionShopUIController:Show()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnBlacksmithNpcTouched(TouchEvent event)
+        -- Opens the Blacksmith enhancement popup (2026-09-30, "장비 강화 UX 개선" - replaces the old
+        -- inventory-arm + equipment-slot-click scroll flow with a dedicated NPC popup).
+        _EnhancementUIController:Show()
     end
 
     @ExecSpace("ClientOnly")

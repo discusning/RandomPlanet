@@ -7,9 +7,11 @@ script InventoryUIController extends Component
     -- array (unchanged, so EquipmentLogic's index-based EquipItem/ApplyScroll keep working
     -- untouched); only the display filters it per category and remembers each visible slot's
     -- real flat-array index for click routing (see GetCategoryItems).
-    -- Clicking a gear slot equips it immediately (auto-routes to its matching Equipment slot);
-    -- clicking a scroll slot arms it for use in the Equipment window (shared selection lives in
-    -- EquipmentLogic.selectedInventoryIndex).
+    -- Clicking a gear slot equips it immediately (auto-routes to its matching Equipment slot).
+    -- 2026-09-30 QA 수정(유저 피드백 "주문서 강화 UX가 이상함") - 주문서는 더 이상 여기서
+    -- 선택/적용하지 않는다. 로비의 대장장이 NPC 팝업(EnhancementUIController)에서 장비 슬롯 +
+    -- 주문서를 한 화면에서 골라 강화하는 방식으로 교체 - 클릭해도 아무 동작 없음(기타 아이템과
+    -- 동일하게 아직 클릭 동작이 없는 상태로 취급).
     property Entity tabEquip = "5f243e76-9b1b-4c14-a601-14b93804a81c"
     property Entity tabConsumable = "2c5229dd-6a9b-469a-a2c7-7253d09e0ddc"
     property Entity tabMisc = "f9394364-644b-4aac-a183-94457fddd007"
@@ -82,13 +84,8 @@ script InventoryUIController extends Component
     end
 
     method Color _ScrollSelectedColor()
-        -- Selected/armed state: same stat hue, lightened toward white so it visibly "pops" without
-        -- losing the stat-color identity (blended 50% toward white).
+        -- Fallback tint for a scroll template with no resolved icon RUID (see _StatColor).
         return Color(1, 1, 1, 1)
-    end
-
-    method Color _LightenTowardWhite(Color c)
-        return Color(c.r + (1 - c.r) * 0.55, c.g + (1 - c.g) * 0.55, c.b + (1 - c.b) * 0.55, 1)
     end
 
     method Color _MiscColor()
@@ -252,7 +249,10 @@ script InventoryUIController extends Component
             if self._T.activeCategory == "equip" then
                 self.hintText.Text = "장비를 클릭하면 즉시 장착됩니다."
             elseif self._T.activeCategory == "consumable" then
-                self.hintText.Text = "주문서를 클릭해 선택한 뒤, 장비 창의 슬롯을 클릭하면 강화됩니다."
+                -- 2026-09-30 QA 수정(유저 피드백 "주문서 강화 UX가 이상함") - "주문서를 클릭해 선택한
+                -- 뒤 장비 창의 슬롯을 클릭" 안내는 이제 사라진 기능(대장장이 NPC 팝업으로 교체)을
+                -- 가리키던 문구였다.
+                self.hintText.Text = "물약은 클릭하면 즉시 사용되고, 주문서는 로비의 대장장이 NPC에게 맡기면 강화할 수 있습니다."
             else
                 self.hintText.Text = "필드에서 획득한 기타 아이템이 여기에 모입니다."
             end
@@ -276,7 +276,6 @@ script InventoryUIController extends Component
         self:UpdateTabVisuals()
         local inventory = data.inventory or {}
         local categoryItems = self:GetCategoryItems(inventory, self._T.activeCategory)
-        local selectedIdx = _EquipmentLogic:GetSelectedInventoryIndex()
 
         for i, btn in ipairs(self._T.slots) do
             local entry = categoryItems[i]
@@ -304,8 +303,7 @@ script InventoryUIController extends Component
                     local tpl = _EquipmentLogic:GetScrollTemplate(inst.scrollId)
                     if tpl ~= nil and tpl.ruid ~= nil and tpl.ruid ~= "" then
                         sprite.ImageRUID = DataRef(tpl.ruid)
-                        local baseColor = self:_StatColor(tpl.stat)
-                        sprite.Color = (selectedIdx == entry.realIndex) and self:_LightenTowardWhite(baseColor) or baseColor
+                        sprite.Color = self:_StatColor(tpl.stat)
                     else
                         sprite.ImageRUID = DataRef(self.DefaultSlotRUID)
                         sprite.Color = self:_ScrollSelectedColor()
@@ -410,16 +408,6 @@ script InventoryUIController extends Component
                 self:Refresh()
                 self:RefreshEquipmentWindowIfOpen()
             end
-        elseif inst.scrollId ~= nil then
-            -- Scroll: toggle arm/disarm. Applying it happens by clicking a slot in the Equipment
-            -- window (shared state - see EquipmentLogic.selectedInventoryIndex).
-            local current = _EquipmentLogic:GetSelectedInventoryIndex()
-            if current == index then
-                _EquipmentLogic:SetSelectedInventoryIndex(nil)
-            else
-                _EquipmentLogic:SetSelectedInventoryIndex(index)
-            end
-            self:Refresh()
         elseif inst.potionId ~= nil then
             -- 2026-09-15 최적화 - 위임, 본체는 EquipmentLogic.UsePotionAtIndex(키보드 단축키
             -- 경로와 공유). 그쪽이 이미 RefreshUIWindowIfOpen으로 이 창을 갱신하므로 별도

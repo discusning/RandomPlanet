@@ -1,0 +1,296 @@
+@Logic
+script EnhancementUIController extends Logic
+    -- 대장장이 NPC 강화 팝업 (2026-09-30 유저 피드백 "주문서 강화 UX가 이상함, 대장장이 NPC가
+    -- 강화를 진행할 수 있게 해줘" - 인벤토리에서 주문서를 무장한 뒤 장비창 슬롯을 클릭해 적용하던
+    -- 2단계 흐름을 로비의 대장장이 NPC(LobbyStageController.OnBlacksmithNpcTouched) 팝업 하나로
+    -- 교체: "강화할 장비"와 "사용할 주문서"를 이 한 화면에서 고르고 강화하기 버튼 한 번으로 끝난다.
+    -- 강화 확률/실패해도 파괴되지 않는 로직(EquipmentLogic.ApplyScroll) 자체는 이미 검증된 그대로
+    -- 재사용 - 이번 변경은 진입 경로(UX)만 바꾼다. 기존 InventoryUIController/EquipmentUIController의
+    -- 주문서 무장(selectedInventoryIndex) 코드는 이 팝업으로 대체되며 함께 제거됐다.
+    property Entity enhancementGroup = "6c0c4f1b-4918-407f-9705-c895940c7176"
+    property Entity btnClose = "2f8ffa01-8aae-46b7-9ae3-a870aadbcc6a"
+    property Entity slot1 = "d02d8642-de0c-4f2f-a1ca-c4c0cc3f95f8"
+    property Entity slot2 = "db7d67cb-b26e-46e2-81b4-abae60529ef9"
+    property Entity slot3 = "25a62ef9-1c37-407c-a073-42b67c4844ec"
+    property Entity slot4 = "1d13261d-a16d-4afc-9d6b-e79b204d9323"
+    property Entity slot5 = "9fbbe8c9-28d6-49e3-9e50-8c2552833dc3"
+    property Entity slot6 = "92e87fe0-3634-4d3c-a65f-ef22bbbd17c1"
+    property Entity slot7 = "09851eba-9112-40ae-9615-8e3fe541802b"
+    property Entity slot8 = "20e4aa98-1ae1-47cf-bc03-1cf2cd7f3805"
+    property TextGUIRendererComponent nameText = "0eec775c-b1de-44d9-aea0-ee28ad60d254"
+    property TextGUIRendererComponent strText = "8818970c-9a11-4c31-bf38-cc27f9bba402"
+    property TextGUIRendererComponent dexText = "8042c14f-1a87-4b61-bd4b-e04ccf17a705"
+    property TextGUIRendererComponent intText = "37225cbf-f6e4-4601-89db-bbfa7caf9ddb"
+    property TextGUIRendererComponent lukText = "6e16ca77-e975-4feb-aa47-bb5e98d5d81f"
+    property TextGUIRendererComponent upgradeText = "18dcc105-7042-4075-8e14-ff0569e0f181"
+    property Entity scroll1 = "d8ec1910-f112-430c-b9bd-04db63c72def"
+    property Entity scroll2 = "86f67e3f-11e3-4ae0-b016-07b37a82352c"
+    property Entity scroll3 = "67011d51-5307-405a-a05b-4426304045de"
+    property Entity scroll4 = "52776e4d-c5e0-4354-ad9c-2a9a5ec5678d"
+    property Entity btnEnhance = "f0e6ef87-2eef-4654-b60d-62e3753a2977"
+    property TextGUIRendererComponent statusText = "594ad8b4-035a-4b00-8b2c-03ae628491be"
+
+    method Color _EmptyColor()
+        return Color(0.86, 0.75, 0.52, 0.35)
+    end
+
+    method Color _FilledColor()
+        return Color(1, 1, 1, 1)
+    end
+
+    method Color _SelectedColor()
+        return Color(0.5, 1.0, 0.6, 1)
+    end
+
+    method Color _MaterialDefaultColor()
+        -- 2026-09-30 QA 수정 (실기 스크린샷에서 발견) - 재료 버튼에 _FilledColor()(흰색)를 쓰면
+        -- 버튼 텍스트 기본색(흰색)과 겹쳐 완전히 안 보였다. 텍스트가 항상 읽히도록 불투명한 어두운
+        -- 배경을 기본값으로 사용.
+        return Color(0.15, 0.15, 0.18, 0.95)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self._T.handlers = {}
+        self._T.slotButtons = { self.slot1, self.slot2, self.slot3, self.slot4, self.slot5, self.slot6, self.slot7, self.slot8 }
+        self._T.materialButtons = { self.scroll1, self.scroll2, self.scroll3, self.scroll4 }
+        self._T.selectedSlot = nil
+        self._T.selectedScrollId = nil
+
+        if isvalid(self.enhancementGroup) then
+            self.enhancementGroup.Enable = false
+        end
+
+        self:Bind(self.btnClose, function() self:Hide() end)
+        self:Bind(self.btnEnhance, function() self:OnEnhanceClicked() end)
+
+        -- 슬롯 버튼 순서는 EquipmentLogic.GetSlotList()가 반환하는 고정 배열(weapon/cap/coat/
+        -- pants/shoes/glove/shield/earaccessory)과 1:1로 대응 - EquipmentUIController/
+        -- InventoryUIController가 이미 같은 가정을 공유한다.
+        local slotList = _EquipmentLogic:GetSlotList()
+        for i, btn in ipairs(self._T.slotButtons) do
+            local capturedSlot = slotList[i]
+            self:Bind(btn, function() self:OnSlotSelected(capturedSlot) end)
+        end
+        for i, btn in ipairs(self._T.materialButtons) do
+            local capturedIndex = i
+            self:Bind(btn, function() self:OnMaterialSelected(capturedIndex) end)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            if isvalid(rec.entity) then
+                rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Bind(Entity button, any callback)
+        -- 버튼 클릭 핸들러 연결 + OnEndPlay 해제용 기록 (PotionShopUIController와 동일 패턴).
+        if not isvalid(button) then return end
+        local h = button:ConnectEvent(ButtonClickEvent, callback)
+        table.insert(self._T.handlers, { entity = button, eventHandler = h })
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        if isvalid(self.enhancementGroup) then
+            self.enhancementGroup.Enable = true
+        end
+        self._T.selectedSlot = nil
+        self._T.selectedScrollId = nil
+        self:SetStatus("")
+        self:RefreshDisplay()
+        log("EnhancementUI: opened")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        if isvalid(self.enhancementGroup) then
+            self.enhancementGroup.Enable = false
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetStatus(string message)
+        if isvalid(self.statusText) then
+            self.statusText.Text = message
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetActiveCharacterData()
+        return _CharacterRosterLogic:GetActiveCharacterData()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSlotSelected(string slot)
+        local data = self:GetActiveCharacterData()
+        if data == nil then return end
+        local equipment = data.equipment or {}
+        if equipment[slot] == nil then
+            -- 빈 슬롯은 강화할 장비가 없다.
+            self._T.selectedSlot = nil
+            self:SetStatus("이 슬롯에는 장비가 없습니다.")
+        else
+            self._T.selectedSlot = slot
+            self:SetStatus("")
+        end
+        self:RefreshDisplay()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnMaterialSelected(integer buttonIndex)
+        local templates = _EquipmentLogic:ListScrollTemplates()
+        local tpl = templates[buttonIndex]
+        if tpl == nil then return end
+        self._T.selectedScrollId = tpl.id
+        self:SetStatus("")
+        self:RefreshDisplay()
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer CountOwnedScroll(string scrollId)
+        local data = self:GetActiveCharacterData()
+        if data == nil or data.inventory == nil then return 0 end
+        local count = 0
+        for _, inst in ipairs(data.inventory) do
+            if inst.scrollId == scrollId then
+                count = count + 1
+            end
+        end
+        return count
+    end
+
+    @ExecSpace("ClientOnly")
+    method any FindScrollInventoryIndex(string scrollId)
+        local data = self:GetActiveCharacterData()
+        if data == nil or data.inventory == nil then return nil end
+        for index, inst in ipairs(data.inventory) do
+            if inst.scrollId == scrollId then
+                return index
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetStatLine(TextGUIRendererComponent textComp, string label, integer value)
+        if not isvalid(textComp) then return end
+        if value > 0 then
+            textComp.Text = label .. " +" .. value
+        else
+            textComp.Text = ""
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshDisplay()
+        local data = self:GetActiveCharacterData()
+        if data == nil then
+            self:Hide()
+            return
+        end
+        local slotList = _EquipmentLogic:GetSlotList()
+        local equipment = data.equipment or {}
+        local slotLabels = { weapon = "무기", cap = "모자", coat = "상의", pants = "하의", shoes = "신발", glove = "장갑", shield = "방패", earaccessory = "귀고리" }
+
+        for i, btn in ipairs(self._T.slotButtons) do
+            local slot = slotList[i]
+            local inst = equipment[slot]
+            local sprite = btn.SpriteGUIRendererComponent
+            local text = btn.TextGUIRendererComponent
+            if inst ~= nil then
+                local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
+                if tpl ~= nil and tpl.ruid ~= nil and tpl.ruid ~= "" then
+                    sprite.ImageRUID = DataRef("thumbnail://" .. tpl.ruid)
+                    text.Text = ""
+                else
+                    text.Text = (tpl ~= nil) and tpl.name or "?"
+                end
+                sprite.Color = (self._T.selectedSlot == slot) and self:_SelectedColor() or self:_FilledColor()
+            else
+                text.Text = slotLabels[slot] or "?"
+                sprite.Color = self:_EmptyColor()
+            end
+        end
+
+        local templates = _EquipmentLogic:ListScrollTemplates()
+        for i, btn in ipairs(self._T.materialButtons) do
+            local tpl = templates[i]
+            local text = btn.TextGUIRendererComponent
+            local sprite = btn.SpriteGUIRendererComponent
+            if tpl == nil then
+                text.Text = "재료 없음"
+                sprite.Color = self:_MaterialDefaultColor()
+            else
+                local owned = self:CountOwnedScroll(tpl.id)
+                text.Text = tpl.name .. " (보유 " .. owned .. "개, 성공률 " .. tpl.successRate .. "%)"
+                sprite.Color = (self._T.selectedScrollId == tpl.id) and self:_SelectedColor() or self:_MaterialDefaultColor()
+            end
+        end
+
+        if self._T.selectedSlot ~= nil then
+            local inst = equipment[self._T.selectedSlot]
+            local tpl = (inst ~= nil) and _EquipmentLogic:GetItemTemplate(inst.itemId) or nil
+            if tpl ~= nil then
+                self.nameText.Text = tpl.name
+                self:SetStatLine(self.strText, "STR", (tpl.bonusStr or 0) + (inst.bonusStr or 0))
+                self:SetStatLine(self.dexText, "DEX", (tpl.bonusDex or 0) + (inst.bonusDex or 0))
+                self:SetStatLine(self.intText, "INT", (tpl.bonusInt or 0) + (inst.bonusInt or 0))
+                self:SetStatLine(self.lukText, "LUK", (tpl.bonusLuk or 0) + (inst.bonusLuk or 0))
+                self.upgradeText.Text = "강화 가능: " .. (inst.upgradesUsed or 0) .. " / " .. tpl.maxUpgradeSlots
+            end
+        else
+            self.nameText.Text = "장비를 선택하세요"
+            self.strText.Text = ""
+            self.dexText.Text = ""
+            self.intText.Text = ""
+            self.lukText.Text = ""
+            self.upgradeText.Text = ""
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEnhanceClicked()
+        if self._T.selectedSlot == nil then
+            self:SetStatus("강화할 장비를 먼저 선택하세요.")
+            return
+        end
+        if self._T.selectedScrollId == nil then
+            self:SetStatus("사용할 주문서를 먼저 선택하세요.")
+            return
+        end
+        local data = self:GetActiveCharacterData()
+        if data == nil then return end
+        local scrollIndex = self:FindScrollInventoryIndex(self._T.selectedScrollId)
+        if scrollIndex == nil then
+            self:SetStatus("보유한 주문서가 없습니다.")
+            self._T.selectedScrollId = nil
+            self:RefreshDisplay()
+            return
+        end
+        local result = _EquipmentLogic:ApplyScroll(data, scrollIndex, self._T.selectedSlot)
+        self:SetStatus(result.message)
+        log("EnhancementUI: " .. result.message)
+        if result.applied then
+            -- 2026-09-15 장비 변경/강화 후 전투 스탯 미반영 버그 수정 패턴 재사용 - EquipmentUI/
+            -- InventoryUI의 "changed" 경로와 동일하게 유효 스탯을 서버에 전달 + 로스터 저장.
+            _CharacterRosterLogic:RequestApplyEquipmentToPlayer(data.equipment,
+                _EquipmentLogic:GetEffectiveStat(data, "str"), _EquipmentLogic:GetEffectiveStat(data, "dex"),
+                _EquipmentLogic:GetEffectiveStat(data, "int"), _EquipmentLogic:GetEffectiveStat(data, "luk"))
+            _CharacterRosterLogic:SaveRoster()
+            -- 소모돼 인벤토리에서 빠진 주문서를 계속 선택해둔 상태로 남기지 않는다 - 같은 주문서가
+            -- 더 있으면 재료 목록에 계속 나타나므로 재선택은 클릭 한 번이면 충분하다.
+            self._T.selectedScrollId = nil
+        end
+        self:RefreshDisplay()
+        -- 인벤토리(주문서 개수)/장비창(스탯 요약)이 열려 있으면 함께 갱신.
+        _CharacterRosterLogic:RefreshUIWindowIfOpen("/ui/InventoryGroup", "script.InventoryUIController")
+        _CharacterRosterLogic:RefreshUIWindowIfOpen("/ui/EquipmentGroup", "script.EquipmentUIController")
+    end
+
+end
