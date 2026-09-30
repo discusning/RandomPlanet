@@ -24,7 +24,7 @@
           "enable": true,
           "visible": true,
           "localize": true,
-          "displayOrder": 17,
+          "displayOrder": 18,
           "pathConstraints": "//",
           "revision": 0,
           "origin": {
@@ -103,7 +103,7 @@
             {
               "@type": "MOD.Core.UIGroupComponent",
               "DefaultShow": true,
-              "GroupOrder": 17,
+              "GroupOrder": 18,
               "GroupType": 1,
               "Enable": true
             },
@@ -159,12 +159,12 @@
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": -960,
-                "y": -540
+                "x": 0,
+                "y": 0
               },
               "OffsetMin": {
-                "x": 960,
-                "y": 540
+                "x": 0,
+                "y": 0
               },
               "Pivot": {
                 "x": 0.5,
@@ -694,26 +694,26 @@
             {
               "@type": "MOD.Core.UITransformComponent",
               "ActivePlatform": 255,
-              "AlignmentOption": 3,
+              "AlignmentOption": 4,
               "AnchorsMax": {
-                "x": 0.5,
+                "x": 0,
                 "y": 1
               },
               "AnchorsMin": {
-                "x": 0.5,
+                "x": 0,
                 "y": 1
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": 184,
+                "x": 354,
                 "y": -24
               },
               "OffsetMin": {
-                "x": -156,
+                "x": 14,
                 "y": -80
               },
               "Pivot": {
-                "x": 0.5,
+                "x": 0,
                 "y": 1
               },
               "RectSize": {
@@ -731,14 +731,9 @@
                 "x": 14,
                 "y": -24
               },
-              "Rotation": {
+              "Position": {
                 "x": 0,
                 "y": 0,
-                "z": 0
-              },
-              "Position": {
-                "x": 14,
-                "y": 296,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -752,7 +747,6 @@
                 "y": 1,
                 "z": 1
               },
-              "ZRotation": 0,
               "Enable": true
             },
             {

@@ -155,20 +155,20 @@
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": -910,
-                "y": -490
+                "x": 0,
+                "y": 0
               },
               "OffsetMin": {
-                "x": 910,
-                "y": 490
+                "x": 0,
+                "y": 0
               },
               "Pivot": {
                 "x": 0.5,
                 "y": 0.5
               },
               "RectSize": {
-                "x": 100,
-                "y": 100
+                "x": 1920,
+                "y": 1080
               },
               "UIMode": 1,
               "UIScale": {
@@ -180,11 +180,6 @@
               "anchoredPosition": {
                 "x": 0,
                 "y": 0
-              },
-              "Rotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0
               },
               "Position": {
                 "x": 0,
@@ -202,7 +197,6 @@
                 "y": 1,
                 "z": 1
               },
-              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -3443,9 +3437,14 @@
                 "x": 0,
                 "y": 30
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": 30,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -3459,6 +3458,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -3631,6 +3631,11 @@
                 "x": 0,
                 "y": 0
               },
+              "Rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
               "Position": {
                 "x": 0,
                 "y": 0,
@@ -3647,6 +3652,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -3819,9 +3825,14 @@
                 "x": 0,
                 "y": -30
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": -30,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -3835,6 +3846,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -4007,9 +4019,14 @@
                 "x": 0,
                 "y": -60
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": -60,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -4023,6 +4040,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -4169,11 +4187,11 @@
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": 460,
+                "x": 440,
                 "y": 120
               },
               "OffsetMin": {
-                "x": 40,
+                "x": 20,
                 "y": -180
               },
               "Pivot": {
@@ -4192,17 +4210,12 @@
               },
               "UIVersion": 2,
               "anchoredPosition": {
-                "x": 250,
+                "x": 230,
                 "y": -30
               },
-              "Rotation": {
+              "Position": {
                 "x": 0,
                 "y": 0,
-                "z": 0
-              },
-              "Position": {
-                "x": 250,
-                "y": -30,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -4216,7 +4229,6 @@
                 "y": 1,
                 "z": 1
               },
-              "ZRotation": 0,
               "Enable": true
             }
           ],
@@ -5262,9 +5274,14 @@
                 "x": 0,
                 "y": -245
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": -245,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -5278,6 +5295,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -5500,9 +5518,14 @@
                 "x": 0,
                 "y": -320
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": -320,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -5516,6 +5539,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
