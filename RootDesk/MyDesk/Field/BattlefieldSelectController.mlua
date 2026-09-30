@@ -14,19 +14,22 @@ script BattlefieldSelectController extends Component
     property number recommendedCp1 = 150
     property number recommendedCp2 = 400
     property number recommendedCp3 = 800
-    -- M2 Phase E(2026-09-06) - 몬스터 게이트 입장 행. 전체 기획서 §5-2 "입장권 소모로 입장".
-    property Entity btnGate = "092f540c-81f9-4547-8c05-829a088f4cab"
-    property TextGUIRendererComponent gateTicketText = "811baff0-839a-4ee6-9fcd-ef7ce0017d08"
+    -- M2 Phase E(2026-09-06) - 몬스터 게이트 입장. 전체 기획서 §5-2 "입장권 소모로 입장".
     property any tickTimerId = nil
-    -- M2 Phase F(2026-09-08) - 난이도 4단계 선택 UI(전체 기획서 §5-1), 4개 토글 버튼.
-    -- 2026-09-24 유저 결정 - 원래는 토벌전장(1~3) 입장에 붙어 있었으나, 전장 자체가 이미 맵 단위로
-    -- 난이도가 나뉘어 있어 중복이었다 - "하급/중급/상급/최상급"은 몬스터 게이트 전용으로 재배치
-    -- (ApplyMode에서 isGate일 때만 노출). OnGateClicked가 이 값을 RequestEnterGate(tier)로 넘긴다.
-    property Entity tierBtn1 = "ac9ac62e-6394-4c0f-9262-8a126b55a1d2"
-    property Entity tierBtn2 = "f584aefb-637b-4169-993b-fef3d49e983c"
-    property Entity tierBtn3 = "ad0308cf-c89b-4477-8058-9121e42fd1c5"
-    property Entity tierBtn4 = "450e5efd-900f-4120-9faf-6371d46f1db0"
-    property integer selectedTier = 1
+    -- 2026-09-30 유저 요청 - "몬스터게이트 UI 형식도 토벌 던전과 비슷하게" - 난이도(하급~최상급)를
+    -- 더 이상 "토글 4개 + 별도 입장 버튼" 2단계로 고르지 않고, 토벌전장 Field1~3과 완전히 같은
+    -- 형식(뱃지+이름+권장전투력 행)의 행 4개로 바꿔 행을 누르면 그 난이도로 즉시 입장한다.
+    -- 옛 tierBtn1~4/selectedTier/btnGate/gateTicketText(=Field4 재사용)는 전부 제거되고
+    -- gateTier1~4Btn + gateRecommend1~4 + gateTicketLabel(전용 신규 엔티티)로 대체됨.
+    property Entity gateTier1Btn = "c239ec9c-f2d4-4f57-a087-42c189c8e586"
+    property Entity gateTier2Btn = "88ef5415-e0cf-4f38-8fd8-6b906c49ed1e"
+    property Entity gateTier3Btn = "1ab94a7a-228d-4f81-8486-e7848691d9fe"
+    property Entity gateTier4Btn = "5d8a93af-562d-4589-b5c9-1794c94c785a"
+    property TextGUIRendererComponent gateRecommend1 = "2b65656b-abd6-498b-b8c1-79c29ea9d4c2"
+    property TextGUIRendererComponent gateRecommend2 = "b27cde92-3d3a-449e-94eb-52adcffc696c"
+    property TextGUIRendererComponent gateRecommend3 = "55450f99-d7fe-4919-b934-40012ba38234"
+    property TextGUIRendererComponent gateRecommend4 = "b7827053-6c66-4c6b-9e41-438dfbcbd6c5"
+    property TextGUIRendererComponent gateTicketLabel = "cefcd878-cbb4-4a8a-8572-da59b76a1bbb"
     -- 2026-09-24 유저 요청 - 게이트 난이도(하급~최상급)마다 토벌전장처럼 권장 전투력 표시. 게이트는
     -- 토벌전장3(권장 800)을 게이트 배율(FieldWaveSpawner: 3.0 x 1/1.5/2.25/3.4)로 강화한 것이라
     -- 권장치도 800 x 배율(2400/3600/5400/8160). 배율을 바꾸면 이 값도 같이 조정할 것.
@@ -62,16 +65,14 @@ script BattlefieldSelectController extends Component
         table.insert(self._T.handlers, { entity = self.btnField2, eventHandler = hField2 })
         local hField3 = self.btnField3:ConnectEvent(ButtonClickEvent, self.OnField3Clicked)
         table.insert(self._T.handlers, { entity = self.btnField3, eventHandler = hField3 })
-        local hGate = self.btnGate:ConnectEvent(ButtonClickEvent, self.OnGateClicked)
-        table.insert(self._T.handlers, { entity = self.btnGate, eventHandler = hGate })
-        local hTier1 = self.tierBtn1:ConnectEvent(ButtonClickEvent, self.OnTier1Clicked)
-        table.insert(self._T.handlers, { entity = self.tierBtn1, eventHandler = hTier1 })
-        local hTier2 = self.tierBtn2:ConnectEvent(ButtonClickEvent, self.OnTier2Clicked)
-        table.insert(self._T.handlers, { entity = self.tierBtn2, eventHandler = hTier2 })
-        local hTier3 = self.tierBtn3:ConnectEvent(ButtonClickEvent, self.OnTier3Clicked)
-        table.insert(self._T.handlers, { entity = self.tierBtn3, eventHandler = hTier3 })
-        local hTier4 = self.tierBtn4:ConnectEvent(ButtonClickEvent, self.OnTier4Clicked)
-        table.insert(self._T.handlers, { entity = self.tierBtn4, eventHandler = hTier4 })
+        local hGateTier1 = self.gateTier1Btn:ConnectEvent(ButtonClickEvent, self.OnGateTier1Clicked)
+        table.insert(self._T.handlers, { entity = self.gateTier1Btn, eventHandler = hGateTier1 })
+        local hGateTier2 = self.gateTier2Btn:ConnectEvent(ButtonClickEvent, self.OnGateTier2Clicked)
+        table.insert(self._T.handlers, { entity = self.gateTier2Btn, eventHandler = hGateTier2 })
+        local hGateTier3 = self.gateTier3Btn:ConnectEvent(ButtonClickEvent, self.OnGateTier3Clicked)
+        table.insert(self._T.handlers, { entity = self.gateTier3Btn, eventHandler = hGateTier3 })
+        local hGateTier4 = self.gateTier4Btn:ConnectEvent(ButtonClickEvent, self.OnGateTier4Clicked)
+        table.insert(self._T.handlers, { entity = self.gateTier4Btn, eventHandler = hGateTier4 })
         -- 2026-09-24 - 모드별로 켜고 끌 구획들(전장 전용/게이트 전용) - 별도 바인딩 프로퍼티 없이
         -- 이름으로 한 번만 찾아 캐시(정적 하이어라키라 재조회 불필요, ApplyMode가 반복 호출됨).
         self._T.title = self.Entity:GetChildByName("Title", true)
@@ -79,17 +80,8 @@ script BattlefieldSelectController extends Component
         self._T.gaugeTrack = self.Entity:GetChildByName("GaugeTrack", true)
         self._T.gaugeNote = self.Entity:GetChildByName("GaugeNote", true)
         self._T.gaugeRule = self.Entity:GetChildByName("GaugeRule", true)
-        self._T.tierLabel = self.Entity:GetChildByName("TierLabel", true)
         self._T.gateNote = self.Entity:GetChildByName("GateNote", true)
         self._T.gateRule = self.Entity:GetChildByName("GateRule", true)
-        -- 난이도 버튼마다 하나씩 붙은 "권장 N" 라벨(Tier1~4/Rec).
-        self._T.tierRecs = {}
-        for i, btn in ipairs({ self.tierBtn1, self.tierBtn2, self.tierBtn3, self.tierBtn4 }) do
-            local recEntity = btn:GetChildByName("Rec", true)
-            if isvalid(recEntity) then
-                self._T.tierRecs[i] = recEntity.TextGUIRendererComponent
-            end
-        end
         self.Entity.Enable = false
     end
 
@@ -132,7 +124,6 @@ script BattlefieldSelectController extends Component
         self:RefreshGauge()
         self:RefreshRecommendations()
         self:RefreshGateTicketDisplay()
-        self:RefreshTierButtons()
         self:ApplyMode()
     end
 
@@ -152,15 +143,15 @@ script BattlefieldSelectController extends Component
         if isvalid(self._T.gaugeRule) then self._T.gaugeRule.Enable = isBattlefield end
         self.myPowerText.Enable = not isBoss
 
-        -- 2026-09-24 - 난이도(하급~최상급)는 이제 게이트 전용 - 토벌전장 모드에서는 완전히 숨긴다.
-        self.tierBtn1.Enable = isGate
-        self.tierBtn2.Enable = isGate
-        self.tierBtn3.Enable = isGate
-        self.tierBtn4.Enable = isGate
-        if isvalid(self._T.tierLabel) then self._T.tierLabel.Enable = isGate end
+        -- 2026-09-30 - 난이도 행 4개(하급~최상급)는 게이트 전용 - 토벌전장 모드에서는 완전히 숨긴다.
+        -- 각 행 자체가 토벌전장 Field1~3과 같은 "뱃지+이름+권장전투력" 행이라 누르면 바로 입장된다.
+        self.gateTier1Btn.Enable = isGate
+        self.gateTier2Btn.Enable = isGate
+        self.gateTier3Btn.Enable = isGate
+        self.gateTier4Btn.Enable = isGate
+        self.gateTicketLabel.Enable = isGate
         if isvalid(self._T.gateNote) then self._T.gateNote.Enable = isGate end
         if isvalid(self._T.gateRule) then self._T.gateRule.Enable = isGate end
-        self.btnGate.Enable = isGate
 
         if isvalid(self._T.gaugeLabel) then
             if isBoss then
@@ -184,59 +175,19 @@ script BattlefieldSelectController extends Component
     end
 
     @ExecSpace("ClientOnly")
-    method void RefreshTierButtons()
-        -- M2 Phase F - 선택된 tier 버튼만 밝게, 나머지는 기본 어두운 배경 그대로 유지해 어떤 난이도가
-        -- 선택돼 있는지 시각적으로 표시한다(별도 아이콘/텍스트 변경 없이 배경색만으로 구분).
-        local buttons = { self.tierBtn1, self.tierBtn2, self.tierBtn3, self.tierBtn4 }
-        for i, btnEntity in ipairs(buttons) do
-            local bg = btnEntity:GetComponent("MOD.Core.SpriteGUIRendererComponent")
-            if isvalid(bg) then
-                if i == self.selectedTier then
-                    bg.Color = Color(0.2, 0.55, 0.85, 1)
-                else
-                    bg.Color = Color(0.1, 0.1, 0.1, 0.24)
-                end
-            end
-        end
-    end
-
-    @ExecSpace("ClientOnly")
-    method void OnTier1Clicked()
-        self.selectedTier = 1
-        self:RefreshTierButtons()
-    end
-
-    @ExecSpace("ClientOnly")
-    method void OnTier2Clicked()
-        self.selectedTier = 2
-        self:RefreshTierButtons()
-    end
-
-    @ExecSpace("ClientOnly")
-    method void OnTier3Clicked()
-        self.selectedTier = 3
-        self:RefreshTierButtons()
-    end
-
-    @ExecSpace("ClientOnly")
-    method void OnTier4Clicked()
-        self.selectedTier = 4
-        self:RefreshTierButtons()
-    end
-
-    @ExecSpace("ClientOnly")
     method void RefreshGateTicketDisplay()
         -- M2 Phase E - GateTicketLogic(계정 단위)이 로드/갱신될 때마다도 호출된다(OnLoaded/OnTicketGranted/
         -- OnEnterGateResult). 팝업이 닫혀있어도 텍스트 갱신 자체는 가볍기 때문에 Tick의 Enable 가드와
         -- 달리 무조건 갱신 - 다음에 열릴 때 바로 최신값이 보이게 함.
         local count = _GateTicketLogic:GetCount()
-        self.gateTicketText.Text = "입장권 보유 " .. tostring(count)
+        self.gateTicketLabel.Text = "입장권 보유 " .. tostring(count)
     end
 
     @ExecSpace("ClientOnly")
-    method void OnGateClicked()
+    method void EnterGate(integer tier)
         -- 몬스터 게이트 입장 - 입장권 소모/검증은 서버(GateTicketLogic.RequestEnterGate)가 전담한다.
-        -- 2026-09-24 - 하급~최상급 난이도가 게이트 전용으로 재배치되면서 selectedTier를 함께 넘긴다.
+        -- 2026-09-30 - "난이도 선택 후 별도 입장 버튼" 2단계를 없애고, 4개 난이도 행 각각이 이 메서드를
+        -- 자신의 tier로 직접 호출한다(토벌전장 Field1~3의 "행 클릭 = 즉시 입장" 형식과 동일).
         -- 2026-09-24 QA(스크린샷 재검토) - 입장권 0개일 때 눌러도 서버가 조용히 거부만 하고(로그만
         -- 남김) 클라는 무조건 곧장 팝업을 닫아버려서, 플레이어 입장에서는 "게이트를 눌렀는데
         -- 아무 일도 없이 창만 닫힘"으로 보였다(성공/실패 구분 불가). 클라에서 먼저 티켓 수를 확인해
@@ -247,9 +198,29 @@ script BattlefieldSelectController extends Component
             self:ShowGateDenied()
             return
         end
-        log("BattlefieldSelect: 몬스터 게이트 입장 시도 tier=" .. self.selectedTier)
-        _GateTicketLogic:RequestEnterGate(self.selectedTier)
+        log("BattlefieldSelect: 몬스터 게이트 입장 시도 tier=" .. tostring(tier))
+        _GateTicketLogic:RequestEnterGate(tier)
         self:Hide()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnGateTier1Clicked()
+        self:EnterGate(1)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnGateTier2Clicked()
+        self:EnterGate(2)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnGateTier3Clicked()
+        self:EnterGate(3)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnGateTier4Clicked()
+        self:EnterGate(4)
     end
 
     @ExecSpace("ClientOnly")
@@ -312,19 +283,12 @@ script BattlefieldSelectController extends Component
         self:ApplyRecommendColor(self.recommend1, self.recommendedCp1, cp)
         self:ApplyRecommendColor(self.recommend2, self.recommendedCp2, cp)
         self:ApplyRecommendColor(self.recommend3, self.recommendedCp3, cp)
-        -- 게이트 난이도별 권장치(하급~최상급) - 토벌전장 행과 같은 초록/주황 색 규칙.
-        local gateCps = { self.gateRecommendedCp1, self.gateRecommendedCp2, self.gateRecommendedCp3, self.gateRecommendedCp4 }
-        for i, label in pairs(self._T.tierRecs or {}) do
-            if isvalid(label) then
-                local recommended = gateCps[i]
-                label.Text = "권장 " .. tostring(math.floor(recommended))
-                if cp >= recommended then
-                    label.FontColor = Color(0.16, 0.45, 0.16, 1)
-                else
-                    label.FontColor = Color(0.72, 0.32, 0.1, 1)
-                end
-            end
-        end
+        -- 게이트 난이도 행(하급~최상급) 권장치 - 토벌전장 행(recommend1~3)과 완전히 같은
+        -- ApplyRecommendColor 규칙(텍스트 "권장 전투력 N" + 초록/주황 색)을 그대로 재사용.
+        self:ApplyRecommendColor(self.gateRecommend1, self.gateRecommendedCp1, cp)
+        self:ApplyRecommendColor(self.gateRecommend2, self.gateRecommendedCp2, cp)
+        self:ApplyRecommendColor(self.gateRecommend3, self.gateRecommendedCp3, cp)
+        self:ApplyRecommendColor(self.gateRecommend4, self.gateRecommendedCp4, cp)
     end
 
     method number GetLiveCp()
