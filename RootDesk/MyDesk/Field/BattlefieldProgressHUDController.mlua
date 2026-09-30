@@ -48,6 +48,12 @@ script BattlefieldProgressHUDController extends Logic
     @HideFromInspector property integer lastCleared = -1
     @HideFromInspector property any clearHoldSerial = nil
 
+    -- 유저 리포트(2026-09-30) "레벨 5를 찍었는데도 전직이 안 된다" - 실제로는 레벨 요건 충족 후
+    -- 그 전장의 마지막 웨이브 미니보스를 처치해야 전직이 완료되는데(PlayerStatsComponent.
+    -- PromotionPending2~4), 그 대기 상태를 알려주는 UI가 전혀 없어 유저가 "안 된다"로 오인했다.
+    -- 웨이브/보스 게이지와 같은 4Hz 폴링으로 대기 중인 가장 낮은 티어를 문구로 띄운다.
+    property TextGUIRendererComponent promotionBadge = "b657da3c-5e3c-446f-beaf-1259e4eca521"
+
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         -- Hidden by default; Tick shows it only while the local player is actually standing in one
@@ -164,6 +170,31 @@ script BattlefieldProgressHUDController extends Logic
             self:PlayClearFx(spawner.IsGateMode)
         end
         self.lastCleared = clearedNow
+
+        self:RefreshPromotionBadge(localPlayer)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshPromotionBadge(Entity localPlayer)
+        -- 대기 중인 가장 낮은 티어 하나만 표시(GrantSkillTierIfMilestone/RecordBossKillForPromotion과
+        -- 동일하게 낮은 티어 우선 - 동시에 여러 티어가 밀려도 문구는 하나만).
+        if not isvalid(self.promotionBadge) then return end
+        local statsComp = localPlayer:GetComponent("script.PlayerStatsComponent")
+        if not isvalid(statsComp) then
+            self.promotionBadge.Entity.Enable = false
+            return
+        end
+        local tier = 0
+        if statsComp.PromotionPending2 then tier = 2
+        elseif statsComp.PromotionPending3 then tier = 3
+        elseif statsComp.PromotionPending4 then tier = 4
+        end
+        if tier == 0 then
+            self.promotionBadge.Entity.Enable = false
+            return
+        end
+        self.promotionBadge.Text = tier .. "차 전직 대기 중 - 이 전장의 미니보스를 처치하세요"
+        self.promotionBadge.Entity.Enable = true
     end
 
     @ExecSpace("ClientOnly")
