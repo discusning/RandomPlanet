@@ -1,0 +1,98 @@
+@Logic
+script PromotionGraceUIController extends Logic
+    -- 유저 요청(2026-09-30) - 전직(2~4차) 완료 직후 새 스킬을 키에 배정할 안전한 시간을 UI로
+    -- 알려준다. PlayerStatsComponent.StartPromotionGrace가 서버에서 PromotionGraceUntilElapsed를
+    -- 세팅하면, 그 OnSyncProperty가 이 컨트롤러의 Show를 호출한다(SkillChoiceUIController와 동일
+    -- 아키텍처 - 표시+카운트다운만 담당, 보호 자체는 PlayerHit.HandleHitEvent가 처리).
+    -- HUD 성격이라 GroupOrder=26(전장 진행도/HUD/설정 창보다 위)로 항상 보이고, 모달이 아니라
+    -- 플레이어 입력/이동은 그대로 유지된다(전직으로 얻은 스킬을 바로 써볼 수 있어야 하므로).
+
+    property Entity promotionGraceGroup = "34b834f8-e4a0-4ce3-bf08-77d6fed2ecbc"
+    property TextGUIRendererComponent titleText = "d0c233bb-e07b-40fe-b2e0-bfef959704b6"
+    property TextGUIRendererComponent countdownText = "6593be75-9c2e-4c8f-bd66-aa8754338184"
+    property Entity btnKeySetting = "526d1fc9-943c-4636-8490-0dc67112133c"
+
+    @HideFromInspector property any keySettingHandler = nil
+    @HideFromInspector property number graceUntilElapsed = -1
+    @HideFromInspector property integer tickTimerId = 0
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        if isvalid(self.promotionGraceGroup) then
+            self.promotionGraceGroup.Enable = false
+        end
+        if isvalid(self.btnKeySetting) then
+            self.keySettingHandler = self.btnKeySetting:ConnectEvent(ButtonClickEvent, self.OnKeySettingClicked)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.keySettingHandler and isvalid(self.btnKeySetting) then
+            self.btnKeySetting:DisconnectEvent(ButtonClickEvent, self.keySettingHandler)
+        end
+        if self.tickTimerId ~= 0 then
+            _TimerService:ClearTimer(self.tickTimerId)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show(integer tier, number untilElapsed)
+        -- category="buff"|"attack" 둘 다 고른 직후(PlayerSkillComponent.AdvanceTierChoice) 호출된다.
+        self.graceUntilElapsed = untilElapsed
+        if isvalid(self.titleText) then
+            self.titleText.Text = tier .. "차 전직 완료!"
+        end
+        if isvalid(self.promotionGraceGroup) then
+            self.promotionGraceGroup.Enable = true
+        end
+        if self.tickTimerId ~= 0 then
+            _TimerService:ClearTimer(self.tickTimerId)
+        end
+        self.tickTimerId = _TimerService:SetTimerRepeat(self.Tick, 1 / 4)
+        self:Tick()
+        log("PromotionGraceUI: Show tier=" .. tier)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Tick()
+        -- 4Hz - 카운트다운 텍스트만 갱신하는 가벼운 폴링(BattlefieldReturnLogic의 ClientTick과
+        -- 동일 패턴). 만료되면 배너를 닫고 스스로 타이머를 정리한다.
+        local remaining = self.graceUntilElapsed - _UtilLogic.ElapsedSeconds
+        if remaining <= 0 then
+            self:Hide()
+            return
+        end
+        if isvalid(self.countdownText) then
+            self.countdownText.Text = "안전 보호 " .. tostring(math.ceil(remaining)) .. "초 남음"
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        if isvalid(self.promotionGraceGroup) then
+            self.promotionGraceGroup.Enable = false
+        end
+        if self.tickTimerId ~= 0 then
+            _TimerService:ClearTimer(self.tickTimerId)
+            self.tickTimerId = 0
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeySettingClicked()
+        -- SettingsUIController.OnKeySettingClicked와 동일한 오픈 경로(KeyBindingPopupController:Open()).
+        -- 배너는 닫지 않는다 - 키 설정 창(GroupOrder=13)이 이 배너(26) 아래에 뜨므로 계속 카운트다운이
+        -- 보이고, 설정을 닫으면 남은 시간 동안 다시 눈에 들어온다.
+        log("PromotionGraceUI: OnKeySettingClicked")
+        local keySettingGroup = _EntityService:GetEntityByPath("/ui/KeySettingGroup")
+        if not isvalid(keySettingGroup) then
+            log_warning("PromotionGraceUI: KeySettingGroup not found")
+            return
+        end
+        local popup = keySettingGroup:GetComponent("script.KeyBindingPopupController")
+        if isvalid(popup) then
+            popup:Open()
+        end
+    end
+end

@@ -274,6 +274,11 @@ script PlayerSkillComponent extends Component
             self:StartTierChoice(tier, "attack")
         else
             self.PendingSkillTier = 0
+            -- 유저 요청(2026-09-30) - 전직 완료(버프+공격 둘 다 결정) 시점에 안전 보호 시간을 연다.
+            local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
+            if isvalid(statsComp) then
+                statsComp:StartPromotionGrace(tier)
+            end
             self:ProcessSkillTierQueue()
         end
     end

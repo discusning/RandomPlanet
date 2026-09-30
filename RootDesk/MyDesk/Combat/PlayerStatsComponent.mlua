@@ -57,6 +57,13 @@ script PlayerStatsComponent extends Component
     @HideFromInspector property number PromotionMilestoneElapsed = 0
     -- 계정 귀속 영구 저장 + 전역 리더보드 연동은 Phase H 몫 - 지금은 세션 내 최근 값만 보관.
     @Sync property number LastPromotionClearSeconds = 0
+    -- 유저 요청(2026-09-30) - 전직(2~4차) 완료 직후 새 스킬을 키에 배정할 안전한 시간을 마련한다.
+    -- 이 시각까지는 PlayerHit이 몬스터 접촉 피해를 전액 무효화(다른 *InvulnUntilElapsed 필드와
+    -- 동일 패턴)하고, 클라이언트는 PromotionGraceUIController가 카운트다운 배너 + "키 설정 열기"
+    -- 버튼을 띄운다(StartPromotionGrace가 세팅, OnSyncProperty에서 감지해 Show 호출).
+    @Sync property number PromotionGraceUntilElapsed = -1
+    @Sync @HideFromInspector property integer LastPromotionTier = 0
+    property number PromotionGraceSeconds = 30
 
     -- 특성(115종, TraitCatalog/TraitRollLogic) - 전투력(CP, CharacterInfoUIController) 산식에도 반영.
     @Sync property string Trait = ""
@@ -447,6 +454,16 @@ script PlayerStatsComponent extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void StartPromotionGrace(integer tier)
+        -- PlayerSkillComponent.AdvanceTierChoice(그 티어의 버프+공격 선택이 모두 끝난 시점)에서
+        -- 호출된다 - "전직 완료"의 실제 정의가 스킬 지급(SetTierSlot)이 아니라 두 카드를 다 고른
+        -- 순간이라, 버프만 고르고 공격은 아직 안 고른 중간 상태에는 보호를 열지 않는다.
+        self.PromotionGraceUntilElapsed = _UtilLogic.ElapsedSeconds + self.PromotionGraceSeconds
+        self.LastPromotionTier = tier
+        log("PlayerStats: 전직 tier=" .. tier .. " 완료 - " .. self.PromotionGraceSeconds .. "초간 피격 무효 + 키 설정 안내")
+    end
+
+    @ExecSpace("ServerOnly")
     method void AddKill()
         -- 2026-09-15 코드 구조화 - 위임 래퍼, 본체는 LevelProgressionLogic.mlua.
         _LevelProgressionLogic:AddKill(self)
@@ -644,6 +661,13 @@ script PlayerStatsComponent extends Component
             -- 2026-09-28 버그 수정 - 레벨업 이능 "특성 변경"으로 바뀐 특성도 위와 같은 이유로 로스터에
             -- 저장되지 않아 선택 복귀 시 원래 특성으로 되돌아갔다.
             _CharacterRosterLogic:UpdateActiveTrait(value)
+        elseif name == "PromotionGraceUntilElapsed" and value > 0 then
+            -- 유저 요청(2026-09-30) - 형제 @Sync 필드(LastPromotionTier)가 같은 틱에 함께 바뀌므로
+            -- 위 RunEnded/AbilityChoicePending과 동일한 이유로 한 틱 늦춰 읽는다.
+            _TimerService:SetTimerOnce(function()
+                if not isvalid(self.Entity) then return end
+                _PromotionGraceUIController:Show(self.LastPromotionTier, self.PromotionGraceUntilElapsed)
+            end, 0.1)
         end
     end
 
