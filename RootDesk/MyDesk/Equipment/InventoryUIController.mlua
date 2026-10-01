@@ -149,6 +149,13 @@ script InventoryUIController extends Component
         if isvalid(self.dragHandle) then
             local hDrag = self.dragHandle:ConnectEvent(UITouchDragEvent, self.OnDrag)
             table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchDragEvent, eventHandler = hDrag })
+            -- 유저 리포트(2026-10-01, 실제 마우스) - Drag 하나만 연결해선 창이 안 끌림. BeginDrag/
+            -- EndDrag도 함께 연결(WindowHotkeyLogic.OnWindowDragBegin 참고) - 겸사겸사 제목줄을
+            -- 잡는 순간 이 창을 맨 앞으로 올린다.
+            local hBegin = self.dragHandle:ConnectEvent(UITouchBeginDragEvent, function(event) _WindowHotkeyLogic:OnWindowDragBegin(self.Entity, event) end)
+            table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchBeginDragEvent, eventHandler = hBegin })
+            local hEnd = self.dragHandle:ConnectEvent(UITouchEndDragEvent, _WindowHotkeyLogic.NoOpWindowDragEnd)
+            table.insert(self._T.handlers, { entity = self.dragHandle, eventType = UITouchEndDragEvent, eventHandler = hEnd })
         end
 
         self.Entity.Enable = false

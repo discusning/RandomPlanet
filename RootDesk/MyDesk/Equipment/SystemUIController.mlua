@@ -50,6 +50,11 @@ script SystemUIController extends Component
         self:Bind(self.btnSfxDown, ButtonClickEvent, self.OnSfxDownClicked)
         self:Bind(self.btnSfxUp, ButtonClickEvent, self.OnSfxUpClicked)
         self:Bind(self.dragHandle, UITouchDragEvent, self.OnDrag)
+        -- 유저 리포트(2026-10-01, 실제 마우스) - Drag 하나만 연결해선 창이 안 끌림. BeginDrag/
+        -- EndDrag도 함께 연결(WindowHotkeyLogic.OnWindowDragBegin 참고) - 겸사겸사 제목줄을 잡는
+        -- 순간 이 창을 맨 앞으로 올린다.
+        self:Bind(self.dragHandle, UITouchBeginDragEvent, function(event) _WindowHotkeyLogic:OnWindowDragBegin(self.Entity, event) end)
+        self:Bind(self.dragHandle, UITouchEndDragEvent, _WindowHotkeyLogic.NoOpWindowDragEnd)
 
         -- 단계 막대: 칸 i를 누르면 i단계로 바로 설정.
         for i = 1, 10 do

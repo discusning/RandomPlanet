@@ -112,8 +112,31 @@ script BottomBarController extends Component
         if isvalid(e) then
             local c = e:GetComponent(scriptType)
             if isvalid(c) then
+                -- 유저 요청(2026-10-01) - 코어 창을 동시에 열 수 있게 되면서, 나중에 연 창이 먼저
+                -- 연 창(GroupOrder가 더 높은 파일) 뒤에 가려지는 문제가 생겼다. 실측 확인(2026-10-01):
+                -- GroupOrder는 Entity.Enable이 false->true로 바뀌는 "활성화 시점"에만 화면 정렬에
+                -- 반영되고, 이미 켜져 있는 그룹에 나중에 값만 바꿔 써도 화면 순서는 그대로였다 -
+                -- 그래서 Toggle(=Enable 전환) 전에 먼저 GroupOrder를 올려 둔다(닫는 토글이면 어차피
+                -- 안 보이니 무해하다).
+                self:BringToFront(e)
                 c:Toggle()
             end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void BringToFront(Entity windowEntity)
+        -- UIGroupComponent.GroupOrder는 파일마다 고정값이라(캐릭터정보=5 < 장비=10 < 인벤토리=11 <
+        -- 설정=12 < 스킬=18 < 계정강화=19 식) 여는 순서와 무관하게 항상 같은 창이 위에 뜬다 -
+        -- "나중에 누른 창이 고정된 다른 창에 가려 안 보인다"는 리포트의 원인. 지금까지 띄운 것 중
+        -- 가장 높은 값+1을 매겨 "마지막으로 만진 창이 맨 위" 동작을 흉내낸다(실제 OS 창 포커스와
+        -- 동일한 패턴). 기준값 30은 이 프로젝트의 기존 GroupOrder 중 최댓값(SystemGroup=24)보다
+        -- 위 - 코어 창끼리의 포커스 전환이 다른 모든 UI보다도 항상 우선하게 한다.
+        if not isvalid(windowEntity) then return end
+        self._T.nextWindowOrder = (self._T.nextWindowOrder or 30) + 1
+        local grp = windowEntity:GetComponent("MOD.Core.UIGroupComponent")
+        if isvalid(grp) then
+            grp.GroupOrder = self._T.nextWindowOrder
         end
     end
 

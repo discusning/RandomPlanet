@@ -158,6 +158,32 @@ script WindowHotkeyLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method void OnWindowDragBegin(Entity windowEntity, UITouchBeginDragEvent event)
+        -- 유저 리포트(2026-10-01, 실제 마우스 테스트) - 창 제목줄을 눌러 끌어도 창이 전혀 움직이지
+        -- 않는다. UITouchDragEvent 하나만 연결해도 된다는 API 문서와 달리, 같은 UITouchReceiveComponent
+        -- 기반인 HotkeyDragLogic(아이템을 키 설정 창으로 끄는 기능)은 BeginDrag/Drag/EndDrag 3종을
+        -- 전부 연결한다 - 엔진이 연속 드래그 상태를 추적하는 데 BeginDrag가 실제로 필요할 가능성을
+        -- 배제할 수 없어, 창 드래그도 동일한 3종 세트로 맞춘다(기존 Drag 쪽 델타 누적 로직은 그대로).
+        -- 겸사겸사 "나중에 누른 창이 고정된 다른 창에 가려 안 보인다"는 2번째 리포트도 여기서 같이
+        -- 해결 - 제목줄을 처음 누르는 순간 그 창을 맨 앞으로 올린다.
+        self:BringWindowToFront(windowEntity)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void NoOpWindowDragEnd(UITouchEndDragEvent event)
+        -- 위 OnWindowDragBegin과 짝 - EndDrag 자체는 할 일이 없지만 BeginDrag/Drag와 세트로
+        -- 연결해둔다(위 주석 참고).
+    end
+
+    @ExecSpace("ClientOnly")
+    method void BringWindowToFront(Entity windowEntity)
+        local bar = self:GetBottomBar()
+        if isvalid(bar) then
+            bar:BringToFront(windowEntity)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
     method void OnEndPlay()
         if self.keyHandler then
             _InputService:DisconnectEvent(KeyDownEvent, self.keyHandler)
