@@ -119,35 +119,31 @@ script BottomBarController extends Component
 
     @ExecSpace("ClientOnly")
     method void CloseOtherWindows(string keepPath)
-        -- Mutually-exclusive single-window mode: every bottom-bar window lives as its own .ui
-        -- root group with no shared z-order, so two windows opened back-to-back render stacked
-        -- with no visual sign a second click did anything (e.g. Equipment opening fully behind an
-        -- already-open Inventory). Closing every other window before toggling the target keeps at
-        -- most one window on screen at a time, matching a normal bottom-tab-bar's behavior.
-        for _, w in ipairs(self:GetWindowList()) do
-            if w.path ~= keepPath then
+        -- 유저 요청(2026-10-01) - "기존 메이플스토리처럼 UI 이동이 자유롭고 중복으로 UI를 켜고
+        -- 끌 수 있게". 예전엔 하단바 버튼 하나를 누르면 캐릭터/인벤토리/장비/설정/스킬/계정강화
+        -- 6개 "코어" 창 중 나머지 전부를 강제로 닫는 상호배타 모드였다 - 이게 "인벤토리/장비창
+        -- 위치 이동이 안 된다"는 리포트의 실제 원인이었다: 드래그 로직 자체는 4개 창이 전부 동일
+        -- 코드(WindowHotkeyLogic.ApplyDragDelta)라 멀쩡했지만, 클래식 메이플처럼 인벤토리+장비를
+        -- 동시에 열어 아이템을 옮기려는 순간 한쪽이 통째로 닫혀버려 "창이 안 움직인다"로 보였다.
+        -- 이제 코어 6창은 서로를 닫지 않고 동시에 열어둘 수 있다(각자 독립적으로 드래그/닫기) -
+        -- keepPath=="" (ESC/맵 전환 등 전체 닫기)만 예외로 전부 닫는다.
+        if keepPath == "" then
+            for _, w in ipairs(self:GetWindowList()) do
                 self:CloseWindow(w.path, w.scriptType)
             end
-        end
-        -- The key-setting popup isn't one of the 5 bottom-bar windows (it's opened both by its own
-        -- global P-key toggle and from inside Settings/Skill), but it renders as a full card on top
-        -- of everything the same way - without this, opening e.g. Inventory while it was already
-        -- open left both stacked on screen (KeyBindingPopupController.Hide is a thin alias for its
-        -- own Close()).
-        -- 2026-09-22 키 설정 개편 - 키 설정 창은 다른 창의 "동반 창"이라(스킬창/인벤토리의 항목을
-        -- 끌어다 놓는다) 다른 창을 열 때 닫지 않는다. 전부 닫는 경우(keepPath == "", ESC/일괄 닫기)에만
-        -- 함께 닫힌다.
-        if keepPath == "" then
+            -- 키 설정 창은 GetWindowList에 없으므로(동반 창) 전체 닫기에서만 따로 닫는다.
             self:CloseWindow("/ui/KeySettingGroup", "script.KeyBindingPopupController")
+        else
+            -- 코어 창끼리는 서로 안 닫되, 함께 떠 있으면 안 맞는 "일시적 모달"류(NPC 상점 대화,
+            -- 설정의 하위 팝업)는 계속 자동으로 닫는다.
+            self:CloseWindow("/ui/PotionShopGroup", "script.PotionShopUIController")
+            self:CloseWindow("/ui/SystemGroup", "script.SystemUIController")
         end
-        -- Same story for the squad-formation card (opened from the Lobby NPC, not a bottom-bar
-        -- button) - it also renders as a full-screen card and was never part of this mutual
-        -- exclusion set, so it could stack behind/in front of any bottom-bar window too.
+        -- Squad-formation(공격대 편성)/battlefield-select(전장 선택)/guide(안내인) 풀카드 팝업은
+        -- NPC·포탈 터치로만 열리고 하단바 코어 창과는 애초에 동시 사용 대상이 아니므로, keepPath와
+        -- 무관하게 항상 닫는다(기존 동작 유지).
         self:CloseWindow("/ui/SquadFormationGroup", "script.SquadFormationController")
-        -- Same again for the battlefield-select popup (opened from the Lobby's 1F portal,
-        -- up-arrow) - identical full-card-on-top shape as the squad-formation popup above.
         self:CloseWindow("/ui/BattlefieldSelectGroup", "script.BattlefieldSelectController")
-        -- 2026-09-24 - 안내인 NPC 안내 팝업도 같은 이유로 동일 처리(NPC 터치로만 열리는 풀카드 팝업).
         self:CloseWindow("/ui/GuideGroup", "script.GuideNPCController")
     end
 
