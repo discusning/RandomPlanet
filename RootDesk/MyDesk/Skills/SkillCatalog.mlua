@@ -25,7 +25,7 @@ script SkillCatalog extends Logic
             "magicclaw", "magicguard",
             "arrowblow", "focus",
             "luckyseven", "disable", "darksight", "nimblebody",
-            "dash", "knucklebooster",
+            "dash", "summersaultkick", "knucklebooster",
             -- 2차 (tier=2, M2 Phase D 2026-09-06)
             "doubleswing", "powerguard",
             "thunderbolt", "meditation",
@@ -35,7 +35,7 @@ script SkillCatalog extends Logic
             -- 3차 (tier=3)
             "risingslash", "ironwill",
             "blizzard", "magicbooster",
-            "arrowrain", "sharpeyes",
+            "arrowrain", "strafe", "sharpeyes",
             "venom", "shadowpartner",
             "battery", "speedenhancer",
             -- 4차 (tier=4)
@@ -44,6 +44,7 @@ script SkillCatalog extends Logic
             "hurricane", "eagleeye",
             "asura", "markofassassin",
             "rapidfire", "battleship",
+            "maplewarrior",
         }
     end
 
@@ -190,13 +191,11 @@ script SkillCatalog extends Logic
             -- 실드"(Water Shield, skill/2311.img/skill/23111005)의 repeat 클립으로 교체 - 연한
             -- 파란 반투명 보호막 구체로 매직 가드의 실제 컨셉(마법 방어막)에 훨씬 부합.
             magicguard = { id = "magicguard", tier = 1, name = "매직 가드", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "mpfree", cooldown = 20.0, mpCost = 20, auraType = "Enchant", auraColor = Color(0.4, 0.6, 1.0, 0.9), buffVfxRuid = "53e7aaf6b3f1401ba1909ebeebd337ab", iconRuid = "d3c555f2af214be799c296ad9020bf24", desc = "일정 시간 스킬 MP 소모가 없어집니다." },
-            -- 애로우 블로우 (2026-08-16 사용위치 검증 후 수정): 실제 클래식 메이플스토리의 애로우
-            -- 블로우는 궁수 계열 중 유일하게 활로 직접 근접 타격하는 스킬 - 원거리 발사도, 관통도
-            -- 아니다. 기존 ranged_pierce(투사체 관통)는 실제 스킬 성격과 반대였음 - melee_single로
-            -- 교체(다른 근접 단일히트 스킬과 동일 파이프라인, PlayerSkillComponent.DoMeleeSingle).
-            -- hitVfxRuid는 실제 "애로우 블로우" 팩(skill/300.img/skill/3001004, findPacksContaining로
-            -- 재확인)의 hit/0 요소 - 기존 "ball"(투사체용 화살 그래픽)은 더 이상 맞지 않아 교체.
-            arrowblow = { id = "arrowblow", tier = 1, name = "애로우 블로우", job = "궁수", kind = "melee_single", coef = 1.2, cooldown = 2.0, mpCost = 8, impactDelay = 0.12, hitVfxRuid = "84a473e004a34fdea67aa74a87dc75c6", iconRuid = "f62b353e3f704eb097e427b7fc97980e", desc = "활로 전방의 적을 강하게 가격해 평타의 120% 피해를 입힙니다." },
+            -- 2026-10-02 유저 제공 "메이플스토리 스킬목록 차수별" 엑셀 반영 - 실제 궁수 1차 액티브는
+            -- 애로우 블로우가 아니라 더블 샷(화살 2개 연속 공격)이라는 유저 조사 결과로 교체. id는
+            -- 하위호환을 위해 그대로 유지(이미 이 id로 보유한 캐릭터가 있을 수 있음). VFX/아이콘은
+            -- 기존 multi_hit 계열과 동일한 공용 리소스 재사용(이펙트 폴리싱은 추후 이미지 수령 후).
+            arrowblow = { id = "arrowblow", tier = 1, name = "더블 샷", job = "궁수", kind = "multi_hit", coef = 0.6, hits = 2, cooldown = 2.5, mpCost = 9, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "화살 두 개를 소비해 연속으로 쏘아 각 타격마다 평타의 60% 피해를 입힙니다." },
             focus = { id = "focus", tier = 1, name = "포커스", job = "궁수", kind = "buff", duration = 6.0, testableEffect = "accuracy", accuracyBonus = 30, evasionBonus = 0.10, cooldown = 12.0, mpCost = 12, auraType = "SpinField", auraColor = Color(1.0, 0.85, 0.3, 0.9), buffVfxRuid = "0d68db29ec2046f4bb2a64e6f03b745b", iconRuid = "ae9c846d0ac34d77a34602729590f3c6", desc = "일정 시간 명중률이 30 증가하고 회피율이 10% 증가합니다." },
             -- 럭키 세븐 (2026-08-17 메이플랜드/클래식 메이플스토리 자료 조사 후 확인 - 의도적 타협):
             -- 실제로는 도적 1차가 아니라 어쌔신(2차) 스킬 - 실제 도적 1차 스킬은 님블 바디/디스오더
@@ -221,11 +220,19 @@ script SkillCatalog extends Logic
             -- 요소(애로우 블로우의 화살 등)와 동일하게 "날아가는 투사체 전용" 스프라이트로 태깅된
             -- 항목이라 용도가 정확히 맞고, 실제 다운로드해 확인 - 4갈래 회색 표창이 잔상을 남기며
             -- 회전하는 모습(39x24px, 프레임 크기 문제 없음).
-            luckyseven = { id = "luckyseven", tier = 1, name = "럭키 세븐", job = "도적", kind = "multi_hit", coef = 0.6, hits = 3, cooldown = 3.5, mpCost = 12, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "단검을 3연속으로 투척해 각 타격마다 평타의 60% 피해를 입힙니다." },
-            disable = { id = "disable", tier = 1, name = "디스에이블", job = "도적", kind = "debuff", evasionReduction = 40, duration = 8.0, cooldown = 10.0, mpCost = 10, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "전방의 적 하나를 약화시켜 일정 시간 회피가 크게 감소합니다." },
+            -- 2026-10-02 유저 엑셀 - 럭키 세븐 계수를 132%로 상향(기존 60%는 당시 DPS 밸런스 조정값,
+            -- 유저가 직접 조사한 실제 수치로 교체).
+            luckyseven = { id = "luckyseven", tier = 1, name = "럭키 세븐", job = "도적", kind = "multi_hit", coef = 1.32, hits = 3, cooldown = 3.5, mpCost = 12, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "단검을 3연속으로 투척해 각 타격마다 평타의 132% 피해를 입힙니다." },
+            -- 2026-10-02 - 실제 명칭은 "디스에이블"이 아니라 "디스오더"(유저 엑셀) - 효과(회피 감소)는
+            -- 동일하게 유지, id는 하위호환을 위해 "disable" 그대로.
+            disable = { id = "disable", tier = 1, name = "디스오더", job = "도적", kind = "debuff", evasionReduction = 40, duration = 8.0, cooldown = 10.0, mpCost = 10, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "전방의 적 하나를 약화시켜 일정 시간 회피가 크게 감소합니다." },
             darksight = { id = "darksight", tier = 1, name = "다크 사이트", job = "도적", kind = "buff", duration = 5.0, testableEffect = "critchance", critChanceBonus = 0.25, cooldown = 12.0, mpCost = 10, buffVfxRuid = "abdf05be0b3e4146a6271c4ee1f3b1b1", iconRuid = "0946f69d84464df29b24b94c744c868d", desc = "일정 시간 그림자에 숨어 치명타 확률이 25% 증가합니다." },
             nimblebody = { id = "nimblebody", tier = 1, name = "님블 바디", job = "도적", kind = "buff", duration = 6.0, testableEffect = "movespeed", moveSpeedBonus = 1.5, evasionBonus = 0.10, cooldown = 12.0, mpCost = 10, auraType = "Buff", auraColor = Color(0.3, 1.0, 0.85, 0.9), buffVfxRuid = "372fdc6781974004bfb08edd5b5f9914", iconRuid = "75596ddd8cf747a6bfc3e0e1b6a93d79", desc = "일정 시간 이동 속도와 회피율이 증가합니다." },
             dash = { id = "dash", tier = 1, name = "대시", job = "해적", kind = "dash", force = 6.0, coef = 1.4, cooldown = 4.0, mpCost = 6, dashVfxRuid = "b84c3c28e8284104b68d16b5cf0524b2", hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "5e32ce05d92b456a8b3c6e25b42d8b7a", desc = "바라보는 방향으로 짧게 돌진해 경로상의 적에게 평타의 140% 피해를 입힙니다." },
+            -- 2026-10-02 유저 엑셀 신규 - 해적 1차에 공격 스킬이 둘(대시/써머솔트킥)인 것은 엑셀 원본
+            -- 그대로 - 너클부스터(버프)는 삭제하지 않고 유지(기존 보유 캐릭터 보호, 구조 정리는 유저가
+            -- 아직 고민 중이라고 밝힌 사항이라 보류).
+            summersaultkick = { id = "summersaultkick", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
             -- 너클 부스터 (2026-08-17, 럭키 세븐과 동일 사유 - see 위 주석): 실제로는 해적 1차가
             -- 아니라 인파이터(2차) 스킬. 실제 해적 1차는 대시가 사실상 전부라 대체할 진짜 1차 버프가
             -- 없어 의도적 타협으로 유지(유저 확인 완료, 2026-08-17).
@@ -260,12 +267,18 @@ script SkillCatalog extends Logic
             -- 긴 낙뢰형 클립은 옆으로 날아갈 때 이상하게 보여 제외하고, 가로로 넓은 섬광형을 선택.
             thunderbolt = { id = "thunderbolt", tier = 2, name = "썬더 볼트", job = "마법사", kind = "ranged_single", coef = 1.4, magic = true, cooldown = 3.0, mpCost = 12, projectileVfxRuid = "7dbd8b9ffda84ac4a627e0a9ec6a139b", iconRuid = "99947daaf7e24c1db61fa0ceb346f001", projectileTintColor = Color(0.5, 0.5, 1.0, 1.0), desc = "전방으로 번개를 날려 평타의 140% 마법 피해를 입힙니다." },
             meditation = { id = "meditation", tier = 2, name = "메디테이션", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "skilldmg", skillDmgBonus = 0.2, cooldown = 18.0, mpCost = 16, auraType = "SpinField", auraColor = Color(0.7, 0.4, 1.0, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 스킬 피해가 20% 증가합니다." },
-            doubleshot = { id = "doubleshot", tier = 2, name = "더블 샷", job = "궁수", kind = "multi_hit", coef = 0.75, hits = 2, cooldown = 3.0, mpCost = 10, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "화살을 2연속으로 쏘아 각 타격마다 평타의 75% 피해를 입힙니다." },
+            -- 2026-10-02 유저 엑셀 - 실제 명칭은 "더블 샷"이 아니라 "아이언 에로우"(수치/메커니즘은
+            -- 기존과 완전히 동일 - multi_hit x2, 타격당 75%). "더블 샷"은 1차(위 arrowblow)로 이동.
+            doubleshot = { id = "doubleshot", tier = 2, name = "아이언 에로우", job = "궁수", kind = "multi_hit", coef = 0.75, hits = 2, cooldown = 3.0, mpCost = 10, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "화살을 2연속으로 날려 각 타격마다 평타의 75% 피해를 입힙니다." },
             soularrow = { id = "soularrow", tier = 2, name = "소울 애로우", job = "궁수", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 18.0, mpCost = 12, auraType = "SpinField", auraColor = Color(0.85, 1.0, 0.6, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 공격 속도가 증가합니다." },
-            doublestab = { id = "doublestab", tier = 2, name = "더블 스탭", job = "도적", kind = "melee_single", coef = 1.5, cooldown = 3.0, mpCost = 9, impactDelay = 0.1, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "단검으로 강하게 찔러 평타의 150% 피해를 입힙니다." },
+            -- 2026-10-02 유저 엑셀 - 실제 명칭/메커니즘은 "더블 스탭"(단발 150%)이 아니라 "새비지
+            -- 블로우"(6연속 타격, 타격당 80%) - kind를 melee_single에서 multi_hit으로 교체.
+            doublestab = { id = "doublestab", tier = 2, name = "새비지 블로우", job = "도적", kind = "multi_hit", coef = 0.8, hits = 6, cooldown = 4.0, mpCost = 13, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "MP를 소비해 단검으로 적에게 6연속 공격을 가해 각 타격마다 평타의 80% 피해를 입힙니다." },
             haste = { id = "haste", tier = 2, name = "헤이스트", job = "도적", kind = "buff", duration = 10.0, testableEffect = "movespeed", moveSpeedBonus = 2.0, cooldown = 20.0, mpCost = 12, auraType = "Buff", auraColor = Color(1.0, 0.9, 0.4, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 이동 속도가 크게 증가합니다." },
-            flamethrower = { id = "flamethrower", tier = 2, name = "플레임 스로어", job = "해적", kind = "ranged_pierce", coef = 1.1, cooldown = 3.5, mpCost = 11, projectileVfxRuid = "64096440f11f4c9b9c96df38e0e3852e", iconRuid = "543decec44e3488d98cf82e8580572f7", projectileTintColor = Color(1.0, 0.45, 0.2, 1.0), desc = "전방에 화염을 뿜어 관통하는 적 전부에게 평타의 110% 피해를 입힙니다." },
-            reload = { id = "reload", tier = 2, name = "리로드", job = "해적", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 18.0, mpCost = 14, auraType = "LightningOrbSoft", auraColor = Color(0.9, 0.2, 0.2, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 공격 속도가 증가합니다." },
+            -- 2026-10-02 유저 엑셀 - 실제 명칭/메커니즘은 "플레임 스로어"(관통 110%)가 아니라
+            -- "인비지블샷"(3연속 타격, 타격당 75%) - kind를 ranged_pierce에서 multi_hit으로 교체.
+            flamethrower = { id = "flamethrower", tier = 2, name = "인비지블샷", job = "해적", kind = "multi_hit", coef = 0.75, hits = 3, cooldown = 3.5, mpCost = 12, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "짧은 시간에 눈에 보이지 않을 정도로 빠르게 총을 쏴 각 타격마다 평타의 75% 피해를 입힙니다." },
+            reload = { id = "reload", tier = 2, name = "건 부스트", job = "해적", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 18.0, mpCost = 14, auraType = "LightningOrbSoft", auraColor = Color(0.9, 0.2, 0.2, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 공격 속도가 증가합니다." },
 
             -- ── 3차 (레벨 13) ──
             risingslash = { id = "risingslash", tier = 3, name = "라이징 슬래시", job = "검사", kind = "melee_single", coef = 1.6, wide = true, cooldown = 4.5, mpCost = 14, impactDelay = 0.2, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", iconRuid = "1dc02c9673284efb94da9c86e7414eeb", desc = "회전 베기로 넓은 범위의 적 전부에게 평타의 160% 피해를 입힙니다." },
@@ -273,7 +286,16 @@ script SkillCatalog extends Logic
             blizzard = { id = "blizzard", tier = 3, name = "블리자드", job = "마법사", kind = "ranged_pierce", coef = 1.5, magic = true, cooldown = 4.0, mpCost = 16, projectileVfxRuid = "64096440f11f4c9b9c96df38e0e3852e", iconRuid = "543decec44e3488d98cf82e8580572f7", projectileTintColor = Color(0.6, 0.85, 1.0, 1.0), desc = "전방에 냉기를 퍼뜨려 관통하는 적 전부에게 평타의 150% 마법 피해를 입힙니다." },
             magicbooster = { id = "magicbooster", tier = 3, name = "매직 부스터", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "skilldmg", skillDmgBonus = 0.25, cooldown = 20.0, mpCost = 18, auraType = "Enchant", auraColor = Color(0.4, 0.9, 0.95, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 스킬 피해가 25% 증가합니다." },
             arrowrain = { id = "arrowrain", tier = 3, name = "애로우 레인", job = "궁수", kind = "multi_hit", coef = 0.7, hits = 3, cooldown = 4.5, mpCost = 15, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "화살비를 쏟아부어 3연속 타격마다 평타의 70% 피해를 입힙니다." },
-            sharpeyes = { id = "sharpeyes", tier = 3, name = "샤프 아이즈", job = "궁수", kind = "buff", duration = 10.0, testableEffect = "critchance", critChanceBonus = 0.3, cooldown = 22.0, mpCost = 16, auraType = "SpinField", auraColor = Color(1.0, 0.75, 0.2, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 치명타 확률이 30% 증가합니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "스트레이프"(한 명에게 4발, 타격당 71%). 기존 애로우 레인과
+            -- 함께 궁수 3차 공격 슬롯 후보로 공존(엑셀 원본이 궁수 3차에 공격 스킬만 둘이고 버프가
+            -- 없는 것은 유저가 아직 고민 중이라고 밝힌 사항이라 그대로 반영, 삭제하지 않음).
+            strafe = { id = "strafe", tier = 3, name = "스트레이프", job = "궁수", kind = "multi_hit", coef = 0.71, hits = 4, cooldown = 4.5, mpCost = 15, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "한 명의 적에게 화살 4발을 쏘아 각 타격마다 평타의 71% 피해를 입힙니다." },
+            -- 2026-10-02 유저 엑셀 - 실제 수치는 크리티컬 확률 +5% + 피해 +20%(기존 크리+30% 단일
+            -- 효과는 과장된 추정치였음). testableEffect(critchance)는 하나만 가질 수 있어, 두 번째
+            -- 독립 채널(evasionBonus와 동일 패턴)로 atkBonusPercent2를 추가 - skilldmg 채널은 DoRanged의
+            -- magic 전용이라 궁수 자신의 비마법 공격엔 적용되지 않는 죽은 수치가 되므로, 모든 kind가
+            -- 공유하는 attack.AttackDamage 채널(atkbonus와 동일)을 재사용해 실제로 관측 가능하게 함.
+            sharpeyes = { id = "sharpeyes", tier = 3, name = "샤프 아이즈", job = "궁수", kind = "buff", duration = 10.0, testableEffect = "critchance", critChanceBonus = 0.05, atkBonusPercent2 = 0.2, cooldown = 22.0, mpCost = 16, auraType = "SpinField", auraColor = Color(1.0, 0.75, 0.2, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 치명타 확률이 5% 증가하고 피해가 20% 증가합니다." },
             venom = { id = "venom", tier = 3, name = "베놈", job = "도적", kind = "melee_single", coef = 1.6, cooldown = 4.0, mpCost = 13, impactDelay = 0.1, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "독이 묻은 단검으로 적을 베어 평타의 160% 피해를 입힙니다." },
             shadowpartner = { id = "shadowpartner", tier = 3, name = "쉐도우 파트너", job = "도적", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 20.0, mpCost = 15, auraType = "Buff", auraColor = Color(0.5, 0.3, 0.6, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "분신이 함께 공격해 공격 속도가 크게 증가한 것처럼 동작합니다." },
             battery = { id = "battery", tier = 3, name = "배터리", job = "해적", kind = "multi_hit", coef = 0.7, hits = 3, cooldown = 4.0, mpCost = 14, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "총탄을 난사해 3연속 타격마다 평타의 70% 피해를 입힙니다." },
@@ -294,6 +316,11 @@ script SkillCatalog extends Logic
             markofassassin = { id = "markofassassin", tier = 4, name = "마크 오브 어쌔신", job = "도적", kind = "buff", duration = 10.0, testableEffect = "atkbonus", atkBonusPercent = 0.2, cooldown = 24.0, mpCost = 18, auraType = "Buff", auraColor = Color(0.3, 0.15, 0.4, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "표식의 기운을 두르고 일정 시간 공격력이 20% 증가합니다." },
             rapidfire = { id = "rapidfire", tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 0.6, hits = 4, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "쌍권총을 난사해 4연속 타격마다 평타의 60% 피해를 입힙니다." },
             battleship = { id = "battleship", tier = 4, name = "배틀쉽", job = "해적", kind = "buff", duration = 10.0, testableEffect = "atkbonus", atkBonusPercent = 0.2, cooldown = 25.0, mpCost = 20, auraType = "LightningOrbSoft", auraColor = Color(0.2, 0.35, 0.6, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "함선의 화력을 빌려 일정 시간 공격력이 20% 증가합니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "메이플 용사"(job="전체", 5직업 공통 11번째 4차 버프).
+            -- "모든 스탯 +5%"는 이 게임의 파생 스탯 구조상 하나의 단일 수치로 직결되는 채널이 없어,
+            -- 기존 atkbonus 채널(markofassassin/battleship과 동일 패턴)로 근사 구현 - 실제 올스탯
+            -- 시스템은 추후 폴리싱 패스 대상.
+            maplewarrior = { id = "maplewarrior", tier = 4, name = "메이플 용사", job = "전체", kind = "buff", duration = 10.0, testableEffect = "atkbonus", atkBonusPercent = 0.05, cooldown = 25.0, mpCost = 20, auraType = "Aura", auraColor = Color(1.0, 0.85, 0.3, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 모든 스탯이 5% 증가합니다. (현재는 공격력 증가로 근사 구현)" },
         }
         return defs[skillId]
     end

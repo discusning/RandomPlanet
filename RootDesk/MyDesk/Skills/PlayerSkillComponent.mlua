@@ -75,6 +75,9 @@ script PlayerSkillComponent extends Component
     -- 소비)을 구현하면서 이미 stale해졌다 - testableEffect 슬롯(BuffType/BuffOriginalValue)은
     -- PlayerAttack/MovementComponent 값 하나만 담당하므로, EvasionPercent는 별도 채널로 병행 적용.
     @HideFromInspector property number BuffEvasionBonus = 0
+    -- 2026-10-02 (샤프 아이즈 등 "크리+피해 동시 적용" 2채널 버프용) - PlayerBuffLogic.DoBuff/
+    -- RevertBuff의 atkBonusPercent2 독립 채널이 저장하는 attack.AttackDamage 보너스량.
+    @HideFromInspector property integer BuffAtkBonus2 = 0
     @HideFromInspector property integer BuffParticleSerial = 0
     @HideFromInspector property boolean BuffUsingSkillVfx = false
     @HideFromInspector property integer ProjectileCount = 0

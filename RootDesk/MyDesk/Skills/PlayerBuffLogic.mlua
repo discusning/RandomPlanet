@@ -37,6 +37,18 @@ script PlayerBuffLogic extends Logic
             skill.BuffEvasionBonus = def.evasionBonus
         end
 
+        -- 2026-10-02 (유저 엑셀 "샤프 아이즈" 크리+5%/피해+20% 동시 적용 요구) - testableEffect 슬롯은
+        -- 하나만 가질 수 있어, 두 번째 독립 채널로 atkBonusPercent2를 병행 적용. evasionBonus와 동일한
+        -- "testableEffect와 무관하게 항상 같이 적용"패턴. skilldmg(SkillDamageBonus) 대신
+        -- attack.AttackDamage를 올리는 이유는 모든 kind(melee/ranged/multi_hit 전부)가 공통으로 읽는
+        -- 채널이라 - SkillDamageBonus는 DoRanged의 magic=true 분기에서만 소비되어, 궁수 자신의 비마법
+        -- 공격에는 적용되지 않는 죽은 수치가 됨(실제로 관측 가능해야 한다는 검증 원칙 위반).
+        if def.atkBonusPercent2 ~= nil and isvalid(attack) then
+            local bonus2 = math.floor(attack.AttackDamage * def.atkBonusPercent2)
+            skill.BuffAtkBonus2 = bonus2
+            attack.AttackDamage = attack.AttackDamage + bonus2
+        end
+
         if def.testableEffect == "accuracy" and isvalid(attack) then
             skill.BuffOriginalValue = attack.Accuracy
             attack.Accuracy = attack.Accuracy + def.accuracyBonus
@@ -172,6 +184,13 @@ script PlayerBuffLogic extends Logic
         if skill.BuffEvasionBonus > 0 and isvalid(statsComp) then
             statsComp.EvasionPercent = math.max(0, statsComp.EvasionPercent - skill.BuffEvasionBonus)
             skill.BuffEvasionBonus = 0
+        end
+
+        -- 2026-10-02 - atkBonusPercent2(샤프 아이즈 등 2채널 버프) 복원. evasionBonus와 동일하게
+        -- BuffType 슬롯과 독립적으로 병행 적용됐으므로 여기서도 독립적으로 되돌린다.
+        if skill.BuffAtkBonus2 > 0 and isvalid(attack) then
+            attack.AttackDamage = math.max(1, attack.AttackDamage - skill.BuffAtkBonus2)
+            skill.BuffAtkBonus2 = 0
         end
 
         if skill.BuffParticleSerial ~= 0 then
