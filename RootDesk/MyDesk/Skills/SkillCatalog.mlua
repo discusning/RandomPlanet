@@ -36,13 +36,13 @@ script SkillCatalog extends Logic
             "risingslash", "shout", "ironwill",
             "blizzard", "icestrike", "magicbooster",
             "arrowrain", "strafe", "mortalblow", "sharpeyes",
-            "venom", "shadowpartner", "avenger",
+            "shadowpartner", "avenger",
             "battery", "speedenhancer", "homing",
             -- 4차 (tier=4)
             "blast", "rage", "brandish",
             "meteorstrike", "infinity",
             "hurricane", "eagleeye",
-            "asura", "markofassassin",
+            "asura", "markofassassin", "venom", "showdown",
             "rapidfire", "battleship",
             "maplewarrior",
         }
@@ -316,7 +316,6 @@ script SkillCatalog extends Logic
             -- melee_single 판정 뒤 추가 스캔.
             mortalblow = { id = "mortalblow", tier = 3, name = "모탈 블로우", job = "궁수", kind = "melee_single", coef = 1.1, executeHpPercent = 0.2, executeInstakillChance = 0.01, cooldown = 4.5, mpCost = 15, impactDelay = 0.12, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "적이 매우 가까이 근접했을 때도 활을 쏠 수 있습니다. 평타의 110% 피해를 입히며, 적의 HP가 20% 이하일 때 1% 확률로 즉사시킵니다." },
             sharpeyes = { id = "sharpeyes", tier = 3, name = "샤프 아이즈", job = "궁수", kind = "buff", duration = 10.0, testableEffect = "critchance", critChanceBonus = 0.05, atkBonusPercent2 = 0.2, cooldown = 22.0, mpCost = 16, auraType = "SpinField", auraColor = Color(1.0, 0.75, 0.2, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 치명타 확률이 5% 증가하고 피해가 20% 증가합니다." },
-            venom = { id = "venom", tier = 3, name = "베놈", job = "도적", kind = "melee_single", coef = 1.6, cooldown = 4.0, mpCost = 13, impactDelay = 0.1, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "독이 묻은 단검으로 적을 베어 평타의 160% 피해를 입힙니다." },
             shadowpartner = { id = "shadowpartner", tier = 3, name = "쉐도우 파트너", job = "도적", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 20.0, mpCost = 15, auraType = "Buff", auraColor = Color(0.5, 0.3, 0.6, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "분신이 함께 공격해 공격 속도가 크게 증가한 것처럼 동작합니다." },
             -- 2026-10-02 유저 엑셀 신규 - "어벤져"(도적 3차 공격). "표창 3개로 최대 4명 공격"을
             -- ranged_pierce + maxTargets(관통 캡)로 구현 - ProjectileComponent에 MaxPierceTargets를
@@ -349,6 +348,15 @@ script SkillCatalog extends Logic
             -- 완전히 동일한 패턴)로, 시전자 자신의 AttackDamage만 올리는 순수 자가 버프 - 적을
             -- 대상으로 하는 로직 자체가 없다. rage/battleship과 같은 자가 버프 표현으로 수정.
             markofassassin = { id = "markofassassin", tier = 4, name = "마크 오브 어쌔신", job = "도적", kind = "buff", duration = 10.0, testableEffect = "atkbonus", atkBonusPercent = 0.2, cooldown = 24.0, mpCost = 18, auraType = "Buff", auraColor = Color(0.3, 0.15, 0.4, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "표식의 기운을 두르고 일정 시간 공격력이 20% 증가합니다." },
+            -- 2026-10-02 유저 엑셀 - "베놈"은 실제로는 4차(기존 3차 자리는 단발 160% 멜리로 잘못
+            -- 들어가 있었음 - 스프레드시트엔 3차 도적에 베놈이 없고 4차에만 있음, 어벤져가 그 3차
+            -- 공격 자리를 대신 채운다). 최대 3스택 독 DOT(Monster.ApplyPoison) - HP 1 밑으로는
+            -- 떨어뜨리지 않음(직접 타격으로 마무리 필요).
+            venom = { id = "venom", tier = 4, name = "베놈", job = "도적", kind = "poison_apply", coef = 1.0, poisonTickDamage = 4, duration = 10.0, cooldown = 20.0, mpCost = 16, impactDelay = 0.1, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "표창에 독을 발라 공격합니다. 적이 중독되어 10초간 독 피해를 입으며, 최대 3회까지 중복됩니다. 중독으로는 적의 HP가 1 이하로 떨어지지 않습니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "쇼다운"(도적 4차 공격, 데미지 없는 위험부담형 디버프).
+            -- 최대 6마리 도발 - 받는 피해 감소(방어력 상승 근사)와 동시에 그 적들의 경험치/드롭률을
+            -- 실제로 상승시킨다(Monster.ApplyShowdown).
+            showdown = { id = "showdown", tier = 4, name = "쇼다운", job = "도적", kind = "showdown", maxTargets = 6, weakenRadius = 4.0, defenseIncreasePercent = 0.2, rewardIncreasePercent = 0.2, duration = 15.0, cooldown = 22.0, mpCost = 18, iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "최대 6마리의 적을 도발합니다. 적의 방어력이 상승해 받는 피해가 줄지만, 그만큼 획득 경험치와 아이템 드롭률이 20% 상승합니다." },
             rapidfire = { id = "rapidfire", tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 0.6, hits = 4, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "쌍권총을 난사해 4연속 타격마다 평타의 60% 피해를 입힙니다." },
             battleship = { id = "battleship", tier = 4, name = "배틀쉽", job = "해적", kind = "buff", duration = 10.0, testableEffect = "atkbonus", atkBonusPercent = 0.2, cooldown = 25.0, mpCost = 20, auraType = "LightningOrbSoft", auraColor = Color(0.2, 0.35, 0.6, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "함선의 화력을 빌려 일정 시간 공격력이 20% 증가합니다." },
             -- 2026-10-02 유저 엑셀 신규 - "메이플 용사"(job="전체", 5직업 공통 11번째 4차 버프).

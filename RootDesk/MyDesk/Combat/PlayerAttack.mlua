@@ -140,9 +140,15 @@ script PlayerAttack extends AttackComponent
         -- 2026-10-02 유저 엑셀("호밍" - 해적 3차) - 본인이 직접 표식을 건 대상에게만 가산 피해
         -- (파티 전역인 저주의 표식 링크와 달리 트레잇 무관, 개인 전용 - Monster.HomingMarkerName으로
         -- "이 표식을 건 게 나인가" 확인).
-        local homingMonster = defender:GetComponent("script.Monster")
-        if isvalid(homingMonster) and _UtilLogic.ElapsedSeconds < homingMonster.HomingMarkedUntilElapsed and homingMonster.HomingMarkerName == self.Entity.Name then
-            dmg = math.floor(dmg * (1 + homingMonster.HomingMarkBonus))
+        local targetMonster = defender:GetComponent("script.Monster")
+        if isvalid(targetMonster) and _UtilLogic.ElapsedSeconds < targetMonster.HomingMarkedUntilElapsed and targetMonster.HomingMarkerName == self.Entity.Name then
+            dmg = math.floor(dmg * (1 + targetMonster.HomingMarkBonus))
+        end
+
+        -- 2026-10-02 유저 엑셀("쇼다운" - 도적 4차) - 방어력 상승(받는 피해 감소) 적용. 기본값
+        -- 1.0일 땐 곱해도 결과가 그대로라 안전(no-op).
+        if isvalid(targetMonster) and targetMonster.DamageTakenMultiplier ~= 1.0 then
+            dmg = math.floor(dmg * targetMonster.DamageTakenMultiplier)
         end
 
         return dmg

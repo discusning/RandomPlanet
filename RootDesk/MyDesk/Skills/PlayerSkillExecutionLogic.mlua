@@ -40,6 +40,10 @@ script PlayerSkillExecutionLogic extends Logic
             skill:DoBuff(def)
         elseif def.kind == "mark_homing" then
             self:DoMarkHoming(skill, def)
+        elseif def.kind == "showdown" then
+            self:DoShowdown(skill, def)
+        elseif def.kind == "poison_apply" then
+            self:DoPoisonApply(skill, def)
         end
 
         -- 2026-10-02 유저 엑셀("모탈 블로우" - 궁수 3차) - 즉사 확률 실제 구현. melee_single 판정
@@ -381,6 +385,81 @@ script PlayerSkillExecutionLogic extends Logic
             end
         end
         log("PlayerSkill: " .. def.name .. " 범위 내 " .. hitCount .. "마리 약화")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoShowdown(PlayerSkillComponent skill, table def)
+        -- 쇼다운(도적 4차) - 전방 범위 내 최대 6마리를 도발: 받는 피해 감소(방어력 상승 근사) +
+        -- 경험치/드롭률 상승을 동시에 적용(위험부담형 디버프, 데미지 없음).
+        local transform = skill.Entity.TransformComponent
+        local controller = skill.Entity.PlayerControllerComponent
+        local map = skill.Entity.CurrentMap
+        if not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+        local range = def.weakenRadius or 4.0
+
+        local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
+        local hitCount = 0
+        for _, m in ipairs(monsters) do
+            if isvalid(m) and isvalid(m.Entity) and not m.IsDead and hitCount < (def.maxTargets or 6) then
+                local mpos = m.Entity.TransformComponent.WorldPosition
+                local dx = mpos.x - pos.x
+                if dx * dir >= 0 and math.abs(dx) <= range then
+                    m:ApplyShowdown(def.defenseIncreasePercent, def.rewardIncreasePercent, def.duration)
+                    hitCount = hitCount + 1
+                end
+            end
+        end
+        log("PlayerSkill: " .. def.name .. " 도발한 적 " .. hitCount .. "마리")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoPoisonApply(PlayerSkillComponent skill, table def)
+        -- 베놈(도적 4차) - 전방 가장 가까운 적 1체에게 단검 공격(coef) + 독 DOT 적용(최대 3스택).
+        local attack = skill.Entity:GetComponent("script.PlayerAttack")
+        local transform = skill.Entity.TransformComponent
+        local controller = skill.Entity.PlayerControllerComponent
+        local map = skill.Entity.CurrentMap
+        if not isvalid(attack) or not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+        local range = 2.0
+
+        if def.coef ~= nil and def.coef > 0 then
+            local shape = BoxShape(Vector2(pos.x + 0.7 * dir, pos.y + 0.5), Vector2(1.5, 1.4), 0)
+            local originalDamage = attack.AttackDamage
+            attack.AttackDamage = math.floor(originalDamage * def.coef)
+            attack:AttackFast(shape, "skill." .. def.id, CollisionGroups.Monster)
+            attack.AttackDamage = originalDamage
+        end
+
+        local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
+        local nearest = nil
+        local nearestDist = range + 1
+        for _, m in ipairs(monsters) do
+            if isvalid(m) and isvalid(m.Entity) and not m.IsDead then
+                local mpos = m.Entity.TransformComponent.WorldPosition
+                local dx = mpos.x - pos.x
+                if dx * dir >= 0 and math.abs(dx) <= range and math.abs(dx) < nearestDist then
+                    nearestDist = math.abs(dx)
+                    nearest = m
+                end
+            end
+        end
+        if nearest == nil then
+            log("PlayerSkill: " .. def.name .. " no target in range")
+            return
+        end
+        nearest:ApplyPoison(def.poisonTickDamage, def.duration)
+        log("PlayerSkill: " .. def.name .. " 독 적용 - " .. nearest.Entity.Name .. " stacks=" .. nearest.PoisonStacks)
+        if def.hitVfxRuid ~= nil then
+            local mpos = nearest.Entity.TransformComponent.WorldPosition
+            local serial = _EffectService:PlayEffect(def.hitVfxRuid, skill.Entity, mpos, 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
+            log("PlayerSkill: " .. def.name .. " VFX serial=" .. tostring(serial))
+        end
     end
 
     @ExecSpace("ServerOnly")

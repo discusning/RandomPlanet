@@ -59,6 +59,19 @@ script Monster extends Component
     @HideFromInspector property boolean WeakenActive = false
     @HideFromInspector property number WeakenOriginalAttackDamage = 0
     @HideFromInspector property number WeakenOriginalEvasion = 0
+    -- 2026-10-02 유저 엑셀("쇼다운" - 도적 4차) - "적 방어력 상승"을 받는 피해 배율로 구현
+    -- (PlayerAttack.CalcDamage가 곱함, 기본 1.0=영향 없음). "경험치/드롭률 상승"은 실제 보상 필드
+    -- (XpReward/MesoDropChance/PotionDropChance)를 직접 올려 진짜로 더 주게 한다.
+    @HideFromInspector property number DamageTakenMultiplier = 1.0
+    @HideFromInspector property boolean ShowdownActive = false
+    @HideFromInspector property number ShowdownOriginalXpReward = 0
+    @HideFromInspector property number ShowdownOriginalMesoChance = 0
+    @HideFromInspector property number ShowdownOriginalPotionChance = 0
+    -- 2026-10-02 유저 엑셀("베놈" - 도적 4차) - 독 DOT. 최대 3스택까지 중첩, 스택 수만큼 틱 데미지
+    -- 증가, HP는 1 이하로 떨어지지 않음(DOT 단독으로는 처치 불가 - 직접 타격으로 마무리해야 함).
+    @HideFromInspector property integer PoisonStacks = 0
+    @HideFromInspector property number PoisonTickDamage = 0
+    @HideFromInspector property number PoisonExpireElapsed = 0
     -- 물약 시스템 (M2 Phase A, 2026-09-06 - 전체 기획서 §3-3 "회복 아이템: 드랍으로 획득"). 퍼센트
     -- 정수(0~100) - 기본 12%로 시작, 전장 몬스터별로 `MapBuilder.patchComponent`나 개별 `.model`
     -- 값으로 오버라이드 가능(FieldMonster1~3 티어별 밸런스 조정과 동일 패턴).
@@ -275,6 +288,61 @@ script Monster extends Component
                 self.WeakenActive = false
             end
         end, duration)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyShowdown(number defenseIncreasePercent, number rewardIncreasePercent, number duration)
+        -- 쇼다운(도적 4차) - 위험부담형 디버프: 받는 피해는 줄지만(방어력 상승 근사) 처치 보상은
+        -- 더 준다. ApplyWeaken과 동일한 원본값 추적+재시전 패턴.
+        if self.ShowdownActive then
+            self.XpReward = self.ShowdownOriginalXpReward
+            self.MesoDropChance = self.ShowdownOriginalMesoChance
+            self.PotionDropChance = self.ShowdownOriginalPotionChance
+        end
+        self.ShowdownOriginalXpReward = self.XpReward
+        self.ShowdownOriginalMesoChance = self.MesoDropChance
+        self.ShowdownOriginalPotionChance = self.PotionDropChance
+        self.XpReward = math.floor(self.XpReward * (1 + rewardIncreasePercent))
+        self.MesoDropChance = math.min(100, math.floor(self.MesoDropChance * (1 + rewardIncreasePercent)))
+        self.PotionDropChance = math.min(100, math.floor(self.PotionDropChance * (1 + rewardIncreasePercent)))
+        self.DamageTakenMultiplier = math.max(0.1, 1 - defenseIncreasePercent)
+        self.ShowdownActive = true
+        _TimerService:SetTimerOnce(function()
+            if isvalid(self.Entity) then
+                self.XpReward = self.ShowdownOriginalXpReward
+                self.MesoDropChance = self.ShowdownOriginalMesoChance
+                self.PotionDropChance = self.ShowdownOriginalPotionChance
+                self.DamageTakenMultiplier = 1.0
+                self.ShowdownActive = false
+            end
+        end, duration)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyPoison(number tickDamage, number duration)
+        -- 베놈(도적 4차) - 최대 3스택, 1초마다 (틱데미지 x 스택수)만큼 깎되 Hp는 1 밑으로
+        -- 내려가지 않는다. 이미 돌고 있는 타이머가 있으면 새로 만들지 않고 만료 시각만 연장.
+        self.PoisonStacks = math.min(3, self.PoisonStacks + 1)
+        self.PoisonTickDamage = tickDamage
+        self.PoisonExpireElapsed = _UtilLogic.ElapsedSeconds + duration
+        if self._T.poisonTimerActive then return end
+        self._T.poisonTimerActive = true
+        self._T.poisonTimerId = _TimerService:SetTimerRepeat(function() self:PoisonTick() end, 1.0)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void PoisonTick()
+        if self.IsDead or self.PoisonStacks <= 0 or _UtilLogic.ElapsedSeconds >= self.PoisonExpireElapsed then
+            self.PoisonStacks = 0
+            if self._T.poisonTimerId ~= nil and self._T.poisonTimerId ~= 0 then
+                _TimerService:ClearTimer(self._T.poisonTimerId)
+            end
+            self._T.poisonTimerId = 0
+            self._T.poisonTimerActive = false
+            return
+        end
+        self.Hp = math.max(1, self.Hp - (self.PoisonTickDamage * self.PoisonStacks))
+        log("Monster: 베놈 독 틱 - " .. self.Entity.Name .. " stacks=" .. self.PoisonStacks .. " hp=" .. tostring(self.Hp))
     end
 
     @ExecSpace("ServerOnly")
