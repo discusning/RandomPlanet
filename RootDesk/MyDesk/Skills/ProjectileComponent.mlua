@@ -17,6 +17,10 @@ script ProjectileComponent extends Component
     -- 데미지가 누적 증가. 0이면 기존 동작과 동일(스케일링 없음). BaseDamage는 Fire 시점의 원본
     -- 데미지를 보존(ProjectileAttackComponent.Damage는 매 히트마다 덮어써지므로 별도 보관 필요).
     property number DamageScalingPerHit = 0
+    -- 2026-10-02 유저 엑셀 수치 대조(피어싱 "140→200→260→320%") - BaseDamage에 coef가 이미 곱해진
+    -- 채로 들어오면 아래 스케일링 공식이 coef 위에 다시 곱해져 복리처럼 불어난다(실측 140/224/308/392%
+    -- - 320% 불일치). coef를 별도 보관해 "원본 평타 * (coef + scalingPerHit*(hit-1))" 형태로 고친다.
+    @HideFromInspector property number DamageCoef = 1
     @HideFromInspector property number BaseDamage = 0
     @HideFromInspector property number DirX = 0
     @HideFromInspector property number DirY = 0
@@ -86,7 +90,7 @@ script ProjectileComponent extends Component
                     if self.DamageScalingPerHit > 0 then
                         local projAttack = self.Entity:GetComponent("script.ProjectileAttackComponent")
                         if isvalid(projAttack) then
-                            projAttack.Damage = math.floor(self.BaseDamage * (1 + self.DamageScalingPerHit * (self._T.hitCount - 1)))
+                            projAttack.Damage = math.floor(self.BaseDamage * (self.DamageCoef + self.DamageScalingPerHit * (self._T.hitCount - 1)))
                         end
                     end
                     self:OnHit()

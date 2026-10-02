@@ -326,7 +326,7 @@ script SkillCatalog extends Logic
             -- 2026-10-02 VFX 패스 - 실제 "모탈 블로우"(skill/1311.img/skill/13110009) 팩 - 이름
             -- 완전 일치했으나 애니메이션클립 없이 아이콘만 존재(에이전트 확인) - 아이콘만 교체,
             -- hitVfxRuid는 기존 값 유지.
-            mortalblow = { id = "mortalblow", tier = 3, name = "모탈 블로우", job = "궁수", kind = "melee_single", coef = 1.1, executeHpPercent = 0.2, executeInstakillChance = 0.01, cooldown = 4.5, mpCost = 15, impactDelay = 0.12, iconRuid = "fcb00d4b32e34577a9d19a00413dad3b", desc = "적이 매우 가까이 근접했을 때도 활을 쏠 수 있습니다. 평타의 110% 피해를 입히며, 적의 HP가 20% 이하일 때 1% 확률로 즉사시킵니다." },
+            mortalblow = { id = "mortalblow", tier = 3, name = "모탈 블로우", job = "궁수", kind = "multi_hit", coef = 1.1, hits = 3, triggerChance = 0.32, executeHpPercent = 0.2, executeInstakillChance = 0.01, cooldown = 4.5, mpCost = 15, iconRuid = "fcb00d4b32e34577a9d19a00413dad3b", desc = "32% 확률로 발동하여 적이 매우 가까이 근접했을 때도 활을 쏠 수 있습니다. 발동 시 평타의 110% 피해를 3연속으로 입히며, 각 타격마다 적의 HP가 20% 이하일 때 1% 확률로 즉사시킵니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 샤프 아이즈는 엑셀상 궁수 4차 소속(기존엔 3차에 잘못
             -- 배치돼 있었음) - 아래 4차 섹션으로 이동.
             shadowpartner = { id = "shadowpartner", tier = 3, name = "쉐도우 파트너", job = "도적", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 20.0, mpCost = 15, auraType = "Buff", auraColor = Color(0.5, 0.3, 0.6, 0.9), iconRuid = "6004778bccc04ca0b8378898ee3ef091", desc = "분신이 함께 공격해 공격 속도가 크게 증가한 것처럼 동작합니다." },
@@ -343,7 +343,7 @@ script SkillCatalog extends Logic
             -- "옥토퍼스"(해적 3차, 소환수). 유저 지시대로 버프 슬롯에
             -- 배정(kind="summon"도 IsBuffSkill이 버프로 취급) - 호밍이 공격 슬롯을 채운다.
             -- SummonPetComponent가 고정 위치에서 주기 공격 + 자체 수명 관리.
-            octopus = { id = "octopus", tier = 3, name = "옥토퍼스", job = "해적", kind = "summon", petAttackDamage = 8, petAttackInterval = 1.5, duration = 10.0, cooldown = 10.0, mpCost = 16, iconRuid = "84bc5c42f673457d9395e7589f25400e", desc = "공격을 도와주는 문어를 소환합니다. 소환된 문어는 움직이지 않고 10초간 주변의 적을 공격합니다." },
+            octopus = { id = "octopus", tier = 3, name = "옥토퍼스", job = "해적", kind = "summon", petAttackDamage = 84, petAttackInterval = 1.5, duration = 10.0, cooldown = 10.0, mpCost = 16, iconRuid = "84bc5c42f673457d9395e7589f25400e", desc = "공격을 도와주는 문어를 소환합니다. 소환된 문어는 움직이지 않고 10초간 주변의 적을 공격합니다(공격력 84)." },
             -- 2026-10-02 유저 엑셀 신규 - "호밍"(해적 3차 공격). 적에게 표식을 남겨 그 표식을 건
             -- 본인의 이후 공격에 추가 피해를 주는 "표식+집중공격"형 - 기존 "저주의 표식" 링크
             -- 트레잇의 Monster.MarkedUntilElapsed(파티 전역, 트레잇 게이트)와는 별개 채널(개인 전용,
@@ -392,12 +392,12 @@ script SkillCatalog extends Logic
             -- 실제로 상승시킨다(Monster.ApplyShowdown).
             -- 2026-10-02 VFX 패스 - "쇼다운 챌린지"(skill/412.img/skill/4121021) 팩.
             showdown = { id = "showdown", tier = 4, name = "쇼다운", job = "도적", kind = "showdown", maxTargets = 6, weakenRadius = 4.0, defenseIncreasePercent = 0.2, rewardIncreasePercent = 0.2, duration = 15.0, cooldown = 22.0, mpCost = 18, iconRuid = "fc41809e81154f939d386d709a0a7f5d", desc = "최대 6마리의 적을 도발합니다. 적의 방어력이 상승해 받는 피해가 줄지만, 그만큼 획득 경험치와 아이템 드롭률이 20% 상승합니다." },
-            rapidfire = { id = "rapidfire", tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 0.6, hits = 4, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "6257dc3d0ca241cfad2ff00b9551f93a", desc = "쌍권총을 난사해 4연속 타격마다 평타의 60% 피해를 입힙니다." },
+            rapidfire = { id = "rapidfire", tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 1.3, hits = 6, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "6257dc3d0ca241cfad2ff00b9551f93a", desc = "아주 빠른 속도로 탄을 난사해 6연속 타격마다 평타의 130% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 배틀쉽은 엑셀에 없는 구 스킬이라 삭제.
             -- "서포트 옥토퍼스"(해적 4차, 옥토퍼스의 강화판). 독립된
             -- 소환체로 구현(어드밴스드 콤보 어택과 동일한 패턴 - 소유 여부 교차검사 없이 자체 강화
             -- 수치로 동작) - 공격력/연사속도/지속시간 모두 상향.
-            supportoctopus = { id = "supportoctopus", tier = 4, name = "서포트 옥토퍼스", job = "해적", kind = "summon", petAttackDamage = 15, petAttackInterval = 0.9, duration = 14.0, cooldown = 18.0, mpCost = 20, iconRuid = "503005ca288143aba2476422db5ee680", desc = "옥토퍼스를 강화해 소환합니다. 연사 속도와 데미지가 상승한 문어가 14초간 주변의 적을 공격합니다." },
+            supportoctopus = { id = "supportoctopus", tier = 4, name = "서포트 옥토퍼스", job = "해적", kind = "summon", petAttackDamage = 294, petAttackInterval = 0.9, duration = 14.0, cooldown = 18.0, mpCost = 20, iconRuid = "503005ca288143aba2476422db5ee680", desc = "문어 한 마리를 추가로 소환합니다(기존 옥토퍼스와 별도로 중첩 가능). 연사 속도와 데미지가 상승해 공격력이 옥토퍼스보다 210 더 높습니다." },
             -- 2026-10-02 유저 엑셀 신규 - "메이플 용사"(job="전체", 5직업 공통 11번째 4차 버프).
             -- "모든 스탯 +5%"는 이 게임의 파생 스탯 구조상 하나의 단일 수치로 직결되는 채널이 없어,
             -- 기존 atkbonus 채널(markofassassin/battleship과 동일 패턴)로 근사 구현 - 실제 올스탯

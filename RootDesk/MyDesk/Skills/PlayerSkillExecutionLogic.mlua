@@ -9,6 +9,15 @@ script PlayerSkillExecutionLogic extends Logic
     method void DispatchSkillEffect(PlayerSkillComponent skill, table def)
         -- def.kind에 따라 실제 판정 로직(Do*)으로 분기. UseSkillSlot 본 사용 + 느림보/산만함
         -- 링크의 2연발 재사용 양쪽에서 호출되는 공용 진입점(MP/쿨다운 차감과는 독립).
+
+        -- 2026-10-02 유저 엑셀("모탈 블로우" - "32% 확률로 발동") - 발동 자체가 확률적인 스킬을
+        -- 위한 범용 게이트. MP/쿨다운은 이미 소모된 뒤 호출되므로(위 주석) 실패 시에도 그대로
+        -- 소모되고 판정만 불발한다 - 엑셀 원문 그대로의 동작.
+        if def.triggerChance ~= nil and _UtilLogic:RandomDouble() >= def.triggerChance then
+            log("PlayerSkill: " .. def.name .. " 발동 실패(확률 미충족)")
+            return
+        end
+
         if def.kind == "melee_single" then
             -- 2026-09-06 (M2 Phase A) - VFX 타이밍 딜레이 적용(As-built 25차 "설계만 완료, 코드
             -- 미적용" 항목 - DoDash 주석에 있던 "DispatchSkill의 impactDelay" 개념을 실제로 구현).
@@ -221,7 +230,8 @@ script PlayerSkillExecutionLogic extends Logic
         local map = skill.Entity.CurrentMap
         if not isvalid(attack) or not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
 
-        local damage = attack.AttackDamage * def.coef
+        local rawDamage = attack.AttackDamage
+        local damage = rawDamage * def.coef
         if def.magic and isvalid(statsComp) then
             damage = damage * (1 + statsComp.SkillDamageBonus)
         end
