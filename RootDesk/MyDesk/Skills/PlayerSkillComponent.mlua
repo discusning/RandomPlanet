@@ -197,6 +197,24 @@ script PlayerSkillComponent extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method string ResolveOrRerollSkillId(string savedId, string category, integer tier)
+        -- 2026-10-02 유저 엑셀 정리로 구 스킬 16종이 카탈로그에서 삭제됨 - 그 이전에 만들어진 로스터는
+        -- 여전히 구 id(예: "knucklebooster")를 저장하고 있을 수 있다. 그대로 대입하면 GetSkillDef가
+        -- 어디서도 못 찾아 그 타이어 슬롯이 조용히 죽는다("아직 남아있는 현상"). 저장된 id가 비어있지
+        -- 않은데 카탈로그에 없으면, "이 타이어는 이미 클리어/배정됐다"는 사실은 유지한 채 같은
+        -- 타이어+카테고리 풀에서 대체 스킬을 즉석 롤백한다. 빈 문자열은 그대로 "아직 없음"으로 통과.
+        if savedId == nil or savedId == "" then return "" end
+        if _SkillCatalog:GetSkillDef(savedId) ~= nil then return savedId end
+        local pool = _SkillCatalog:GetSkillsByCategory(category, tier)
+        if #pool > 0 then
+            local replacement = pool[_UtilLogic:RandomIntegerRange(1, #pool)]
+            log_warning("PlayerSkill: 저장된 스킬 id가 더 이상 존재하지 않아 대체 - " .. savedId .. " -> " .. replacement)
+            return replacement
+        end
+        return ""
+    end
+
+    @ExecSpace("ServerOnly")
     method void GrantInitialSkill(string atkSkillId, string buffSkillId)
         -- Called once from RequestEnterGame/SwapActiveCharacter with the roster's rolled tier-1
         -- attack/buff skill ids (CharacterSelectStageController.CreateCharacter picks one random id
@@ -207,14 +225,16 @@ script PlayerSkillComponent extends Component
         -- roster 항목)로 PLAY하면 이 두 파라미터가 둘 다 nil로 넘어오는데, 그 경우 아무것도 배정하지
         -- 않고 그냥 넘어가서 AtkSkill1/BuffSkill1이 빈 채로 남았던 것 - 신규/구 캐릭터 모두 항상 1차에
         -- 공격 1개+버프 1개를 보유하도록, 비어 있으면 해당 카테고리 전체 풀에서 즉석 롤백.
-        if atkSkillId ~= nil and atkSkillId ~= "" then
-            self.AtkSkill1 = atkSkillId
+        local resolvedAtk = self:ResolveOrRerollSkillId(atkSkillId, "attack", 1)
+        if resolvedAtk ~= "" then
+            self.AtkSkill1 = resolvedAtk
         elseif self.AtkSkill1 == "" then
             local pool = _SkillCatalog:GetSkillsByCategory("attack", 1)
             if #pool > 0 then self.AtkSkill1 = pool[_UtilLogic:RandomIntegerRange(1, #pool)] end
         end
-        if buffSkillId ~= nil and buffSkillId ~= "" then
-            self.BuffSkill1 = buffSkillId
+        local resolvedBuff = self:ResolveOrRerollSkillId(buffSkillId, "buff", 1)
+        if resolvedBuff ~= "" then
+            self.BuffSkill1 = resolvedBuff
         elseif self.BuffSkill1 == "" then
             local pool = _SkillCatalog:GetSkillsByCategory("buff", 1)
             if #pool > 0 then self.BuffSkill1 = pool[_UtilLogic:RandomIntegerRange(1, #pool)] end
@@ -232,12 +252,20 @@ script PlayerSkillComponent extends Component
         -- "아직 그 티어를 클리어하지 않음"으로 취급해 건드리지 않는다(SetTierSlot처럼 ""로 덮어쓰면
         -- 이미 있던 값을 지워버릴 위험이 있음 - 예: 여러 컴포넌트가 순서 보장 없이 같은 프레임에
         -- 초기화되는 경우에 대한 방어).
-        if atk2 ~= nil and atk2 ~= "" then self.AtkSkill2 = atk2 end
-        if buff2 ~= nil and buff2 ~= "" then self.BuffSkill2 = buff2 end
-        if atk3 ~= nil and atk3 ~= "" then self.AtkSkill3 = atk3 end
-        if buff3 ~= nil and buff3 ~= "" then self.BuffSkill3 = buff3 end
-        if atk4 ~= nil and atk4 ~= "" then self.AtkSkill4 = atk4 end
-        if buff4 ~= nil and buff4 ~= "" then self.BuffSkill4 = buff4 end
+        -- 2026-10-02 유저 엑셀 정리 - 저장된 id가 구 스킬(삭제됨)이면 ResolveOrRerollSkillId가 같은
+        -- 타이어+카테고리의 대체 스킬로 즉석 치환한다("이미 클리어했다"는 사실은 유지).
+        local resolvedAtk2 = self:ResolveOrRerollSkillId(atk2, "attack", 2)
+        if resolvedAtk2 ~= "" then self.AtkSkill2 = resolvedAtk2 end
+        local resolvedBuff2 = self:ResolveOrRerollSkillId(buff2, "buff", 2)
+        if resolvedBuff2 ~= "" then self.BuffSkill2 = resolvedBuff2 end
+        local resolvedAtk3 = self:ResolveOrRerollSkillId(atk3, "attack", 3)
+        if resolvedAtk3 ~= "" then self.AtkSkill3 = resolvedAtk3 end
+        local resolvedBuff3 = self:ResolveOrRerollSkillId(buff3, "buff", 3)
+        if resolvedBuff3 ~= "" then self.BuffSkill3 = resolvedBuff3 end
+        local resolvedAtk4 = self:ResolveOrRerollSkillId(atk4, "attack", 4)
+        if resolvedAtk4 ~= "" then self.AtkSkill4 = resolvedAtk4 end
+        local resolvedBuff4 = self:ResolveOrRerollSkillId(buff4, "buff", 4)
+        if resolvedBuff4 ~= "" then self.BuffSkill4 = resolvedBuff4 end
         self:ValidateEquippedSlots()
         log("PlayerSkill: RestoreTierSkills atk2=" .. self.AtkSkill2 .. " atk3=" .. self.AtkSkill3 .. " atk4=" .. self.AtkSkill4)
     end
