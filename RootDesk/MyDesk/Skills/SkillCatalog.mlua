@@ -235,7 +235,12 @@ script SkillCatalog extends Logic
             -- 버프 없음) - 구 스킬 너클 부스터는 엑셀에 없어 삭제(아래 참고).
             -- 2026-10-02 VFX 패스 - 실제 "써머솔트 킥"(skill/40000.img/skill/400004134) 팩 -
             -- 이름 완전 일치, 검증 완료.
-            summersaultkick = { id = "summersaultkick", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, projectileVfxRuid = "66301df42b9d420bb74fe958fbcfa7b7", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
+            -- 2026-10-03 유저 리포트("근접 스킬 이펙트가 원활하게 나오지 않는다") 조사 중 발견 - 기존
+            -- projectileVfxRuid(66301df4...)는 써머솔트 킥 팩의 hit/0, doublestab과 동일하게 정지형
+            -- 임팩트 플래시(팩에 ball 요소 없음, msw-search로 재확인)를 투사체로 재사용하던 것이라
+            -- FireThrownDagger로 3연속 투척 시 같은 "깜빡임" 문제 발생 - doublestab과 동일한 근거로
+            -- 범용 표창 ball(0af95ff09be14c389c1854f03c575e2e)로 교체.
+            summersaultkick = { id = "summersaultkick", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 너클 부스터는 엑셀에 없는 구 스킬이라 삭제(해적 1차는
             -- 대시+써머솔트킥 2공격, 버프 없음 - 유저 지시 그대로).
 
@@ -283,7 +288,17 @@ script SkillCatalog extends Logic
             -- 2026-10-02 VFX 패스 - "새비지 블로우 강화"(skill/40000.img/skill/400004108) 팩 -
             -- 전용 ball(투사체) 요소가 없어 hit/0을 투사체 자리에 재사용(완벽하진 않으나 기존
             -- 범용 플레이스홀더보다는 실제 해당 스킬 소속 리소스).
-            doublestab = { id = "doublestab", tier = 2, name = "새비지 블로우", job = "도적", kind = "multi_hit", coef = 0.8, hits = 6, cooldown = 4.0, mpCost = 13, projectileVfxRuid = "f342e1d9953f46e9ab003ba0e363ee2a", iconRuid = "801741bbc787448e9327589ab059e9e4", desc = "MP를 소비해 단검으로 적에게 6연속 공격을 가해 각 타격마다 평타의 80% 피해를 입힙니다." },
+            -- 2026-10-03 유저 리포트("근접 스킬 이펙트가 원활하게 나오지 않는다", 새비지 블로우 예시로
+            -- 실플레이 중 재현) - 원인 특정: hit/0(895ac1e384ea42ca8dd084f54ff3346b 계열, rel_path
+            -- "hit/0")은 한 지점에서 터지는 정지형 임팩트 플래시 애니메이션클립이지, 날아가는 투사체
+            -- 모양이 아니다. FireThrownDagger가 이걸 그대로 SpriteRUID로 얹어 0.09초 간격으로 6번
+            -- 날리니 "단검이 날아간다"가 아니라 "번쩍이는 섬광이 연속으로 깜빡인다"로 보여 위 주석의
+            -- "완벽하진 않으나"가 실제 체감 문제로 드러남(msw-search로 새비지 블로우 강화 팩 재조회 -
+            -- ball/투사체 요소 자체가 여전히 없음, 확인 완료). 같은 "전용 ball 없음" 상황을 이미 해결한
+            -- luckyseven/flamethrower/avenger의 범용 표창 ball(0af95ff09be14c389c1854f03c575e2e,
+            -- 실제 "표창 던지기" 팩의 ball 요소 - 진짜 투사체 모양으로 검증됨)로 교체 - hit/0보다는
+            -- 부정확해도(도적 단검질 느낌과는 맞음) 날아가는 모양 자체가 맞는 리소스를 우선.
+            doublestab = { id = "doublestab", tier = 2, name = "새비지 블로우", job = "도적", kind = "multi_hit", coef = 0.8, hits = 6, cooldown = 4.0, mpCost = 13, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "801741bbc787448e9327589ab059e9e4", desc = "MP를 소비해 단검으로 적에게 6연속 공격을 가해 각 타격마다 평타의 80% 피해를 입힙니다." },
             haste = { id = "haste", tier = 2, name = "헤이스트", job = "도적", kind = "buff", duration = 10.0, testableEffect = "movespeed", moveSpeedBonus = 2.0, cooldown = 20.0, mpCost = 12, auraType = "Buff", auraColor = Color(1.0, 0.9, 0.4, 0.9), iconRuid = "4e873e0f596c43169d9d1ab63b4b2fb5", desc = "10초간 이동 속도가 크게 증가합니다." },
             -- 2026-10-02 유저 엑셀 - 실제 명칭/메커니즘은 "플레임 스로어"(관통 110%)가 아니라
             -- "인비지블샷"(3연속 타격, 타격당 75%) - kind를 ranged_pierce에서 multi_hit으로 교체.
@@ -359,7 +374,11 @@ script SkillCatalog extends Logic
             -- "브랜디쉬"(검사 4차 공격, "1명을 2번 공격" - multi_hit x2로 구현).
             -- 2026-10-02 VFX 패스 - 실제 "Brandish"/브랜디쉬(skill/800033.img/skill/80003319)
             -- 팩 - 이름 완전 일치(한/영 모두), 검증 완료.
-            brandish = { id = "brandish", tier = 4, name = "브랜디쉬", job = "검사", kind = "multi_hit", coef = 1.35, hits = 2, cooldown = 5.0, mpCost = 18, projectileVfxRuid = "ee451f0e79a944b7b5546636a674005a", iconRuid = "2065d60928804e8c80dac9477fdcee53", desc = "적 여러 명을 두 번 연속 공격해 각 타격마다 평타의 135% 피해를 입힙니다." },
+            -- 2026-10-03 유저 리포트("근접 스킬 이펙트가 원활하게 나오지 않는다") 조사 - "이름 일치,
+            -- 검증 완료"는 팩 소속 확인이었을 뿐, 실제 내용물은 hit/0(정지형 임팩트 플래시)이라
+            -- doublestab/summersaultkick과 동일한 결함(투사체 모양이 아닌 걸 FireThrownDagger로
+            -- 2연속 투척 - 깜빡임으로 보임). 같은 이유로 범용 표창 ball로 교체.
+            brandish = { id = "brandish", tier = 4, name = "브랜디쉬", job = "검사", kind = "multi_hit", coef = 1.35, hits = 2, cooldown = 5.0, mpCost = 18, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "2065d60928804e8c80dac9477fdcee53", desc = "적 여러 명을 두 번 연속 공격해 각 타격마다 평타의 135% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 신규 - "어드밴스드 콤보 어택"(검사 4차 버프). 콤보 어택의 강화판 -
             -- 최대 스택 7(+2), 공격마다 37% 확률로 스택이 2개씩 충전. 기존 콤보 어택과는 독립된
             -- 별도 스킬(동시에 둘 다 소유해도 마지막으로 시전한 쪽만 활성 - StartCombo가 재시전 시

@@ -203,12 +203,20 @@ script PlayerSkillComponent extends Component
         -- 어디서도 못 찾아 그 타이어 슬롯이 조용히 죽는다("아직 남아있는 현상"). 저장된 id가 비어있지
         -- 않은데 카탈로그에 없으면, "이 타이어는 이미 클리어/배정됐다"는 사실은 유지한 채 같은
         -- 타이어+카테고리 풀에서 대체 스킬을 즉석 롤백한다. 빈 문자열은 그대로 "아직 없음"으로 통과.
+        -- 2026-10-03 유저 리포트("2차 스킬이 1차 항목으로 넘어옴") - 존재 여부만 검증하고 tier
+        -- 일치는 검증하지 않아, 유효하지만 다른 티어 소속인 id(예: tier=2인 "doublestab"이 1차
+        -- 슬롯에 저장된 경우)가 그대로 통과하던 구멍. tier까지 함께 검증한다.
         if savedId == nil or savedId == "" then return "" end
-        if _SkillCatalog:GetSkillDef(savedId) ~= nil then return savedId end
+        local existingDef = _SkillCatalog:GetSkillDef(savedId)
+        if existingDef ~= nil and existingDef.tier == tier then return savedId end
         local pool = _SkillCatalog:GetSkillsByCategory(category, tier)
         if #pool > 0 then
             local replacement = pool[_UtilLogic:RandomIntegerRange(1, #pool)]
-            log_warning("PlayerSkill: 저장된 스킬 id가 더 이상 존재하지 않아 대체 - " .. savedId .. " -> " .. replacement)
+            if existingDef == nil then
+                log_warning("PlayerSkill: 저장된 스킬 id가 더 이상 존재하지 않아 대체 - " .. savedId .. " -> " .. replacement)
+            else
+                log_warning("PlayerSkill: 저장된 스킬 id(" .. savedId .. ")의 tier(" .. existingDef.tier .. ")가 슬롯 tier(" .. tier .. ")와 불일치하여 대체 -> " .. replacement)
+            end
             return replacement
         end
         return ""

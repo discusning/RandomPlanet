@@ -194,13 +194,24 @@ script PlayerSkillExecutionLogic extends Logic
         -- 판정 여유를 확보한 채로 +0.35 만큼 위로(허리~손 높이) 올렸다 - DoRanged(매직 클로/애로우
         -- 블로우)는 이 세션에서 별도로 지적받은 적이 없어 그쪽 스폰 높이는 그대로 둔다.
         local proj = _SpawnService:SpawnByModelId("projectile", name, Vector3(pos.x + 0.4 * dir, pos.y + 0.35, pos.z), map)
-        if not isvalid(proj) then return end
+        if not isvalid(proj) then
+            -- 2026-10-03 유저 리포트("근접 스킬 이펙트가 원활하게 나오지 않는다") 조사 중 추가 - 이
+            -- 메서드는 지금까지 log() 호출이 전혀 없어 6연속 타이머 콜백 중 일부가 실제로 스폰에
+            -- 실패해도 증거가 전혀 안 남았다(verify-checklist "critical checkpoint" 누락). 실패를
+            -- 눈에 보이게 남긴다 - DoSummon의 log_error 패턴과 동일.
+            log_error("PlayerSkill: " .. def.name .. " FireThrownDagger SpawnByModelId failed, name=" .. name)
+            return
+        end
 
         if def.projectileVfxRuid ~= nil and isvalid(proj.SpriteRendererComponent) then
             proj.SpriteRendererComponent.SpriteRUID = def.projectileVfxRuid
             -- Source art faces left by default - a projectile fired while facing right (dir>0)
             -- renders backwards without this (2026-08-17 user report, same root cause as DoRanged).
             proj.SpriteRendererComponent.FlipX = dir > 0
+            -- Positive log evidence per hit (same pattern as DoRanged below) - the previous total
+            -- silence here made it impossible to tell, from logs alone, how many of the 2-6 rapid
+            -- hits actually spawned/rendered vs silently failed.
+            log("PlayerSkill: " .. def.name .. " dagger #" .. tostring(skill.ProjectileCount) .. " sprite -> " .. def.projectileVfxRuid .. " FlipX=" .. tostring(proj.SpriteRendererComponent.FlipX))
         end
 
         local projComp = proj:GetComponent("script.ProjectileComponent")
