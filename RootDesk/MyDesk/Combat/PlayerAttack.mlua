@@ -218,6 +218,12 @@ script PlayerAttack extends AttackComponent
         local player = self.Entity.PlayerComponent
         if not isvalid(player) or player.Hp <= 0 then return end
 
+        -- 2026-10-02 유저 엑셀("콤보 어택" - 검사 3/4차) - 명중할 때마다 콤보 스택 누적.
+        local comboSkillComp = self.Entity:GetComponent("script.PlayerSkillComponent")
+        if isvalid(comboSkillComp) and comboSkillComp.ComboActive then
+            comboSkillComp:OnComboHit()
+        end
+
         -- 2026-09-12 시스템 업그레이드 - 크리티컬 히트가 데미지 넘버 색상 말고는 별다른 타격감이
         -- 없었다(Diablo/Hades류 액션 RPG의 관행인 히트스탑+카메라 셰이크가 이 프로젝트엔 전혀
         -- 없었음 - 둘 다 네이티브 API인데도 미사용 상태였음). 크리가 실제로 확정된 이 지점(이미

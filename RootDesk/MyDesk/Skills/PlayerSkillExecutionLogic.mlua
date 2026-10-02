@@ -44,6 +44,8 @@ script PlayerSkillExecutionLogic extends Logic
             self:DoShowdown(skill, def)
         elseif def.kind == "poison_apply" then
             self:DoPoisonApply(skill, def)
+        elseif def.kind == "combo_buff" then
+            skill:StartCombo(def)
         end
 
         -- 2026-10-02 유저 엑셀("모탈 블로우" - 궁수 3차) - 즉사 확률 실제 구현. melee_single 판정

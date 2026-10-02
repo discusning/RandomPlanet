@@ -33,13 +33,13 @@ script SkillCatalog extends Logic
             "doublestab", "haste",
             "flamethrower", "reload",
             -- 3차 (tier=3)
-            "risingslash", "shout", "ironwill",
+            "risingslash", "shout", "ironwill", "comboattack",
             "blizzard", "icestrike", "magicbooster",
             "arrowrain", "strafe", "mortalblow", "sharpeyes",
             "shadowpartner", "avenger",
             "battery", "speedenhancer", "homing",
             -- 4차 (tier=4)
-            "blast", "rage", "brandish",
+            "blast", "rage", "brandish", "advcomboattack",
             "meteorstrike", "infinity",
             "hurricane", "eagleeye",
             "asura", "markofassassin", "venom", "showdown",
@@ -293,6 +293,9 @@ script SkillCatalog extends Logic
             -- Monster.ApplyStun). 기존 risingslash와 공존(additive).
             shout = { id = "shout", tier = 3, name = "샤우트", job = "검사", kind = "melee_single", coef = 1.11, wide = true, stunChance = 0.52, stunDuration = 5.0, cooldown = 6.0, mpCost = 16, impactDelay = 0.2, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", iconRuid = "1dc02c9673284efb94da9c86e7414eeb", desc = "주변의 적에게 큰 소리를 질러 평타의 111% 피해를 줌과 동시에 52% 확률로 5초간 기절시킵니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
             ironwill = { id = "ironwill", tier = 3, name = "아이언 윌", job = "검사", kind = "buff", duration = 10.0, testableEffect = "dmgreduction", dmgReductionBonus = 0.2, cooldown = 22.0, mpCost = 18, auraType = "Aura", auraColor = Color(0.7, 0.78, 0.9, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 받는 피해가 20% 감소합니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "콤보 어택"(검사 3차 버프). 공격마다 스택 누적(최대 5),
+            -- 스택당 공격력 20%씩 증가(만스택 +100%) - PlayerSkillComponent.StartCombo/OnComboHit.
+            comboattack = { id = "comboattack", tier = 3, name = "콤보 어택", job = "검사", kind = "combo_buff", maxStacks = 5, perStackPercent = 0.2, duration = 100.0, cooldown = 20.0, mpCost = 16, auraType = "Aura", auraColor = Color(0.9, 0.55, 0.2, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 공격할 때마다 콤보 카운터가 쌓입니다(최대 5스택). 콤보 카운터가 쌓일수록 공격력이 증가하며, 최대 스택에서는 물리 공격력이 100% 증가합니다." },
             blizzard = { id = "blizzard", tier = 3, name = "블리자드", job = "마법사", kind = "ranged_pierce", coef = 1.5, magic = true, cooldown = 4.0, mpCost = 16, projectileVfxRuid = "64096440f11f4c9b9c96df38e0e3852e", iconRuid = "543decec44e3488d98cf82e8580572f7", projectileTintColor = Color(0.6, 0.85, 1.0, 1.0), desc = "전방에 냉기를 퍼뜨려 관통하는 적 전부에게 평타의 150% 마법 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 신규 - "아이스 스트라이크"(마법사 3차 공격). AoE 마법 데미지 +
             -- 명중 시 100% 빙결(실제 CC - Monster.ApplyStun, 샤우트와 동일 메커니즘 재사용). melee_single
@@ -336,6 +339,11 @@ script SkillCatalog extends Logic
             -- 2026-10-02 유저 엑셀 신규 - "브랜디쉬"(검사 4차 공격, "1명을 2번 공격" - multi_hit x2로
             -- 구현). 기존 blast(와이드 광역)는 그대로 유지(additive, 삭제 없음).
             brandish = { id = "brandish", tier = 4, name = "브랜디쉬", job = "검사", kind = "multi_hit", coef = 1.35, hits = 2, cooldown = 5.0, mpCost = 18, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "적 여러 명을 두 번 연속 공격해 각 타격마다 평타의 135% 피해를 입힙니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "어드밴스드 콤보 어택"(검사 4차 버프). 콤보 어택의 강화판 -
+            -- 최대 스택 7(+2), 공격마다 37% 확률로 스택이 2개씩 충전. 기존 콤보 어택과는 독립된
+            -- 별도 스킬(동시에 둘 다 소유해도 마지막으로 시전한 쪽만 활성 - StartCombo가 재시전 시
+            -- 이전 콤보를 종료).
+            advcomboattack = { id = "advcomboattack", tier = 4, name = "어드밴스드 콤보 어택", job = "검사", kind = "combo_buff", maxStacks = 7, perStackPercent = 0.2, doubleStackChance = 0.37, duration = 100.0, cooldown = 25.0, mpCost = 20, auraType = "Aura", auraColor = Color(1.0, 0.65, 0.2, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "콤보 어택의 강화판입니다. 최대 콤보 카운터가 7로 증가하고, 공격 시 37% 확률로 콤보 카운터가 2개씩 충전됩니다." },
             -- 2026-10-02 유저 엑셀 - 실제 명칭은 "메테오 스트라이크"(실존하지 않는 이름)가 아니라
             -- "체인 라이트닝" - kind/coef/magic은 기존과 동일(관통형 마법 공격), id는 하위호환 유지.
             meteorstrike = { id = "meteorstrike", tier = 4, name = "체인 라이트닝", job = "마법사", kind = "ranged_pierce", coef = 1.8, magic = true, cooldown = 4.5, mpCost = 20, projectileVfxRuid = "64096440f11f4c9b9c96df38e0e3852e", iconRuid = "543decec44e3488d98cf82e8580572f7", projectileTintColor = Color(1.0, 0.5, 0.15, 1.0), desc = "고압의 전류로 적을 공격하며, 맞은 적 주위에 다른 적이 있으면 전기가 옮겨붙어 관통하는 적 전부에게 평타의 180% 마법 피해를 입힙니다." },

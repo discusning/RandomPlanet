@@ -78,18 +78,82 @@ script PlayerSkillComponent extends Component
     -- 2026-10-02 (샤프 아이즈 등 "크리+피해 동시 적용" 2채널 버프용) - PlayerBuffLogic.DoBuff/
     -- RevertBuff의 atkBonusPercent2 독립 채널이 저장하는 attack.AttackDamage 보너스량.
     @HideFromInspector property integer BuffAtkBonus2 = 0
+    -- 2026-10-02 유저 엑셀("콤보 어택"/"어드밴스드 콤보 어택" - 검사 3/4차) - 공격할 때마다 스택이
+    -- 쌓이는 콤보 카운터. 기존 단일 슬롯 버프(BuffActive/BuffType)와 완전히 독립된 채널로 둬서
+    -- 다른 버프와 동시에 돌아갈 수 있게 한다(분노 버프를 쓰면서 콤보 어택도 같이 유지 가능).
+    @Sync @HideFromInspector property boolean ComboActive = false
+    @Sync @HideFromInspector property integer ComboStacks = 0
+    @HideFromInspector property integer ComboMaxStacks = 0
+    @HideFromInspector property number ComboPerStackPercent = 0
+    @HideFromInspector property number ComboDoubleChance = 0
+    @HideFromInspector property number ComboExpireElapsed = 0
+    @HideFromInspector property integer ComboAppliedBonus = 0
     @HideFromInspector property integer BuffParticleSerial = 0
     @HideFromInspector property boolean BuffUsingSkillVfx = false
     @HideFromInspector property integer ProjectileCount = 0
 
     @ExecSpace("ServerOnly")
     method void OnUpdate(number delta)
-        if not self.BuffActive then return end
-        -- 2026-09-22 타임 스톱 - 선택 팝업이 떠 있는 동안은 버프 만료도 멈춘다(끝난 뒤 ShiftTimers가 남은
-        -- 시간을 이어 붙인다).
         if _TimeStopLogic.Stopped then return end
-        if _UtilLogic.ElapsedSeconds < self.BuffExpireTime then return end
-        self:RevertBuff()
+        if self.BuffActive and _UtilLogic.ElapsedSeconds >= self.BuffExpireTime then
+            self:RevertBuff()
+        end
+        -- 2026-10-02 유저 엑셀("콤보 어택") - 위 단일 버프 슬롯과 독립적인 만료 체크.
+        if self.ComboActive and _UtilLogic.ElapsedSeconds >= self.ComboExpireElapsed then
+            self:EndCombo()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StartCombo(table def)
+        -- 콤보 어택(검사 3차)/어드밴스드 콤보 어택(검사 4차) - 공격할 때마다 스택이 쌓이는 독립
+        -- 버프 채널. 재시전 시 기존 스택/보너스를 먼저 정리한 뒤 새로 시작(재누적 방지).
+        if self.ComboActive then
+            self:EndCombo()
+        end
+        self.ComboActive = true
+        self.ComboStacks = 0
+        self.ComboMaxStacks = def.maxStacks
+        self.ComboPerStackPercent = def.perStackPercent
+        self.ComboDoubleChance = def.doubleStackChance or 0
+        self.ComboExpireElapsed = _UtilLogic.ElapsedSeconds + def.duration
+        self.ComboAppliedBonus = 0
+        log("PlayerSkill: " .. def.name .. " 콤보 시작 (최대 " .. def.maxStacks .. "스택)")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnComboHit()
+        -- PlayerAttack.OnAttack이 명중마다 호출 - 스택을 올리고(더블 스택 확률 적용) 현재
+        -- AttackDamage에 쌓인 보너스를 다시 계산한다(ironbody의 "델타 저장 후 복원" 패턴과 동일 -
+        -- 이전 보너스를 먼저 빼고, 새 스택 수 기준으로 다시 더함).
+        if not self.ComboActive then return end
+        local gain = 1
+        if self.ComboDoubleChance > 0 and _UtilLogic:RandomDouble() < self.ComboDoubleChance then
+            gain = 2
+        end
+        self.ComboStacks = math.min(self.ComboMaxStacks, self.ComboStacks + gain)
+
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if isvalid(attack) then
+            attack.AttackDamage = attack.AttackDamage - self.ComboAppliedBonus
+            local newBonus = math.floor(attack.AttackDamage * (self.ComboPerStackPercent * self.ComboStacks))
+            self.ComboAppliedBonus = newBonus
+            attack.AttackDamage = attack.AttackDamage + newBonus
+        end
+        log("PlayerSkill: 콤보 스택 " .. self.ComboStacks .. "/" .. self.ComboMaxStacks)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void EndCombo()
+        -- 콤보 지속시간 만료 - 누적된 보너스를 전부 되돌리고 스택 초기화.
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if isvalid(attack) and self.ComboAppliedBonus > 0 then
+            attack.AttackDamage = math.max(1, attack.AttackDamage - self.ComboAppliedBonus)
+        end
+        self.ComboActive = false
+        self.ComboStacks = 0
+        self.ComboAppliedBonus = 0
+        log("PlayerSkill: 콤보 종료")
     end
 
     @ExecSpace("ServerOnly")
