@@ -140,7 +140,13 @@ script PlayerSkillExecutionLogic extends Logic
 
         local originalDamage = attack.AttackDamage
         attack.AttackDamage = math.floor(originalDamage * def.coef)
+        -- 2026-10-03 유저 리포트("샤우트/아이스 스트라이크 '6마리 이상 공격 불가' 설명 미구현") -
+        -- def.maxTargets가 있으면 PlayerAttack.IsAttackTarget이 소비할 1회성 캡을 세팅, 캐스트
+        -- 직후 0으로 되돌려 이후 평타/다른 스킬에 영향이 새지 않게 한다.
+        attack.MaxTargetsThisAttack = def.maxTargets or 0
+        attack.HitCounterThisAttack = 0
         attack:AttackFast(shape, "skill." .. def.id, CollisionGroups.Monster)
+        attack.MaxTargetsThisAttack = 0
         attack.AttackDamage = originalDamage
 
         if def.hitVfxRuid ~= nil then
@@ -373,11 +379,17 @@ script PlayerSkillExecutionLogic extends Logic
         local halfH = 0.8
         local boxCenterX = pos.x + 0.7 * dir
 
+        -- 2026-10-03 유저 리포트("샤우트/아이스 스트라이크 '6마리 이상 공격 불가' 설명 미구현") -
+        -- 데미지 쪽(IsAttackTarget 캡)과 별개로 기절/빙결 판정도 같은 범위 내 몬스터를 다시 스캔하므로
+        -- 동일한 캡을 적용(showdown의 hitCount < maxTargets 패턴과 동일).
+        local maxTargets = def.maxTargets or 6
+        local hitCount = 0
         local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
         for _, m in ipairs(monsters) do
-            if isvalid(m) and isvalid(m.Entity) and not m.IsDead then
+            if isvalid(m) and isvalid(m.Entity) and not m.IsDead and hitCount < maxTargets then
                 local mpos = m.Entity.TransformComponent.WorldPosition
                 if math.abs(mpos.x - boxCenterX) <= halfW and math.abs(mpos.y - (pos.y + 0.5)) <= halfH then
+                    hitCount = hitCount + 1
                     if _UtilLogic:RandomDouble() < def.stunChance then
                         m:ApplyStun(def.stunDuration)
                         log("PlayerSkill: " .. def.name .. " 기절/빙결 적용 - " .. m.Entity.Name)

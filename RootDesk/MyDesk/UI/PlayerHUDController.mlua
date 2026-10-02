@@ -218,8 +218,15 @@ script PlayerHUDController extends Logic
         -- 2026-09-29 QA 수정("스킬 이모티콘이 있어서 가독성이 없음") - 이름 텍스트 대신 실제 아이콘
         -- 스프라이트로 스킬을 표시(icon은 이 메서드가 새로 받는 파라미터, 값이 없을 수도 있는
         -- 레거시 호출 대비 isvalid 가드). 키 라벨만 이름 자리에 작게 남긴다.
+        -- 2026-10-03 버그 수정(실측 확인 - HUD 우측 상단 Q/W 슬롯이 아이콘 없이 검은 사각형만 보임) -
+        -- ImageRUID만 갈아끼우고 Color는 건드리지 않아서, 이 슬롯 엔티티가 .ui에서 물려받은 기본
+        -- 어두운 반투명 틴트(SpriteGUIRendererComponent 기본 스킨, RGBA 약 0.08/0.08/0.10/0.85)가
+        -- 아이콘 이미지 위에 그대로 곱해져 거의 안 보이게 렌더링됐다(SkillUIController.RefreshSlot /
+        -- KeyBindingPopupController.RefreshSkillIconLabel은 둘 다 Color를 흰색으로 리셋하는데 이
+        -- 메서드만 빠뜨렸던 것이 진짜 원인). 아이콘을 실제로 보이게 하려면 흰색으로 리셋해야 한다.
         if isvalid(icon) and def.iconRuid ~= nil then
             icon.ImageRUID = DataRef(def.iconRuid)
+            icon.Color = Color(1, 1, 1, 1)
         end
         nameText.Text = keyLabel
         -- lastUseTime is stamped server-side (PlayerSkillComponent.UseSkillSlot, ServerOnly) using

@@ -16,6 +16,11 @@ script PlayerAttack extends AttackComponent
     @Sync property number Accuracy = 91
     @HideFromInspector property any Shape = nil
     @HideFromInspector property number LastAttackTime = -999
+    -- 2026-10-03 유저 리포트("샤우트/아이스 스트라이크의 '6마리 이상 공격 불가' 설명이 실제로는
+    -- 전혀 구현 안 됨") - DoMeleeSingle이 캐스트 직전에 세팅/직후 0으로 리셋하는 1회성 캡. 0이면
+    -- 무제한(기존 평타/다른 스킬 동작과 완전히 동일 - 하위 호환).
+    @HideFromInspector property integer MaxTargetsThisAttack = 0
+    @HideFromInspector property integer HitCounterThisAttack = 0
 
     method void OnBeginPlay()
         -- 2026-09-30 QA 수정(유저 리포트 "공격키 꾹 눌러도 반복 안됨") - ExecSpace를 ServerOnly에서
@@ -344,6 +349,12 @@ script PlayerAttack extends AttackComponent
         -- on the reverse direction). Floor/ceiling keep hits from ever feeling purely random.
         if isvalid(defender:GetComponent("script.Monster")) == false then return false end
         if __base:IsAttackTarget(defender, attackInfo) == false then return false end
+        -- 2026-10-03 유저 리포트("샤우트/아이스 스트라이크 6마리 제한 미구현") - 캐스트당 캡이
+        -- 걸려있으면(DoMeleeSingle이 세팅) 초과분은 명중 판정 전에 걸러낸다.
+        if self.MaxTargetsThisAttack > 0 then
+            if self.HitCounterThisAttack >= self.MaxTargetsThisAttack then return false end
+            self.HitCounterThisAttack = self.HitCounterThisAttack + 1
+        end
         local monster = defender:GetComponent("script.Monster")
         local evasion = monster.Evasion or 0
         local hitChance = math.max(0.5, math.min(1.0, 0.5 + (self.Accuracy - evasion) * 0.005))

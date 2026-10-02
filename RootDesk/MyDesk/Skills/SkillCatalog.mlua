@@ -308,7 +308,7 @@ script SkillCatalog extends Logic
             -- ── 3차 (레벨 13) ──
             -- 2026-10-02 유저 엑셀 전체 반영 - 라이징 슬래시/아이언 윌은 엑셀에 없는 구 스킬이라 삭제.
             -- "샤우트"(검사 3차 공격). AoE 데미지 + 확률 기절(실제 CC - Monster.ApplyStun).
-            shout = { id = "shout", tier = 3, name = "샤우트", job = "검사", kind = "melee_single", coef = 1.11, wide = true, stunChance = 0.52, stunDuration = 5.0, cooldown = 6.0, mpCost = 16, impactDelay = 0.2, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", iconRuid = "e11214164df0417bacd92e769c3891c5", desc = "주변의 적에게 큰 소리를 질러 평타의 111% 피해를 줌과 동시에 52% 확률로 5초간 기절시킵니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
+            shout = { id = "shout", tier = 3, name = "샤우트", job = "검사", kind = "melee_single", coef = 1.11, wide = true, stunChance = 0.52, stunDuration = 5.0, maxTargets = 6, cooldown = 6.0, mpCost = 16, impactDelay = 0.2, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", iconRuid = "e11214164df0417bacd92e769c3891c5", desc = "주변의 적에게 큰 소리를 질러 평타의 111% 피해를 줌과 동시에 52% 확률로 5초간 기절시킵니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
             -- 2026-10-02 유저 엑셀 신규 - "콤보 어택"(검사 3차 버프). 공격마다 스택 누적(최대 5),
             -- 스택당 공격력 20%씩 증가(만스택 +100%) - PlayerSkillComponent.StartCombo/OnComboHit.
             -- 2026-10-02 VFX 패스 - 실제 "콤보 어택"(skill/1111.img/skill/11111001) 팩 - 이름
@@ -320,7 +320,7 @@ script SkillCatalog extends Logic
             -- 쪽 wide 박스를 그대로 써 근접형 AoE로 구현(기존 blizzard는 관통형이라 구분됨).
             -- 2026-10-02 VFX 패스 - 실제 "아이스 스트라이크"(skill/221.img/skill/2211002) 팩의
             -- hit/0 클립(124x156, 빙결 이펙트)으로 교체 - 이름 완전 일치, 검증 완료.
-            icestrike = { id = "icestrike", tier = 3, name = "아이스 스트라이크", job = "마법사", kind = "melee_single", coef = 0.9, wide = true, magic = true, stunChance = 1.0, stunDuration = 2.5, cooldown = 5.0, mpCost = 17, impactDelay = 0.2, hitVfxRuid = "c821bdbd53004870b632ff2afcef75e9", iconRuid = "15f7be47a940490a87597871a7a7f796", desc = "날카로운 얼음 덩어리를 날려 여러 적에게 평타의 90% 마법 피해를 입히고, 명중한 적(냉기 속성 제외)을 2.5초간 얼어붙게 합니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
+            icestrike = { id = "icestrike", tier = 3, name = "아이스 스트라이크", job = "마법사", kind = "melee_single", coef = 0.9, wide = true, magic = true, stunChance = 1.0, stunDuration = 2.5, maxTargets = 6, cooldown = 5.0, mpCost = 17, impactDelay = 0.2, hitVfxRuid = "c821bdbd53004870b632ff2afcef75e9", iconRuid = "15f7be47a940490a87597871a7a7f796", desc = "날카로운 얼음 덩어리를 날려 여러 적에게 평타의 90% 마법 피해를 입히고, 명중한 적(냉기 속성 제외)을 2.5초간 얼어붙게 합니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
             magicbooster = { id = "magicbooster", tier = 3, name = "매직 부스터", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "skilldmg", skillDmgBonus = 0.25, cooldown = 20.0, mpCost = 18, auraType = "Enchant", auraColor = Color(0.4, 0.9, 0.95, 0.9), iconRuid = "ab35abd6309f4f7f8f04587c2270ccbe", desc = "일정 시간 스킬 피해가 25% 증가합니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 애로우 레인은 엑셀에 없는 구 스킬이라 삭제(궁수 3차는
             -- 모탈블로우+스트레이프 2공격, 버프 없음 - 엑셀 그대로).
