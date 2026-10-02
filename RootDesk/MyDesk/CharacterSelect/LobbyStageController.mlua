@@ -196,6 +196,8 @@ script LobbyStageController extends Component
             luk = _EquipmentLogic:GetEffectiveStat(data, "luk"),
             level = data.level,
             trait = data.trait,
+            -- 2026-10-03 유저 요청("마스터 캐릭터") - 캐릭터 교체(스왑) 경로도 동일하게 전달.
+            isMaster = data.isMaster or false,
         }
         local tierSkills = {
             atk2 = data.atkSkillId2 or "", buff2 = data.buffSkillId2 or "",

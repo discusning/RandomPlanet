@@ -212,6 +212,9 @@ script CharacterCardController extends Component
                 -- 읽어서 넘긴다(캐릭터 생성 시점이 아니라 입장 시점 값 - 이후 계정을 더 강화하면
                 -- 기존 캐릭터도 곧바로 더 높은 만렙 혜택을 받는다).
                 upgradeLevel = _AccountCurrencyLogic:GetUpgradeLevel(),
+                -- 2026-10-03 유저 요청("마스터 캐릭터") - 로스터 슬롯에 isMaster=true가 저장돼 있으면
+                -- 그대로 넘긴다(PlayerStatsComponent.ApplyStats가 받아서 적용).
+                isMaster = self._T.characterData.isMaster or false,
             }
             -- 버그 수정(2026-09-17) - 로스터에 저장된 티어2~4 스킬(전직 퀘스트 보스를 이미 클리어해
             -- 얻은 것)을 함께 넘긴다 - CharacterSelectStageController.RequestEnterGame 주석 참고.

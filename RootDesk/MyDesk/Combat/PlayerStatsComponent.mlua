@@ -19,6 +19,11 @@ script PlayerStatsComponent extends Component
     -- M2 Phase I(2026-09-08) - 계정 영구 강화 레벨에 따라 이번 런에서 도달 가능한 최대 레벨(15~21).
     -- ApplyStats에서 계정 강화 레벨로부터 계산해 채워진다(ComputeUnlockedMaxLevel).
     @Sync property integer UnlockedMaxLevel = 15
+    -- 2026-10-03 유저 요청("마스터 캐릭터") - 로스터 해당 슬롯의 isMaster 필드가 true인 채로
+    -- 입장하면 켜진다(ApplyStats에서 stats.isMaster를 그대로 복사). QA 전용 - 켜지면
+    -- PlayerSkillComponent.GetOwnedSkillIds가 8슬롯 제한 없이 카탈로그 44종 전체를 "보유"로
+    -- 취급해, 스킬창에서 전부 확인하고 아무 슬롯에나 자유롭게 배정할 수 있게 된다.
+    @Sync property boolean IsMasterCharacter = false
     @Sync property integer MaxMp = 0
     @Sync property integer CurrentMp = 0
     -- Inert until Phase 3+ wires them into a real consumer (see comment above).
@@ -263,6 +268,7 @@ script PlayerStatsComponent extends Component
         self.Luk = stats.luk
         self.Level = stats.level
         self.UnlockedMaxLevel = self:ComputeUnlockedMaxLevel(stats.upgradeLevel or 0)
+        self.IsMasterCharacter = stats.isMaster == true
         self.Trait = stats.trait or ""
         -- 3차 전직 추가 특성(Trait2)은 로스터에 영구 저장되지 않는다(레벨 자체가 이미 그런 기존
         -- 한계 - Phase 2.5 세션 기록 참고, 재입장/스왑 시 소실). 매 진입마다 새로 시작하므로 이전

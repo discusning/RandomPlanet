@@ -585,9 +585,29 @@ script PlayerSkillComponent extends Component
         end
     end
 
+    method boolean IsMasterCharacter()
+        -- 2026-10-03 유저 요청("마스터 캐릭터") - 플래그는 PlayerStatsComponent 쪽에 있다(ApplyStats가
+        -- 로스터의 isMaster를 그대로 복사하는 곳과 같은 자리).
+        local stats = self.Entity:GetComponent("script.PlayerStatsComponent")
+        return isvalid(stats) and stats.IsMasterCharacter
+    end
+
     method table GetOwnedSkillIds()
         -- Returns { {id, tier, category}, ... } for every filled slot - the skill window's data
         -- source (see SkillUIController.Refresh).
+        if self:IsMasterCharacter() then
+            -- 마스터 캐릭터는 8슬롯(AtkSkill1-4/BuffSkill1-4) 제한 없이 카탈로그 44종 전체를
+            -- "보유"로 취급 - 스킬창에서 전부 확인 가능, IsSkillOwned가 이걸 그대로 쓰므로 아무
+            -- 슬롯에나 자유롭게 배정도 가능해진다(RequestAssignSkillToSlot의 보유 검증 통과).
+            local result = {}
+            for _, id in ipairs(_SkillCatalog:GetAllSkillIds()) do
+                local def = _SkillCatalog:GetSkillDef(id)
+                if def ~= nil then
+                    table.insert(result, { id = id, tier = def.tier, category = _SkillCatalog:IsBuffSkill(id) and "buff" or "attack" })
+                end
+            end
+            return result
+        end
         local result = {}
         local buffSlots = { self.BuffSkill1, self.BuffSkill2, self.BuffSkill3, self.BuffSkill4 }
         local atkSlots = { self.AtkSkill1, self.AtkSkill2, self.AtkSkill3, self.AtkSkill4 }
