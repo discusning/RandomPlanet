@@ -46,6 +46,19 @@ script Monster extends Component
     @HideFromInspector property number HomingMarkedUntilElapsed = 0
     @HideFromInspector property string HomingMarkerName = ""
     @HideFromInspector property number HomingMarkBonus = 0
+    -- 2026-10-02 유저 엑셀("샤우트"/"아이스 스트라이크" - 기절/빙결) - 실제 CC 구현. 이동속도를
+    -- 0으로 만들고(MovementComponent), MonsterAttack.TryAttack에서 이 플래그를 확인해 공격도
+    -- 멈춘다 - "스턴/빙결 상태인 동안 몬스터가 움직이지도, 때리지도 못한다"를 실제로 관측 가능하게.
+    @Sync @HideFromInspector property boolean StunActive = false
+    @HideFromInspector property number StunOriginalInputSpeed = 0
+    -- 2026-10-02 유저 엑셀("위협" - 검사 2차) - 범위 내 적 전체의 물리공격력/방어력 감소. 이 게임
+    -- 전투 모델에 "몬스터 방어력" 스탯은 없어, 실제로 소비되는 두 채널(MonsterAttack.AttackDamage -
+    -- TryAttack이 그대로 읽어 피해량 산출, Evasion - PlayerAttack.IsAttackTarget 명중 굴림)을
+    -- 재사용 - "방어력 감소"는 Evasion 감소로 근사(회피가 낮아질수록 더 잘 맞는다는 점에서 방어력
+    -- 저하와 체감이 동일).
+    @HideFromInspector property boolean WeakenActive = false
+    @HideFromInspector property number WeakenOriginalAttackDamage = 0
+    @HideFromInspector property number WeakenOriginalEvasion = 0
     -- 물약 시스템 (M2 Phase A, 2026-09-06 - 전체 기획서 §3-3 "회복 아이템: 드랍으로 획득"). 퍼센트
     -- 정수(0~100) - 기본 12%로 시작, 전장 몬스터별로 `MapBuilder.patchComponent`나 개별 `.model`
     -- 값으로 오버라이드 가능(FieldMonster1~3 티어별 밸런스 조정과 동일 패턴).
@@ -212,6 +225,54 @@ script Monster extends Component
             if isvalid(self.Entity) then
                 self.Evasion = self.DisorderOriginalEvasion
                 self.DisorderActive = false
+            end
+        end, duration)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyStun(number duration)
+        -- 샤우트(검사 3차)/아이스 스트라이크(마법사 3차) 전용 - 이동속도를 0으로 묶고
+        -- MonsterAttack.TryAttack이 StunActive를 확인해 공격도 멈춘다. ApplyDisorder와 동일한
+        -- "재시전 시 원본값부터 되돌린 뒤 재적용" 패턴.
+        local move = self.Entity.MovementComponent
+        if self.StunActive and isvalid(move) then
+            move.InputSpeed = self.StunOriginalInputSpeed
+        end
+        if isvalid(move) then
+            self.StunOriginalInputSpeed = move.InputSpeed
+            move.InputSpeed = 0
+        end
+        self.StunActive = true
+        _TimerService:SetTimerOnce(function()
+            if isvalid(self.Entity) then
+                local m2 = self.Entity.MovementComponent
+                if isvalid(m2) then m2.InputSpeed = self.StunOriginalInputSpeed end
+                self.StunActive = false
+            end
+        end, duration)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyWeaken(number atkReductionPercent, number evasionReductionPercent, number duration)
+        -- 위협(검사 2차) 전용 - ApplyDisorder와 동일한 원본값 추적+재시전 패턴.
+        local atk = self.Entity:GetComponent("script.MonsterAttack")
+        if self.WeakenActive then
+            if isvalid(atk) then atk.AttackDamage = self.WeakenOriginalAttackDamage end
+            self.Evasion = self.WeakenOriginalEvasion
+        end
+        if isvalid(atk) then
+            self.WeakenOriginalAttackDamage = atk.AttackDamage
+            atk.AttackDamage = math.max(0, atk.AttackDamage * (1 - atkReductionPercent))
+        end
+        self.WeakenOriginalEvasion = self.Evasion
+        self.Evasion = self.Evasion * (1 - evasionReductionPercent)
+        self.WeakenActive = true
+        _TimerService:SetTimerOnce(function()
+            if isvalid(self.Entity) then
+                local atk2 = self.Entity:GetComponent("script.MonsterAttack")
+                if isvalid(atk2) then atk2.AttackDamage = self.WeakenOriginalAttackDamage end
+                self.Evasion = self.WeakenOriginalEvasion
+                self.WeakenActive = false
             end
         end, duration)
     end

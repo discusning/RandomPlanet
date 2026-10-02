@@ -32,7 +32,9 @@ script MonsterAttack extends AttackComponent
             return
         end
         local monster = self.Entity:GetComponent("script.Monster")
-        if isvalid(monster) and monster.IsDead then
+        -- 2026-10-02 유저 엑셀("샤우트"/"아이스 스트라이크" - 기절/빙결) - 스턴 상태인 동안은
+        -- 공격도 멈춘다(Monster.ApplyStun이 이동속도는 직접 0으로 묶으므로 여기서는 공격만 차단).
+        if isvalid(monster) and (monster.IsDead or monster.StunActive) then
             return
         end
         local transform = self.Entity.TransformComponent

@@ -27,14 +27,14 @@ script SkillCatalog extends Logic
             "luckyseven", "disable", "darksight", "nimblebody",
             "dash", "summersaultkick", "knucklebooster",
             -- 2차 (tier=2, M2 Phase D 2026-09-06)
-            "doubleswing", "powerguard", "fury",
+            "doubleswing", "powerguard", "threaten", "fury",
             "thunderbolt", "meditation",
             "doubleshot", "soularrow",
             "doublestab", "haste",
             "flamethrower", "reload",
             -- 3차 (tier=3)
-            "risingslash", "ironwill",
-            "blizzard", "magicbooster",
+            "risingslash", "shout", "ironwill",
+            "blizzard", "icestrike", "magicbooster",
             "arrowrain", "strafe", "mortalblow", "sharpeyes",
             "venom", "shadowpartner", "avenger",
             "battery", "speedenhancer", "homing",
@@ -258,6 +258,10 @@ script SkillCatalog extends Logic
             -- 삭제. 데미지 수치 자체는 정확해 coef/기타 값은 그대로 둠.
             doubleswing = { id = "doubleswing", tier = 2, name = "더블 스윙", job = "검사", kind = "melee_single", coef = 1.5, cooldown = 3.0, mpCost = 9, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "5c61ff8df1544c05a200e598ea9164ce", desc = "전방의 적을 강하게 베어 평타의 150% 피해를 입힙니다." },
             powerguard = { id = "powerguard", tier = 2, name = "파워 가드", job = "검사", kind = "buff", duration = 8.0, testableEffect = "dmgreduction", dmgReductionBonus = 0.15, cooldown = 18.0, mpCost = 16, auraType = "Enchant", auraColor = Color(0.6, 0.65, 0.75, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 받는 피해가 15% 감소합니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "위협"(검사 2차 공격 슬롯). 데미지 없는 순수 디버프 -
+            -- 범위 내 적 전체의 물리공격력/회피(방어력 근사, Monster.ApplyWeaken 주석 참고) 감소.
+            -- kind="weaken"은 "buff"가 아니므로 공격 카테고리로 자동 분류(disable/디스오더와 동일 원리).
+            threaten = { id = "threaten", tier = 2, name = "위협", job = "검사", kind = "weaken", atkReductionPercent = 0.3, evasionReductionPercent = 0.3, weakenRadius = 3.5, duration = 9.0, cooldown = 14.0, mpCost = 12, iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "MP를 소비해 범위 내 적 전체를 위협합니다. 9초간 적의 물리 공격력과 방어력이 감소합니다." },
             -- 2026-10-02 유저 엑셀 신규 - "분노"(검사 2차 버프). rage(4차)와 동일한 atkbonus 채널,
             -- 수치만 더 낮은 초반 버전.
             fury = { id = "fury", tier = 2, name = "분노", job = "검사", kind = "buff", duration = 8.0, testableEffect = "atkbonus", atkBonusPercent = 0.15, cooldown = 18.0, mpCost = 14, auraType = "Aura", auraColor = Color(1.0, 0.45, 0.25, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 동안 자신의 물리 공격력이 15% 상승합니다." },
@@ -285,8 +289,15 @@ script SkillCatalog extends Logic
 
             -- ── 3차 (레벨 13) ──
             risingslash = { id = "risingslash", tier = 3, name = "라이징 슬래시", job = "검사", kind = "melee_single", coef = 1.6, wide = true, cooldown = 4.5, mpCost = 14, impactDelay = 0.2, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", iconRuid = "1dc02c9673284efb94da9c86e7414eeb", desc = "회전 베기로 넓은 범위의 적 전부에게 평타의 160% 피해를 입힙니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "샤우트"(검사 3차 공격). AoE 데미지 + 확률 기절(실제 CC -
+            -- Monster.ApplyStun). 기존 risingslash와 공존(additive).
+            shout = { id = "shout", tier = 3, name = "샤우트", job = "검사", kind = "melee_single", coef = 1.11, wide = true, stunChance = 0.52, stunDuration = 5.0, cooldown = 6.0, mpCost = 16, impactDelay = 0.2, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", iconRuid = "1dc02c9673284efb94da9c86e7414eeb", desc = "주변의 적에게 큰 소리를 질러 평타의 111% 피해를 줌과 동시에 52% 확률로 5초간 기절시킵니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
             ironwill = { id = "ironwill", tier = 3, name = "아이언 윌", job = "검사", kind = "buff", duration = 10.0, testableEffect = "dmgreduction", dmgReductionBonus = 0.2, cooldown = 22.0, mpCost = 18, auraType = "Aura", auraColor = Color(0.7, 0.78, 0.9, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 받는 피해가 20% 감소합니다." },
             blizzard = { id = "blizzard", tier = 3, name = "블리자드", job = "마법사", kind = "ranged_pierce", coef = 1.5, magic = true, cooldown = 4.0, mpCost = 16, projectileVfxRuid = "64096440f11f4c9b9c96df38e0e3852e", iconRuid = "543decec44e3488d98cf82e8580572f7", projectileTintColor = Color(0.6, 0.85, 1.0, 1.0), desc = "전방에 냉기를 퍼뜨려 관통하는 적 전부에게 평타의 150% 마법 피해를 입힙니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "아이스 스트라이크"(마법사 3차 공격). AoE 마법 데미지 +
+            -- 명중 시 100% 빙결(실제 CC - Monster.ApplyStun, 샤우트와 동일 메커니즘 재사용). melee_single
+            -- 쪽 wide 박스를 그대로 써 근접형 AoE로 구현(기존 blizzard는 관통형이라 구분됨).
+            icestrike = { id = "icestrike", tier = 3, name = "아이스 스트라이크", job = "마법사", kind = "melee_single", coef = 0.9, wide = true, magic = true, stunChance = 1.0, stunDuration = 2.5, cooldown = 5.0, mpCost = 17, impactDelay = 0.2, hitVfxRuid = "3ebd5d6967394c2589408f69c2bc5c54", iconRuid = "1dc02c9673284efb94da9c86e7414eeb", desc = "날카로운 얼음 덩어리를 날려 여러 적에게 평타의 90% 마법 피해를 입히고, 명중한 적(냉기 속성 제외)을 2.5초간 얼어붙게 합니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
             magicbooster = { id = "magicbooster", tier = 3, name = "매직 부스터", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "skilldmg", skillDmgBonus = 0.25, cooldown = 20.0, mpCost = 18, auraType = "Enchant", auraColor = Color(0.4, 0.9, 0.95, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 스킬 피해가 25% 증가합니다." },
             arrowrain = { id = "arrowrain", tier = 3, name = "애로우 레인", job = "궁수", kind = "multi_hit", coef = 0.7, hits = 3, cooldown = 4.5, mpCost = 15, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "화살비를 쏟아부어 3연속 타격마다 평타의 70% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 신규 - "스트레이프"(한 명에게 4발, 타격당 71%). 기존 애로우 레인과

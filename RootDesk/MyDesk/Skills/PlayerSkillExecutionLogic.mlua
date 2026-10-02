@@ -34,6 +34,8 @@ script PlayerSkillExecutionLogic extends Logic
             self:DoDash(skill, def)
         elseif def.kind == "debuff" then
             self:DoDisorder(skill, def)
+        elseif def.kind == "weaken" then
+            self:DoWeaken(skill, def)
         elseif def.kind == "buff" then
             skill:DoBuff(def)
         elseif def.kind == "mark_homing" then
@@ -49,6 +51,15 @@ script PlayerSkillExecutionLogic extends Logic
             _TimerService:SetTimerOnce(function()
                 if isvalid(skill.Entity) then self:TryExecuteLowHpTargets(skill, def) end
             end, delay)
+        end
+
+        -- 2026-10-02 유저 엑셀("샤우트"/"아이스 스트라이크") - 기절/빙결 확률 실제 구현. melee_single
+        -- 판정과 같은 impactDelay 뒤에, 같은 와이드 박스 범위를 다시 스캔해 대상별로 확률 판정.
+        if def.stunChance ~= nil then
+            local delay2 = (def.impactDelay or 0) + 0.02
+            _TimerService:SetTimerOnce(function()
+                if isvalid(skill.Entity) then self:TryApplyStunToNearby(skill, def) end
+            end, delay2)
         end
 
         -- 2026-09-10 QA - 명상가 링크("지혜의 등불": 스킬 사용 시 소형 범위 확산) 신규 연결. 순수
@@ -312,6 +323,64 @@ script PlayerSkillExecutionLogic extends Logic
             local serial = _EffectService:PlayEffectAttached(def.dashVfxRuid, skill.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
             log("PlayerSkill: " .. def.name .. " dash VFX serial=" .. tostring(serial))
         end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TryApplyStunToNearby(PlayerSkillComponent skill, table def)
+        -- 샤우트(검사 3차)/아이스 스트라이크(마법사 3차) - melee_single(wide) 판정이 끝난 뒤, 같은
+        -- 와이드 박스 범위 내 몬스터 각각에게 def.stunChance 확률로 Monster:ApplyStun 적용.
+        local transform = skill.Entity.TransformComponent
+        local controller = skill.Entity.PlayerControllerComponent
+        local map = skill.Entity.CurrentMap
+        if not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+        -- DoMeleeSingle의 wide 박스(2.6x1.6, 중심 pos.x+0.7*dir)와 동일한 범위.
+        local halfW = 1.3
+        local halfH = 0.8
+        local boxCenterX = pos.x + 0.7 * dir
+
+        local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
+        for _, m in ipairs(monsters) do
+            if isvalid(m) and isvalid(m.Entity) and not m.IsDead then
+                local mpos = m.Entity.TransformComponent.WorldPosition
+                if math.abs(mpos.x - boxCenterX) <= halfW and math.abs(mpos.y - (pos.y + 0.5)) <= halfH then
+                    if _UtilLogic:RandomDouble() < def.stunChance then
+                        m:ApplyStun(def.stunDuration)
+                        log("PlayerSkill: " .. def.name .. " 기절/빙결 적용 - " .. m.Entity.Name)
+                    end
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoWeaken(PlayerSkillComponent skill, table def)
+        -- 위협(검사 2차) - 전방 범위 내 몬스터 전체에게 물리공격력/회피(방어력 근사) 감소 적용.
+        -- 데미지 없는 순수 디버프라 DoDisorder처럼 AttackFast 파이프라인을 타지 않는다.
+        local transform = skill.Entity.TransformComponent
+        local controller = skill.Entity.PlayerControllerComponent
+        local map = skill.Entity.CurrentMap
+        if not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+        local range = def.weakenRadius or 3.0
+
+        local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
+        local hitCount = 0
+        for _, m in ipairs(monsters) do
+            if isvalid(m) and isvalid(m.Entity) and not m.IsDead then
+                local mpos = m.Entity.TransformComponent.WorldPosition
+                local dx = mpos.x - pos.x
+                if dx * dir >= 0 and math.abs(dx) <= range then
+                    m:ApplyWeaken(def.atkReductionPercent, def.evasionReductionPercent, def.duration)
+                    hitCount = hitCount + 1
+                end
+            end
+        end
+        log("PlayerSkill: " .. def.name .. " 범위 내 " .. hitCount .. "마리 약화")
     end
 
     @ExecSpace("ServerOnly")
