@@ -1,0 +1,62 @@
+@Component
+script SummonPetComponent extends AttackComponent
+    -- 2026-10-02 유저 엑셀("옥토퍼스"/"서포트 옥토퍼스" - 해적 3/4차) - 소환되어 고정 위치에서
+    -- 주기적으로 주변 적을 공격하는 정지형 소환체. MonsterAttack.TryAttack과 동일한 "타이머로 주기
+    -- 공격" 패턴을 재사용하되, 대상 CollisionGroup만 Monster로 바꾼다(플레이어가 아니라 몬스터를
+    -- 때림). 소환체는 움직이지 않고(스프레드시트 "문어는 움직이지 않는다"), 맞지도 않는다(HitComponent
+    -- 없음 - 몬스터의 공격 대상이 아님).
+
+    property number AttackDamage = 10
+    property number AttackInterval = 1.0
+    property number AttackRange = 1.5
+    property number Lifetime = 10.0
+    @HideFromInspector property any Shape = nil
+    @HideFromInspector property integer AttackTimerId = 0
+    @HideFromInspector property integer LifetimeTimerId = 0
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- 고정 위치 판정 박스를 미리 만들고, 공격 타이머와 수명 타이머를 시작한다.
+        self.Shape = BoxShape(Vector2.zero, Vector2(self.AttackRange, self.AttackRange), 0)
+        self.AttackTimerId = _TimerService:SetTimerRepeat(function() self:TryAttack() end, self.AttackInterval)
+        self.LifetimeTimerId = _TimerService:SetTimerOnce(function() self:Expire() end, self.Lifetime)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        -- 타이머 해제(필수 패턴 - msw-scripting §5).
+        if self.AttackTimerId ~= 0 then
+            _TimerService:ClearTimer(self.AttackTimerId)
+            self.AttackTimerId = 0
+        end
+        if self.LifetimeTimerId ~= 0 then
+            _TimerService:ClearTimer(self.LifetimeTimerId)
+            self.LifetimeTimerId = 0
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TryAttack()
+        -- 자기 위치를 중심으로 주변 몬스터를 공격(MonsterAttack.TryAttack과 동일 구조, 대상만 Monster).
+        local transform = self.Entity.TransformComponent
+        if not isvalid(transform) then return end
+        local pos = transform.WorldPosition
+        self.Shape.Position = Vector2(pos.x, pos.y + 0.3)
+        self.Shape.Size = Vector2(self.AttackRange, self.AttackRange)
+        self.Shape.Angle = 0
+        self:AttackFast(self.Shape, "summon.octopus", CollisionGroups.Monster)
+    end
+
+    method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
+        -- 부모 AttackComponent.CalcDamage는 @ExecSpace가 없음(ExecSpace=All) - MonsterAttack과
+        -- 동일하게 annotation을 붙이지 않는다(LEA-3014 SignatureMismatch 방지).
+        return math.floor(self.AttackDamage)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Expire()
+        -- 소환 지속시간 만료 - 스스로 소멸.
+        self.Entity:Destroy()
+    end
+
+end

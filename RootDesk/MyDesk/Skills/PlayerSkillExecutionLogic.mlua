@@ -46,6 +46,8 @@ script PlayerSkillExecutionLogic extends Logic
             self:DoPoisonApply(skill, def)
         elseif def.kind == "combo_buff" then
             skill:StartCombo(def)
+        elseif def.kind == "summon" then
+            self:DoSummon(skill, def)
         end
 
         -- 2026-10-02 유저 엑셀("모탈 블로우" - 궁수 3차) - 즉사 확률 실제 구현. melee_single 판정
@@ -462,6 +464,35 @@ script PlayerSkillExecutionLogic extends Logic
             local serial = _EffectService:PlayEffect(def.hitVfxRuid, skill.Entity, mpos, 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
             log("PlayerSkill: " .. def.name .. " VFX serial=" .. tostring(serial))
         end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoSummon(PlayerSkillComponent skill, table def)
+        -- 옥토퍼스(해적 3차)/서포트 옥토퍼스(해적 4차) - 고정 위치에 정지형 소환체를 띄운다.
+        -- 소환체 자체(SummonPetComponent)가 자신의 수명(def.duration)을 관리하므로 여기서는
+        -- 스폰만 한다. 2026-10-02 유저 엑셀 지시대로 소환수 계열은 catalog상 "버프" 카테고리로
+        -- 분류(IsBuffSkill)되지만, 실제 판정은 공격류와 동일하게 DispatchSkillEffect를 거친다.
+        local transform = skill.Entity.TransformComponent
+        local controller = skill.Entity.PlayerControllerComponent
+        local map = skill.Entity.CurrentMap
+        if not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+        local spawnPos = Vector3(pos.x + 1.0 * dir, pos.y, pos.z)
+
+        local pet = _SpawnService:SpawnByModelId("summonpet", "SummonPet_" .. tostring(_UtilLogic.ElapsedSeconds), spawnPos, map)
+        if not isvalid(pet) then
+            log_error("PlayerSkill: " .. def.name .. " SpawnByModelId failed")
+            return
+        end
+        local petComp = pet:GetComponent("script.SummonPetComponent")
+        if isvalid(petComp) then
+            petComp.AttackDamage = def.petAttackDamage or 10
+            petComp.AttackInterval = def.petAttackInterval or 1.0
+            petComp.Lifetime = def.duration or 10.0
+        end
+        log("PlayerSkill: " .. def.name .. " 소환 - dmg=" .. tostring(petComp.AttackDamage) .. " interval=" .. tostring(petComp.AttackInterval) .. " duration=" .. tostring(petComp.Lifetime))
     end
 
     @ExecSpace("ServerOnly")
