@@ -13,6 +13,11 @@ script ProjectileComponent extends Component
     -- 2026-10-02 유저 엑셀("어벤져" - 관통 최대 4명) - 기존 Pierce(무제한 관통)와 별개로 "N명까지만
     -- 관통"을 표현하는 캡. 0이면 기존 동작과 완전히 동일(무제한) - Pierce=true일 때만 의미가 있다.
     property integer MaxPierceTargets = 0
+    -- 2026-10-02 유저 엑셀("피어싱" - 궁수 4차, "뚫고 지날수록 더 강해지는 화살") - 관통할 때마다
+    -- 데미지가 누적 증가. 0이면 기존 동작과 동일(스케일링 없음). BaseDamage는 Fire 시점의 원본
+    -- 데미지를 보존(ProjectileAttackComponent.Damage는 매 히트마다 덮어써지므로 별도 보관 필요).
+    property number DamageScalingPerHit = 0
+    @HideFromInspector property number BaseDamage = 0
     @HideFromInspector property number DirX = 0
     @HideFromInspector property number DirY = 0
 
@@ -78,6 +83,12 @@ script ProjectileComponent extends Component
                     -- (and returns) on its first hit.
                     self._T.hitList[monsterEntity.Name] = true
                     self._T.hitCount = self._T.hitCount + 1
+                    if self.DamageScalingPerHit > 0 then
+                        local projAttack = self.Entity:GetComponent("script.ProjectileAttackComponent")
+                        if isvalid(projAttack) then
+                            projAttack.Damage = math.floor(self.BaseDamage * (1 + self.DamageScalingPerHit * (self._T.hitCount - 1)))
+                        end
+                    end
                     self:OnHit()
                     if not self.Pierce then return end
                     -- 관통 캡 도달 - 더 뚫지 않고 여기서 소멸(OnHit이 Pierce=true일 땐 Destroy를

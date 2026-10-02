@@ -279,6 +279,9 @@ script PlayerSkillExecutionLogic extends Logic
             -- 2026-10-02 유저 엑셀("어벤져" - 관통 최대 4명) - def.maxTargets가 있으면 전달, 없으면
             -- 0(기존 동작과 동일, 무제한).
             projComp.MaxPierceTargets = def.maxTargets or 0
+            -- 2026-10-02 유저 엑셀("피어싱" - 관통할수록 강해짐) - def.scalingPerHit가 있으면 전달.
+            projComp.DamageScalingPerHit = def.scalingPerHit or 0
+            projComp.BaseDamage = damage
             projComp:Fire(dir, 0)
         end
     end
