@@ -137,6 +137,14 @@ script PlayerAttack extends AttackComponent
             end
         end
 
+        -- 2026-10-02 유저 엑셀("호밍" - 해적 3차) - 본인이 직접 표식을 건 대상에게만 가산 피해
+        -- (파티 전역인 저주의 표식 링크와 달리 트레잇 무관, 개인 전용 - Monster.HomingMarkerName으로
+        -- "이 표식을 건 게 나인가" 확인).
+        local homingMonster = defender:GetComponent("script.Monster")
+        if isvalid(homingMonster) and _UtilLogic.ElapsedSeconds < homingMonster.HomingMarkedUntilElapsed and homingMonster.HomingMarkerName == self.Entity.Name then
+            dmg = math.floor(dmg * (1 + homingMonster.HomingMarkBonus))
+        end
+
         return dmg
     end
 

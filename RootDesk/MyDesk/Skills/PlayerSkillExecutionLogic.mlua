@@ -36,6 +36,19 @@ script PlayerSkillExecutionLogic extends Logic
             self:DoDisorder(skill, def)
         elseif def.kind == "buff" then
             skill:DoBuff(def)
+        elseif def.kind == "mark_homing" then
+            self:DoMarkHoming(skill, def)
+        end
+
+        -- 2026-10-02 유저 엑셀("모탈 블로우" - 궁수 3차) - 즉사 확률 실제 구현. melee_single 판정
+        -- 자체(DoMeleeSingle)는 범용이라 모탈블로우만의 "맞은 후 HP가 낮으면 확률 즉사"는 여기
+        -- 디스패치 단계에서 별도 스캔으로 덧붙인다 - impactDelay가 있으면 그 지연 뒤에 실제 타격이
+        -- 적용되므로, 같은 지연을 주고 사정권 내 몬스터를 다시 스캔해 조건을 판정한다.
+        if def.executeHpPercent ~= nil then
+            local delay = (def.impactDelay or 0) + 0.02
+            _TimerService:SetTimerOnce(function()
+                if isvalid(skill.Entity) then self:TryExecuteLowHpTargets(skill, def) end
+            end, delay)
         end
 
         -- 2026-09-10 QA - 명상가 링크("지혜의 등불": 스킬 사용 시 소형 범위 확산) 신규 연결. 순수
@@ -244,6 +257,9 @@ script PlayerSkillExecutionLogic extends Logic
             projComp.MaxLifetime = 2
             projComp.HitRadius = 0.4
             projComp.Pierce = pierce
+            -- 2026-10-02 유저 엑셀("어벤져" - 관통 최대 4명) - def.maxTargets가 있으면 전달, 없으면
+            -- 0(기존 동작과 동일, 무제한).
+            projComp.MaxPierceTargets = def.maxTargets or 0
             projComp:Fire(dir, 0)
         end
     end
@@ -339,6 +355,76 @@ script PlayerSkillExecutionLogic extends Logic
             local mpos = nearest.Entity.TransformComponent.WorldPosition
             local serial = _EffectService:PlayEffect(def.hitVfxRuid, skill.Entity, mpos, 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
             log("PlayerSkill: " .. def.name .. " VFX serial=" .. tostring(serial))
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DoMarkHoming(PlayerSkillComponent skill, table def)
+        -- 호밍(해적 3차) - 전방 가장 가까운 몬스터 1체에게 "개인 표식"을 남긴다. DoDisorder와 동일한
+        -- 근접 탐색 패턴(AttackFast 파이프라인을 타지 않는 순수 유틸리티성 스킬).
+        local transform = skill.Entity.TransformComponent
+        local controller = skill.Entity.PlayerControllerComponent
+        local map = skill.Entity.CurrentMap
+        if not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+        local range = 4.0
+
+        local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
+        local nearest = nil
+        local nearestDist = range + 1
+        for _, m in ipairs(monsters) do
+            if isvalid(m) and isvalid(m.Entity) and not m.IsDead then
+                local mpos = m.Entity.TransformComponent.WorldPosition
+                local dx = mpos.x - pos.x
+                if dx * dir >= 0 and math.abs(dx) <= range and math.abs(dx) < nearestDist then
+                    nearestDist = math.abs(dx)
+                    nearest = m
+                end
+            end
+        end
+
+        if nearest == nil then
+            log("PlayerSkill: " .. def.name .. " no target in range")
+            return
+        end
+
+        nearest:ApplyHomingMark(skill.Entity.Name, def.markBonusPercent, def.duration)
+        log("PlayerSkill: " .. def.name .. " marked " .. nearest.Entity.Name .. " bonus=" .. tostring(def.markBonusPercent))
+        if def.hitVfxRuid ~= nil then
+            local mpos = nearest.Entity.TransformComponent.WorldPosition
+            local serial = _EffectService:PlayEffect(def.hitVfxRuid, skill.Entity, mpos, 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
+            log("PlayerSkill: " .. def.name .. " VFX serial=" .. tostring(serial))
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TryExecuteLowHpTargets(PlayerSkillComponent skill, table def)
+        -- 모탈 블로우(궁수 3차) - melee_single 판정이 끝난 뒤, 사정권 내 몬스터 중 HP가
+        -- executeHpPercent 이하인 대상에게 executeInstakillChance 확률로 즉사(기존 "동전 던지기
+        -- 사형집행인" 트레잇과 동일한 Monster:ExecuteKill 처치 경로 재사용).
+        local transform = skill.Entity.TransformComponent
+        local controller = skill.Entity.PlayerControllerComponent
+        local map = skill.Entity.CurrentMap
+        if not isvalid(transform) or not isvalid(controller) or not isvalid(map) then return end
+        local dir = controller.LookDirectionX
+        if dir == 0 then dir = 1 end
+        local pos = transform.WorldPosition
+        local range = 2.0
+
+        local monsters = map:GetChildComponentsByTypeName("script.Monster", true)
+        for _, m in ipairs(monsters) do
+            if isvalid(m) and isvalid(m.Entity) and not m.IsDead and m.MaxHp > 0 then
+                local mpos = m.Entity.TransformComponent.WorldPosition
+                local dx = mpos.x - pos.x
+                if dx * dir >= 0 and math.abs(dx) <= range then
+                    if (m.Hp / m.MaxHp) <= def.executeHpPercent and _UtilLogic:RandomDouble() < def.executeInstakillChance then
+                        log("PlayerSkill: " .. def.name .. " 즉사 발동 - " .. m.Entity.Name)
+                        m:ExecuteKill(skill.Entity)
+                    end
+                end
+            end
         end
     end
 

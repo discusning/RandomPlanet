@@ -10,6 +10,9 @@ script ProjectileComponent extends Component
     property number MaxLifetime = 2
     property number HitRadius = 0.4
     property boolean Pierce = false
+    -- 2026-10-02 유저 엑셀("어벤져" - 관통 최대 4명) - 기존 Pierce(무제한 관통)와 별개로 "N명까지만
+    -- 관통"을 표현하는 캡. 0이면 기존 동작과 완전히 동일(무제한) - Pierce=true일 때만 의미가 있다.
+    property integer MaxPierceTargets = 0
     @HideFromInspector property number DirX = 0
     @HideFromInspector property number DirY = 0
 
@@ -17,6 +20,7 @@ script ProjectileComponent extends Component
         self._T.fired = false
         self._T.lifetime = 0
         self._T.hitList = {}
+        self._T.hitCount = 0
         self._T.monsters = {}
         self._T.monsterScanTimer = 0
     end
@@ -73,8 +77,15 @@ script ProjectileComponent extends Component
                     -- this fix). A non-Pierce shot never reached this bug since it destroys itself
                     -- (and returns) on its first hit.
                     self._T.hitList[monsterEntity.Name] = true
+                    self._T.hitCount = self._T.hitCount + 1
                     self:OnHit()
                     if not self.Pierce then return end
+                    -- 관통 캡 도달 - 더 뚫지 않고 여기서 소멸(OnHit이 Pierce=true일 땐 Destroy를
+                    -- 호출하지 않으므로 캡 체크는 여기서 별도로 수행).
+                    if self.MaxPierceTargets > 0 and self._T.hitCount >= self.MaxPierceTargets then
+                        self.Entity:Destroy()
+                        return
+                    end
                 end
             end
         end

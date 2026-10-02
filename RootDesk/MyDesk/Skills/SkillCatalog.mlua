@@ -27,7 +27,7 @@ script SkillCatalog extends Logic
             "luckyseven", "disable", "darksight", "nimblebody",
             "dash", "summersaultkick", "knucklebooster",
             -- 2차 (tier=2, M2 Phase D 2026-09-06)
-            "doubleswing", "powerguard",
+            "doubleswing", "powerguard", "fury",
             "thunderbolt", "meditation",
             "doubleshot", "soularrow",
             "doublestab", "haste",
@@ -35,11 +35,11 @@ script SkillCatalog extends Logic
             -- 3차 (tier=3)
             "risingslash", "ironwill",
             "blizzard", "magicbooster",
-            "arrowrain", "strafe", "sharpeyes",
-            "venom", "shadowpartner",
-            "battery", "speedenhancer",
+            "arrowrain", "strafe", "mortalblow", "sharpeyes",
+            "venom", "shadowpartner", "avenger",
+            "battery", "speedenhancer", "homing",
             -- 4차 (tier=4)
-            "blast", "rage",
+            "blast", "rage", "brandish",
             "meteorstrike", "infinity",
             "hurricane", "eagleeye",
             "asura", "markofassassin",
@@ -258,6 +258,9 @@ script SkillCatalog extends Logic
             -- 삭제. 데미지 수치 자체는 정확해 coef/기타 값은 그대로 둠.
             doubleswing = { id = "doubleswing", tier = 2, name = "더블 스윙", job = "검사", kind = "melee_single", coef = 1.5, cooldown = 3.0, mpCost = 9, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "5c61ff8df1544c05a200e598ea9164ce", desc = "전방의 적을 강하게 베어 평타의 150% 피해를 입힙니다." },
             powerguard = { id = "powerguard", tier = 2, name = "파워 가드", job = "검사", kind = "buff", duration = 8.0, testableEffect = "dmgreduction", dmgReductionBonus = 0.15, cooldown = 18.0, mpCost = 16, auraType = "Enchant", auraColor = Color(0.6, 0.65, 0.75, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 받는 피해가 15% 감소합니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "분노"(검사 2차 버프). rage(4차)와 동일한 atkbonus 채널,
+            -- 수치만 더 낮은 초반 버전.
+            fury = { id = "fury", tier = 2, name = "분노", job = "검사", kind = "buff", duration = 8.0, testableEffect = "atkbonus", atkBonusPercent = 0.15, cooldown = 18.0, mpCost = 14, auraType = "Aura", auraColor = Color(1.0, 0.45, 0.25, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 동안 자신의 물리 공격력이 15% 상승합니다." },
             -- 썬더 볼트 (2026-09-29 QA 수정, 유저 리포트 "썬더볼트가 매직클로에서 색만 바뀐 버전임") -
             -- 위 226-237 주석대로 2/3/4차 스킬 VFX는 같은 직업 1차 스킬 RUID를 임시로 재사용했는데,
             -- 마법사 1차(magicclaw)와 완전히 같은 클립(64096440...)을 그대로 써서 색상 틴트만 다른
@@ -295,16 +298,37 @@ script SkillCatalog extends Logic
             -- 독립 채널(evasionBonus와 동일 패턴)로 atkBonusPercent2를 추가 - skilldmg 채널은 DoRanged의
             -- magic 전용이라 궁수 자신의 비마법 공격엔 적용되지 않는 죽은 수치가 되므로, 모든 kind가
             -- 공유하는 attack.AttackDamage 채널(atkbonus와 동일)을 재사용해 실제로 관측 가능하게 함.
+            -- 2026-10-02 유저 엑셀 신규 - "모탈 블로우"(궁수 3차 공격). 즉사 확률을 실제로 구현 -
+            -- 평타 110% 피해를 입힌 뒤, 피격 후 HP가 executeHpPercent 이하로 떨어진 대상에게
+            -- executeInstakillChance 확률로 Monster:ExecuteKill(기존 "동전 던지기 사형집행인"
+            -- 트레잇과 동일 처치 경로) 발동 - PlayerSkillExecutionLogic.DispatchSkillEffect에서
+            -- melee_single 판정 뒤 추가 스캔.
+            mortalblow = { id = "mortalblow", tier = 3, name = "모탈 블로우", job = "궁수", kind = "melee_single", coef = 1.1, executeHpPercent = 0.2, executeInstakillChance = 0.01, cooldown = 4.5, mpCost = 15, impactDelay = 0.12, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "적이 매우 가까이 근접했을 때도 활을 쏠 수 있습니다. 평타의 110% 피해를 입히며, 적의 HP가 20% 이하일 때 1% 확률로 즉사시킵니다." },
             sharpeyes = { id = "sharpeyes", tier = 3, name = "샤프 아이즈", job = "궁수", kind = "buff", duration = 10.0, testableEffect = "critchance", critChanceBonus = 0.05, atkBonusPercent2 = 0.2, cooldown = 22.0, mpCost = 16, auraType = "SpinField", auraColor = Color(1.0, 0.75, 0.2, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 치명타 확률이 5% 증가하고 피해가 20% 증가합니다." },
             venom = { id = "venom", tier = 3, name = "베놈", job = "도적", kind = "melee_single", coef = 1.6, cooldown = 4.0, mpCost = 13, impactDelay = 0.1, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "2f47d008e0ff470ab6275d4d35e56d44", desc = "독이 묻은 단검으로 적을 베어 평타의 160% 피해를 입힙니다." },
             shadowpartner = { id = "shadowpartner", tier = 3, name = "쉐도우 파트너", job = "도적", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 20.0, mpCost = 15, auraType = "Buff", auraColor = Color(0.5, 0.3, 0.6, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "분신이 함께 공격해 공격 속도가 크게 증가한 것처럼 동작합니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "어벤져"(도적 3차 공격). "표창 3개로 최대 4명 공격"을
+            -- ranged_pierce + maxTargets(관통 캡)로 구현 - ProjectileComponent에 MaxPierceTargets를
+            -- 추가해 기존 "무제한 관통" pierce=true와 구분되는 "N명까지만 관통" 모드를 신설.
+            avenger = { id = "avenger", tier = 3, name = "어벤져", job = "도적", kind = "ranged_pierce", coef = 0.65, maxTargets = 4, cooldown = 4.5, mpCost = 14, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "MP를 소모해 커다란 표창을 던져 관통하는 적 최대 4명에게 평타의 65% 피해를 입힙니다." },
             battery = { id = "battery", tier = 3, name = "배터리", job = "해적", kind = "multi_hit", coef = 0.7, hits = 3, cooldown = 4.0, mpCost = 14, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "총탄을 난사해 3연속 타격마다 평타의 70% 피해를 입힙니다." },
             speedenhancer = { id = "speedenhancer", tier = 3, name = "스피드 인핸서", job = "해적", kind = "buff", duration = 8.0, testableEffect = "movespeed", moveSpeedBonus = 1.8, cooldown = 20.0, mpCost = 14, auraType = "LightningOrbSoft", auraColor = Color(1.0, 0.85, 0.3, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 이동 속도가 증가합니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "호밍"(해적 3차 공격). 적에게 표식을 남겨 그 표식을 건
+            -- 본인의 이후 공격에 추가 피해를 주는 "표식+집중공격"형 - 기존 "저주의 표식" 링크
+            -- 트레잇의 Monster.MarkedUntilElapsed(파티 전역, 트레잇 게이트)와는 별개 채널(개인 전용,
+            -- 트레잇 무관)로 Monster에 HomingMarkedUntilElapsed/HomingMarkerName/HomingMarkBonus를
+            -- 신설 - PlayerAttack.CalcDamage에서 본인이 남긴 표식인지 확인해 가산.
+            homing = { id = "homing", tier = 3, name = "호밍", job = "해적", kind = "mark_homing", markBonusPercent = 0.48, duration = 8.0, cooldown = 10.0, mpCost = 14, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "5e32ce05d92b456a8b3c6e25b42d8b7a", desc = "적에게 표식을 찍을 앵무새를 보냅니다. 이후 표식이 걸린 적에게 주는 피해가 8초간 48% 증가합니다." },
 
             -- ── 4차 (레벨 18, 각 직업 플래그십) ──
             blast = { id = "blast", tier = 4, name = "블래스트", job = "검사", kind = "melee_single", coef = 2.0, wide = true, cooldown = 5.0, mpCost = 18, impactDelay = 0.2, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "5c61ff8df1544c05a200e598ea9164ce", desc = "성속성이 깃든 강력한 일격으로 넓은 범위의 적 전부에게 평타의 200% 피해를 입힙니다." },
             rage = { id = "rage", tier = 4, name = "레이지", job = "검사", kind = "buff", duration = 10.0, testableEffect = "atkbonus", atkBonusPercent = 0.2, cooldown = 25.0, mpCost = 20, auraType = "Aura", auraColor = Color(1.0, 0.35, 0.2, 0.9), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 공격력이 20% 증가합니다." },
-            meteorstrike = { id = "meteorstrike", tier = 4, name = "메테오 스트라이크", job = "마법사", kind = "ranged_pierce", coef = 1.8, magic = true, cooldown = 4.5, mpCost = 20, projectileVfxRuid = "64096440f11f4c9b9c96df38e0e3852e", iconRuid = "543decec44e3488d98cf82e8580572f7", projectileTintColor = Color(1.0, 0.5, 0.15, 1.0), desc = "운석을 떨어뜨려 관통하는 적 전부에게 평타의 180% 마법 피해를 입힙니다." },
+            -- 2026-10-02 유저 엑셀 신규 - "브랜디쉬"(검사 4차 공격, "1명을 2번 공격" - multi_hit x2로
+            -- 구현). 기존 blast(와이드 광역)는 그대로 유지(additive, 삭제 없음).
+            brandish = { id = "brandish", tier = 4, name = "브랜디쉬", job = "검사", kind = "multi_hit", coef = 1.35, hits = 2, cooldown = 5.0, mpCost = 18, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "적 여러 명을 두 번 연속 공격해 각 타격마다 평타의 135% 피해를 입힙니다." },
+            -- 2026-10-02 유저 엑셀 - 실제 명칭은 "메테오 스트라이크"(실존하지 않는 이름)가 아니라
+            -- "체인 라이트닝" - kind/coef/magic은 기존과 동일(관통형 마법 공격), id는 하위호환 유지.
+            meteorstrike = { id = "meteorstrike", tier = 4, name = "체인 라이트닝", job = "마법사", kind = "ranged_pierce", coef = 1.8, magic = true, cooldown = 4.5, mpCost = 20, projectileVfxRuid = "64096440f11f4c9b9c96df38e0e3852e", iconRuid = "543decec44e3488d98cf82e8580572f7", projectileTintColor = Color(1.0, 0.5, 0.15, 1.0), desc = "고압의 전류로 적을 공격하며, 맞은 적 주위에 다른 적이 있으면 전기가 옮겨붙어 관통하는 적 전부에게 평타의 180% 마법 피해를 입힙니다." },
             infinity = { id = "infinity", tier = 4, name = "인피니티", job = "마법사", kind = "buff", duration = 10.0, testableEffect = "skilldmg", skillDmgBonus = 0.4, cooldown = 25.0, mpCost = 22, auraType = "Enchant", auraColor = Color(1.0, 0.95, 0.7, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 스킬 피해가 40% 증가합니다." },
             hurricane = { id = "hurricane", tier = 4, name = "허리케인", job = "궁수", kind = "multi_hit", coef = 0.5, hits = 5, cooldown = 5.0, mpCost = 18, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "a66f7a4983444b888f3a713b3eded36f", desc = "화살을 폭풍처럼 쏟아내 5연속 타격마다 평타의 50% 피해를 입힙니다." },
             eagleeye = { id = "eagleeye", tier = 4, name = "이글 아이", job = "궁수", kind = "buff", duration = 10.0, testableEffect = "critchance", critChanceBonus = 0.35, cooldown = 24.0, mpCost = 18, auraType = "SpinField", auraColor = Color(1.0, 0.8, 0.1, 0.95), iconRuid = "5d49900265584c2cb1bbcd2795055bac", desc = "일정 시간 치명타 확률이 35% 증가합니다." },
