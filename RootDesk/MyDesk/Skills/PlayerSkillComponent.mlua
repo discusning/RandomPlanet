@@ -88,6 +88,7 @@ script PlayerSkillComponent extends Component
     @HideFromInspector property number ComboDoubleChance = 0
     @HideFromInspector property number ComboExpireElapsed = 0
     @HideFromInspector property integer ComboAppliedBonus = 0
+    @HideFromInspector property integer ComboVfxSerial = 0
     @HideFromInspector property integer BuffParticleSerial = 0
     @HideFromInspector property boolean BuffUsingSkillVfx = false
     @HideFromInspector property integer ProjectileCount = 0
@@ -118,7 +119,12 @@ script PlayerSkillComponent extends Component
         self.ComboDoubleChance = def.doubleStackChance or 0
         self.ComboExpireElapsed = _UtilLogic.ElapsedSeconds + def.duration
         self.ComboAppliedBonus = 0
-        log("PlayerSkill: " .. def.name .. " 콤보 시작 (최대 " .. def.maxStacks .. "스택)")
+        -- 콤보 중 캐릭터에 붙는 루프 이펙트(buffVfxRuid). 이전엔 combo_buff 경로가 이 필드를 읽지 않아
+        -- 정의만 되고 재생되지 않았다(죽은 데이터). 종료 시 EndCombo에서 RemoveEffect로 정리한다.
+        if def.buffVfxRuid ~= nil then
+            self.ComboVfxSerial = _EffectService:PlayEffectAttached(def.buffVfxRuid, self.Entity, Vector3(0, 0, 0), 0, Vector3(1, 1, 1), true, { SyncFlip = true })
+        end
+        log("PlayerSkill: " .. def.name .. " 콤보 시작 (최대 " .. def.maxStacks .. "스택) vfx=" .. tostring(self.ComboVfxSerial))
     end
 
     @ExecSpace("ServerOnly")
@@ -153,6 +159,10 @@ script PlayerSkillComponent extends Component
         self.ComboActive = false
         self.ComboStacks = 0
         self.ComboAppliedBonus = 0
+        if self.ComboVfxSerial ~= 0 then
+            _EffectService:RemoveEffect(self.ComboVfxSerial)
+            self.ComboVfxSerial = 0
+        end
         log("PlayerSkill: 콤보 종료")
     end
 
