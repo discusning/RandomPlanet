@@ -157,7 +157,7 @@ script SkillCatalog extends Logic
             -- 1:1 매치), 전용 이펙트가 없는 순수 버프 스킬(오라 색만 다르고 실제 effect 클립이 없던
             -- 14종)은 한때 범용 버프 아이콘(5d499002...)을 공유했다. 2026-10-04 주석 정리: 현재 모든
             -- 스킬이 각자 iconRuid를 쓰며 5d499002...는 어떤 정의에서도 참조하지 않는다(주석 잔재).
-            powerstrike = { id = "powerstrike", tier = 1, name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "81de0e57a0784a9fb23389e4513ec9c2", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
+            powerstrike = { id = "powerstrike", particleType = "SparkExplosion",tier = 1, name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "81de0e57a0784a9fb23389e4513ec9c2", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
             -- 2026-09-24 유저 리포트("슬래시 블래스터 스킬(추가 뎀 100%)이 기본 공격과 같은 데미지를
             -- 줌") - coef=1.0은 "평타의 100% 피해"(=평타와 완전히 동일)로 정확히 그 값대로 동작하고
             -- 있었다(런타임 버그 아님). 하지만 위 2026-08-25 DPS계수(coef/cooldown) 방법론으로 보면
@@ -307,7 +307,7 @@ script SkillCatalog extends Logic
             haste = { id = "haste", tier = 2, name = "헤이스트", job = "도적", kind = "buff", duration = 10.0, testableEffect = "movespeed", moveSpeedBonus = 2.0, cooldown = 20.0, mpCost = 12, auraType = "Buff", auraColor = Color(1.0, 0.9, 0.4, 0.9), iconRuid = "4e873e0f596c43169d9d1ab63b4b2fb5", desc = "10초간 이동 속도가 크게 증가합니다." },
             -- 2026-10-02 유저 엑셀 - 실제 명칭/메커니즘은 "플레임 스로어"(관통 110%)가 아니라
             -- "인비지블샷"(3연속 타격, 타격당 75%) - kind를 ranged_pierce에서 multi_hit으로 교체.
-            flamethrower = { id = "flamethrower", tier = 2, name = "인비지블샷", job = "해적", kind = "multi_hit", coef = 0.75, hits = 3, cooldown = 3.5, mpCost = 12, projectileVfxRuid = "3a1cc4da914f4c699c666c6584c1809a", iconRuid = "ad949bef109b4255afc4da84bf1a7158", desc = "짧은 시간 눈에 보이지 않을 정도로 빠르게 총을 쏴 다수의 적에게 각 타격마다 평타의 75% 피해를 입힙니다." },
+            flamethrower = { id = "flamethrower", particleType = "FlameThrower",tier = 2, name = "인비지블샷", job = "해적", kind = "multi_hit", coef = 0.75, hits = 3, cooldown = 3.5, mpCost = 12, projectileVfxRuid = "3a1cc4da914f4c699c666c6584c1809a", iconRuid = "ad949bef109b4255afc4da84bf1a7158", desc = "짧은 시간 눈에 보이지 않을 정도로 빠르게 총을 쏴 다수의 적에게 각 타격마다 평타의 75% 피해를 입힙니다." },
             reload = { id = "reload", tier = 2, name = "건 부스트", job = "해적", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 18.0, mpCost = 14, auraType = "LightningOrbSoft", auraColor = Color(0.9, 0.2, 0.2, 0.9), iconRuid = "3327a2f2bef74875bf09e4ff910bde9c", desc = "일정 시간 공격 속도가 증가합니다." },
 
             -- ── 3차 (레벨 13) ──
@@ -418,7 +418,7 @@ script SkillCatalog extends Logic
             -- 2026-10-04 주석 정리: 예전 "VFX 패스" 문구와 달리 쇼다운에는 VFX 필드가 없다. 후보 팩은
             -- "쇼다운 챌린지"(skill/412.img/skill/4121021)이며 아직 적용되지 않았다.
             showdown = { id = "showdown", tier = 4, name = "쇼다운", job = "도적", kind = "showdown", maxTargets = 6, weakenRadius = 4.0, defenseIncreasePercent = 0.2, rewardIncreasePercent = 0.2, duration = 15.0, cooldown = 22.0, mpCost = 18, iconRuid = "78df0d67d4934f59925bea16df4acc39", desc = "최대 6마리의 적을 도발합니다. 적의 방어력이 상승해 받는 피해가 줄지만, 그만큼 획득 경험치와 아이템 드롭률이 20% 상승합니다." },
-            rapidfire = { id = "rapidfire", tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 1.3, hits = 6, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "51d8c2d1339a45918a49169411283855", iconRuid = "3090201ab43d4420a598aa7355c53e33", desc = "아주 빠른 속도로 탄을 난사해 6연속 타격마다 평타의 130% 피해를 입힙니다." },
+            rapidfire = { id = "rapidfire", particleType = "SmallExplosion",tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 1.3, hits = 6, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "51d8c2d1339a45918a49169411283855", iconRuid = "3090201ab43d4420a598aa7355c53e33", desc = "아주 빠른 속도로 탄을 난사해 6연속 타격마다 평타의 130% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 배틀쉽은 엑셀에 없는 구 스킬이라 삭제.
             -- "서포트 옥토퍼스"(해적 4차, 옥토퍼스의 강화판). 독립된
             -- 소환체로 구현(어드밴스드 콤보 어택과 동일한 패턴 - 소유 여부 교차검사 없이 자체 강화

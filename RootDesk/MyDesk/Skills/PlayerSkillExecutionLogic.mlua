@@ -18,6 +18,23 @@ script PlayerSkillExecutionLogic extends Logic
             return
         end
 
+        -- 층2(파티클) - 2026-10-04. 클립 한 장만으로는 "터지는 느낌"이 약해서, def.particleType이 있는
+        -- 스킬은 캐스터 앞쪽에 엔진 기본 파티클(BasicParticleType)을 함께 재생한다. 없는 스킬은 기존 그대로.
+        if def.particleType ~= nil and isvalid(skill.Entity) then
+            local tr = skill.Entity.TransformComponent
+            local ctl = skill.Entity.PlayerControllerComponent
+            local pdir = isvalid(ctl) and ctl.LookDirectionX or 1
+            if pdir == 0 then pdir = 1 end
+            local ppos = tr.WorldPosition
+            local ptype = BasicParticleType[def.particleType]
+            if ptype ~= nil then
+                local pserial = _ParticleService:PlayBasicParticle(ptype, skill.Entity, Vector3(ppos.x + 1.0 * pdir, ppos.y + 0.5, ppos.z), 0, Vector3(1, 1, 1), false, nil)
+                log("PlayerSkill: " .. def.name .. " particle " .. def.particleType .. " serial=" .. tostring(pserial))
+            else
+                log_error("PlayerSkill: " .. def.name .. " 알 수 없는 particleType=" .. tostring(def.particleType))
+            end
+        end
+
         if def.kind == "melee_single" then
             -- 2026-09-06 (M2 Phase A) - VFX 타이밍 딜레이 적용(As-built 25차 "설계만 완료, 코드
             -- 미적용" 항목 - DoDash 주석에 있던 "DispatchSkill의 impactDelay" 개념을 실제로 구현).
