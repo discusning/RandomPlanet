@@ -35,6 +35,11 @@ script PlayerSkillExecutionLogic extends Logic
             end
         end
 
+        -- 층3(효과음) - def.sfxRuid가 있으면 Client RPC로 재생을 요청한다(효과음은 클라이언트 전용).
+        if def.sfxRuid ~= nil and isvalid(skill.Entity) then
+            skill:PlaySkillSfx(def.sfxRuid)
+        end
+
         if def.kind == "melee_single" then
             -- 2026-09-06 (M2 Phase A) - VFX 타이밍 딜레이 적용(As-built 25차 "설계만 완료, 코드
             -- 미적용" 항목 - DoDash 주석에 있던 "DispatchSkill의 impactDelay" 개념을 실제로 구현).

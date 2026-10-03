@@ -789,6 +789,15 @@ script PlayerSkillComponent extends Component
     end
 
     @ExecSpace("Client")
+    method void PlaySkillSfx(string ruid)
+        -- 2026-10-04 층3(효과음). 서버 DispatchSkillEffect가 def.sfxRuid로 호출하는 Client RPC.
+        -- 효과음은 클라이언트에서만 재생되므로 여기서 재생하고, 사용자의 SFX 볼륨 설정을 따르도록
+        -- _SoundSettingsLogic:PlaySfx를 쓴다(BattlefieldProgressHUD의 클리어 효과음과 같은 경로).
+        log("[Sfx] play " .. ruid)
+        _SoundSettingsLogic:PlaySfx(ruid, 1.0)
+    end
+
+    @ExecSpace("Client")
     method void PlaySkillMotion(string poseName)
         -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
         _PlayerSkillExecutionLogic:PlaySkillMotion(self, poseName)
