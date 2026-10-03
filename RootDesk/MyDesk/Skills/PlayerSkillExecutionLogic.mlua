@@ -121,6 +121,13 @@ script PlayerSkillExecutionLogic extends Logic
         skill.Entity:SendEvent(event)
     end
 
+    method integer PlayHitFx(string ruid, Entity caster, number x, number y, number z, number dir, number scale)
+        -- 스킬 이펙트 공통 재생. 모든 hitVfx가 여기로 모인다: 위치는 호출자가 캐릭터/대상의 월드 좌표에서
+        -- 계산해 넘기고, 크기는 scale(월드 단위 배율)로 고정해 원본 클립 해상도(최대 422px)가 그대로
+        -- 캐릭터보다 크게 그려지는 문제를 막는다. FlipX는 캐스터 바라보는 방향(dir>0 = 오른쪽)에 맞춘다.
+        return _EffectService:PlayEffect(ruid, caster, Vector3(x, y, z), 0, Vector3(scale, scale, 1), false, { FlipX = dir > 0 })
+    end
+
     @ExecSpace("ServerOnly")
     method void DoMeleeSingle(PlayerSkillComponent skill, table def)
         -- Reuses PlayerAttack's existing hitbox/crit pipeline - temporarily scales AttackDamage by
@@ -155,7 +162,7 @@ script PlayerSkillExecutionLogic extends Logic
             -- traced to this exact gap on the ranged projectile below; melee hit clips have the same
             -- gap even though it's less visible for a roughly-symmetric burst shape). Source art
             -- faces left by default (msw-search convention), so dir>0 (facing right) needs FlipX=true.
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, skill.Entity, Vector3(pos.x + 0.7 * dir, pos.y + 0.5, pos.z), 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
+            local serial = self:PlayHitFx(def.hitVfxRuid, skill.Entity, pos.x + 0.7 * dir, pos.y + 0.5, pos.z, dir, def.fxScale or 1)
             log("PlayerSkill: " .. def.name .. " hit VFX serial=" .. tostring(serial))
         end
     end
@@ -350,7 +357,7 @@ script PlayerSkillExecutionLogic extends Logic
         attack.AttackDamage = originalDamage
 
         if def.hitVfxRuid ~= nil then
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, skill.Entity, Vector3(pos.x + 1.0 * dir, pos.y + 0.5, pos.z), 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
+            local serial = self:PlayHitFx(def.hitVfxRuid, skill.Entity, pos.x + 1.0 * dir, pos.y + 0.5, pos.z, dir, def.fxScale or 1)
             log("PlayerSkill: " .. def.name .. " hit VFX serial=" .. tostring(serial))
         end
 
@@ -490,6 +497,12 @@ script PlayerSkillExecutionLogic extends Logic
             end
         end
         if nearest == nil then
+            -- 대상이 없어도 캐스트 연출은 보여 준다(melee/dash와 같은 정책). 빗나간 스킬이 아무 반응이
+            -- 없으면 "스킬이 안 나갔다"로 보이기 때문에, 캐스터 앞쪽에 hitVfx를 재생한다.
+            if def.hitVfxRuid ~= nil then
+                local missSerial = self:PlayHitFx(def.hitVfxRuid, skill.Entity, pos.x + 1.0 * dir, pos.y + 0.5, pos.z, dir, def.fxScale or 1)
+                log("PlayerSkill: " .. def.name .. " miss VFX serial=" .. tostring(missSerial))
+            end
             log("PlayerSkill: " .. def.name .. " no target in range")
             return
         end
@@ -497,7 +510,7 @@ script PlayerSkillExecutionLogic extends Logic
         log("PlayerSkill: " .. def.name .. " 독 적용 - " .. nearest.Entity.Name .. " stacks=" .. nearest.PoisonStacks)
         if def.hitVfxRuid ~= nil then
             local mpos = nearest.Entity.TransformComponent.WorldPosition
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, skill.Entity, mpos, 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
+            local serial = self:PlayHitFx(def.hitVfxRuid, skill.Entity, mpos.x, mpos.y, mpos.z, dir, def.fxScale or 1)
             log("PlayerSkill: " .. def.name .. " VFX serial=" .. tostring(serial))
         end
     end
@@ -562,6 +575,12 @@ script PlayerSkillExecutionLogic extends Logic
         end
 
         if nearest == nil then
+            -- 대상이 없어도 캐스트 연출은 보여 준다(melee/dash와 같은 정책). 빗나간 스킬이 아무 반응이
+            -- 없으면 "스킬이 안 나갔다"로 보이기 때문에, 캐스터 앞쪽에 hitVfx를 재생한다.
+            if def.hitVfxRuid ~= nil then
+                local missSerial = self:PlayHitFx(def.hitVfxRuid, skill.Entity, pos.x + 1.0 * dir, pos.y + 0.5, pos.z, dir, def.fxScale or 1)
+                log("PlayerSkill: " .. def.name .. " miss VFX serial=" .. tostring(missSerial))
+            end
             log("PlayerSkill: " .. def.name .. " no target in range")
             return
         end
@@ -570,7 +589,7 @@ script PlayerSkillExecutionLogic extends Logic
         log("PlayerSkill: " .. def.name .. " applied to " .. nearest.Entity.Name)
         if def.hitVfxRuid ~= nil then
             local mpos = nearest.Entity.TransformComponent.WorldPosition
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, skill.Entity, mpos, 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
+            local serial = self:PlayHitFx(def.hitVfxRuid, skill.Entity, mpos.x, mpos.y, mpos.z, dir, def.fxScale or 1)
             log("PlayerSkill: " .. def.name .. " VFX serial=" .. tostring(serial))
         end
     end
@@ -603,6 +622,12 @@ script PlayerSkillExecutionLogic extends Logic
         end
 
         if nearest == nil then
+            -- 대상이 없어도 캐스트 연출은 보여 준다(melee/dash와 같은 정책). 빗나간 스킬이 아무 반응이
+            -- 없으면 "스킬이 안 나갔다"로 보이기 때문에, 캐스터 앞쪽에 hitVfx를 재생한다.
+            if def.hitVfxRuid ~= nil then
+                local missSerial = self:PlayHitFx(def.hitVfxRuid, skill.Entity, pos.x + 1.0 * dir, pos.y + 0.5, pos.z, dir, def.fxScale or 1)
+                log("PlayerSkill: " .. def.name .. " miss VFX serial=" .. tostring(missSerial))
+            end
             log("PlayerSkill: " .. def.name .. " no target in range")
             return
         end
@@ -611,7 +636,7 @@ script PlayerSkillExecutionLogic extends Logic
         log("PlayerSkill: " .. def.name .. " marked " .. nearest.Entity.Name .. " bonus=" .. tostring(def.markBonusPercent))
         if def.hitVfxRuid ~= nil then
             local mpos = nearest.Entity.TransformComponent.WorldPosition
-            local serial = _EffectService:PlayEffect(def.hitVfxRuid, skill.Entity, mpos, 0, Vector3(1, 1, 1), false, { FlipX = dir > 0 })
+            local serial = self:PlayHitFx(def.hitVfxRuid, skill.Entity, mpos.x, mpos.y, mpos.z, dir, def.fxScale or 1)
             log("PlayerSkill: " .. def.name .. " VFX serial=" .. tostring(serial))
         end
     end
