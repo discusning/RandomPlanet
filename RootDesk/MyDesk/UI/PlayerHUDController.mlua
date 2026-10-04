@@ -213,6 +213,10 @@ script PlayerHUDController extends Logic
         end
         local def = _SkillCatalog:GetSkillDef(equippedSkillId)
         if def == nil then
+            -- 카탈로그에서 삭제된 스킬(예: 호밍 제거)이 슬롯에 남아 있으면 빈 슬롯과 같이 표시한다.
+            -- 여기서 그냥 return하면 이전에 그려진 삭제된 스킬의 이름/아이콘이 그대로 남는다.
+            nameText.Text = "스킬 없음"
+            statusText.Text = ""
             return
         end
         -- 2026-09-29 QA 수정("스킬 이모티콘이 있어서 가독성이 없음") - 이름 텍스트 대신 실제 아이콘
