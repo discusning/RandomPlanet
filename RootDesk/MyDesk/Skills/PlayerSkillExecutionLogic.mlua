@@ -40,6 +40,11 @@ script PlayerSkillExecutionLogic extends Logic
             skill:PlaySkillSfx(def.sfxRuid)
         end
 
+        -- 층4(카메라 흔들림) - def.shakeIntensity가 있는 강한 스킬만. 클라이언트 RPC로 재생한다.
+        if def.shakeIntensity ~= nil and isvalid(skill.Entity) then
+            skill:PlaySkillShake(def.shakeIntensity, def.shakeDuration or 0.15)
+        end
+
         if def.kind == "melee_single" then
             -- 2026-09-06 (M2 Phase A) - VFX 타이밍 딜레이 적용(As-built 25차 "설계만 완료, 코드
             -- 미적용" 항목 - DoDash 주석에 있던 "DispatchSkill의 impactDelay" 개념을 실제로 구현).

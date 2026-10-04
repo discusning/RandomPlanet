@@ -157,7 +157,7 @@ script SkillCatalog extends Logic
             -- 1:1 매치), 전용 이펙트가 없는 순수 버프 스킬(오라 색만 다르고 실제 effect 클립이 없던
             -- 14종)은 한때 범용 버프 아이콘(5d499002...)을 공유했다. 2026-10-04 주석 정리: 현재 모든
             -- 스킬이 각자 iconRuid를 쓰며 5d499002...는 어떤 정의에서도 참조하지 않는다(주석 잔재).
-            powerstrike = { id = "powerstrike", particleType = "SparkExplosion", sfxRuid = "ed1d73ce75a94e449f38ca8de6d89316", tier = 1, name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "81de0e57a0784a9fb23389e4513ec9c2", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
+            powerstrike = { id = "powerstrike", particleType = "SparkExplosion", sfxRuid = "ed1d73ce75a94e449f38ca8de6d89316", shakeIntensity = 0.6, shakeDuration = 0.15, tier = 1, name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "81de0e57a0784a9fb23389e4513ec9c2", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
             -- 2026-09-24 유저 리포트("슬래시 블래스터 스킬(추가 뎀 100%)이 기본 공격과 같은 데미지를
             -- 줌") - coef=1.0은 "평타의 100% 피해"(=평타와 완전히 동일)로 정확히 그 값대로 동작하고
             -- 있었다(런타임 버그 아님). 하지만 위 2026-08-25 DPS계수(coef/cooldown) 방법론으로 보면

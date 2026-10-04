@@ -789,6 +789,17 @@ script PlayerSkillComponent extends Component
     end
 
     @ExecSpace("Client")
+    method void PlaySkillShake(number intensity, number duration)
+        -- 2026-10-04 층4(카메라 흔들림). 서버 DispatchSkillEffect가 def.shakeIntensity로 호출하는 Client RPC.
+        -- 현재 카메라 컴포넌트의 ShakeCamera(강도, 지속시간)를 쓴다(msw-combat-system 문서 API).
+        local cam = _CameraService:GetCurrentCameraComponent()
+        if isvalid(cam) then
+            cam:ShakeCamera(intensity, duration)
+            log("[Shake] intensity=" .. tostring(intensity) .. " duration=" .. tostring(duration))
+        end
+    end
+
+    @ExecSpace("Client")
     method void PlaySkillSfx(string ruid)
         -- 2026-10-04 층3(효과음). 서버 DispatchSkillEffect가 def.sfxRuid로 호출하는 Client RPC.
         -- 효과음은 클라이언트에서만 재생되므로 여기서 재생하고, 사용자의 SFX 볼륨 설정을 따르도록
