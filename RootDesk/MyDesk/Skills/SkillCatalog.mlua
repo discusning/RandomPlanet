@@ -245,7 +245,7 @@ script SkillCatalog extends Logic
             -- 임팩트 플래시(팩에 ball 요소 없음, msw-search로 재확인)를 투사체로 재사용하던 것이라
             -- FireThrownDagger로 3연속 투척 시 같은 "깜빡임" 문제 발생 - doublestab과 동일한 근거로
             -- 범용 표창 ball(0af95ff09be14c389c1854f03c575e2e)로 교체.
-            summersaultkick = { id = "summersaultkick", hitSfxRuid = "1b54e03352ae4430ae39be54d2ee88f4", sfxRuid = "85398b7f1a5340469034ff1f67e6b412", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, projectileVfxRuid = "3c5e92e92ef14b2a84ff5dbe3fc75746", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
+            summersaultkick = { id = "summersaultkick", hitSfxRuid = "1b54e03352ae4430ae39be54d2ee88f4", sfxRuid = "85398b7f1a5340469034ff1f67e6b412", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, melee = true, maxTargets = 6, hitVfxRuid = "3c5e92e92ef14b2a84ff5dbe3fc75746", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 너클 부스터는 엑셀에 없는 구 스킬이라 삭제(해적 1차는
             -- 대시+써머솔트킥 2공격, 버프 없음 - 유저 지시 그대로).
 
@@ -303,7 +303,7 @@ script SkillCatalog extends Logic
             -- luckyseven/flamethrower/avenger의 범용 표창 ball(0af95ff09be14c389c1854f03c575e2e,
             -- 실제 "표창 던지기" 팩의 ball 요소 - 진짜 투사체 모양으로 검증됨)로 교체 - hit/0보다는
             -- 부정확해도(도적 단검질 느낌과는 맞음) 날아가는 모양 자체가 맞는 리소스를 우선.
-            doublestab = { id = "doublestab", hitSfxRuid = "b77afdd614194637949c7df3d002fc54", sfxRuid = "4cc1f2f305ce46b69a8c45129e9d0432", tier = 2, name = "새비지 블로우", job = "도적", kind = "multi_hit", coef = 0.8, hits = 6, cooldown = 4.0, mpCost = 13, projectileVfxRuid = "895ac1e384ea42ca8dd084f54ff3346b", iconRuid = "801741bbc787448e9327589ab059e9e4", desc = "MP를 소비해 단검으로 적에게 6연속 공격을 가해 각 타격마다 평타의 80% 피해를 입힙니다." },
+            doublestab = { id = "doublestab", hitSfxRuid = "b77afdd614194637949c7df3d002fc54", sfxRuid = "4cc1f2f305ce46b69a8c45129e9d0432", tier = 2, name = "새비지 블로우", job = "도적", kind = "multi_hit", coef = 0.8, hits = 6, cooldown = 4.0, mpCost = 13, melee = true, maxTargets = 1, hitVfxRuid = "895ac1e384ea42ca8dd084f54ff3346b", iconRuid = "801741bbc787448e9327589ab059e9e4", desc = "MP를 소비해 단검으로 적에게 6연속 공격을 가해 각 타격마다 평타의 80% 피해를 입힙니다." },
             haste = { id = "haste", sfxRuid = "64795afda95e4b7dbdbdfe731e7d405a", buffVfxRuid = "410e6a09f8ec471f87bd8d55c34cc48d",tier = 2, name = "헤이스트", job = "도적", kind = "buff", duration = 10.0, testableEffect = "movespeed", moveSpeedBonus = 2.0, cooldown = 20.0, mpCost = 12, auraType = "Buff", auraColor = Color(1.0, 0.9, 0.4, 0.9), iconRuid = "4e873e0f596c43169d9d1ab63b4b2fb5", desc = "10초간 이동 속도가 크게 증가합니다." },
             -- 2026-10-02 유저 엑셀 - 실제 명칭/메커니즘은 "플레임 스로어"(관통 110%)가 아니라
             -- "인비지블샷"(3연속 타격, 타격당 75%) - kind를 ranged_pierce에서 multi_hit으로 교체.
@@ -323,7 +323,7 @@ script SkillCatalog extends Logic
             -- 쪽 wide 박스를 그대로 써 근접형 AoE로 구현(기존 blizzard는 관통형이라 구분됨).
             -- 2026-10-02 VFX 패스 - 실제 "아이스 스트라이크"(skill/221.img/skill/2211002) 팩의
             -- hit/0 클립(124x156, 빙결 이펙트)으로 교체 - 이름 완전 일치, 검증 완료.
-            icestrike = { id = "icestrike", hitSfxRuid = "452571b69b534d91a993de876f3c7887", tier = 3, name = "아이스 스트라이크", job = "마법사", kind = "melee_single", coef = 0.9, wide = true, magic = true, stunChance = 1.0, stunDuration = 2.5, maxTargets = 6, cooldown = 5.0, mpCost = 17, impactDelay = 0.2, hitVfxRuid = "c821bdbd53004870b632ff2afcef75e9", iconRuid = "15f7be47a940490a87597871a7a7f796", desc = "날카로운 얼음 덩어리를 날려 여러 적에게 평타의 90% 마법 피해를 입히고, 명중한 적(냉기 속성 제외)을 2.5초간 얼어붙게 합니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
+            icestrike = { id = "icestrike", hitSfxRuid = "452571b69b534d91a993de876f3c7887", tier = 3, name = "아이스 스트라이크", job = "마법사", kind = "melee_single", coef = 0.9, wide = true, magic = true, stunChance = 1.0, stunDuration = 2.5, maxTargets = 6, cooldown = 5.0, mpCost = 17, impactDelay = 0.2, hitVfxRuid = "c821bdbd53004870b632ff2afcef75e9", iconRuid = "15f7be47a940490a87597871a7a7f796", desc = "머리 위에서 얼음을 떨어뜨려 범위 안의 여러 적에게 평타의 90% 마법 피해를 입히고, 명중한 적(냉기 속성 제외)을 2.5초간 얼어붙게 합니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
             magicbooster = { id = "magicbooster", tier = 3, name = "매직 부스터", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "skilldmg", skillDmgBonus = 0.25, cooldown = 20.0, mpCost = 18, auraType = "Enchant", auraColor = Color(0.4, 0.9, 0.95, 0.9), iconRuid = "ab35abd6309f4f7f8f04587c2270ccbe", desc = "일정 시간 스킬 피해가 25% 증가합니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 애로우 레인은 엑셀에 없는 구 스킬이라 삭제(궁수 3차는
             -- 모탈블로우+스트레이프 2공격, 버프 없음 - 엑셀 그대로).
@@ -375,7 +375,7 @@ script SkillCatalog extends Logic
             -- 검증 완료"는 팩 소속 확인이었을 뿐, 실제 내용물은 hit/0(정지형 임팩트 플래시)이라
             -- doublestab/summersaultkick과 동일한 결함(투사체 모양이 아닌 걸 FireThrownDagger로
             -- 2연속 투척 - 깜빡임으로 보임). 같은 이유로 범용 표창 ball로 교체.
-            brandish = { id = "brandish", tier = 4, name = "브랜디쉬", job = "검사", kind = "multi_hit", coef = 1.35, hits = 2, cooldown = 5.0, mpCost = 18, projectileVfxRuid = "1c29e2f0793a48eb8aa40f697b93963d", iconRuid = "2065d60928804e8c80dac9477fdcee53", desc = "적 여러 명을 두 번 연속 공격해 각 타격마다 평타의 135% 피해를 입힙니다." },
+            brandish = { id = "brandish", tier = 4, name = "브랜디쉬", job = "검사", kind = "multi_hit", coef = 1.35, hits = 2, cooldown = 5.0, mpCost = 18, melee = true, hitVfxRuid = "1c29e2f0793a48eb8aa40f697b93963d", iconRuid = "2065d60928804e8c80dac9477fdcee53", desc = "적 여러 명을 두 번 연속 공격해 각 타격마다 평타의 135% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 신규 - "어드밴스드 콤보 어택"(검사 4차 버프). 콤보 어택의 강화판 -
             -- 최대 스택 7(+2), 공격마다 37% 확률로 스택이 2개씩 충전. 기존 콤보 어택과는 독립된
             -- 별도 스킬(동시에 둘 다 소유해도 마지막으로 시전한 쪽만 활성 - StartCombo가 재시전 시

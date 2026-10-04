@@ -225,6 +225,17 @@ script PlayerSkillExecutionLogic extends Logic
 
     @ExecSpace("ServerOnly")
     method void DoMultiHit(PlayerSkillComponent skill, table def)
+        -- def.melee 다단 스킬(써머솔트 킥/새비지 블로우/브랜디쉬)은 투사체가 아니라 근접 판정을 타수만큼
+        -- 시간차로 반복한다. 원작이 근접 공격이라 DoMeleeSingle(같은 박스 판정/타겟 캡/타격 이펙트)을 재사용한다.
+        if def.melee then
+            for i = 1, def.hits do
+                local delay = (i - 1) * 0.09
+                _TimerService:SetTimerOnce(function()
+                    self:DoMeleeSingle(skill, def)
+                end, delay)
+            end
+            return
+        end
         -- Lucky Seven (currently the only multi_hit skill) - real classic MapleStory throws daggers a
         -- short distance rather than swinging like a melee weapon (2026-08-16 usage-location audit:
         -- the previous instant frontal-box version read identically to a sword swing). Spawns def.hits
