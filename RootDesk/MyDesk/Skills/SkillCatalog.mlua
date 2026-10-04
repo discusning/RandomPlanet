@@ -245,7 +245,7 @@ script SkillCatalog extends Logic
             -- 임팩트 플래시(팩에 ball 요소 없음, msw-search로 재확인)를 투사체로 재사용하던 것이라
             -- FireThrownDagger로 3연속 투척 시 같은 "깜빡임" 문제 발생 - doublestab과 동일한 근거로
             -- 범용 표창 ball(0af95ff09be14c389c1854f03c575e2e)로 교체.
-            summersaultkick = { id = "summersaultkick", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, projectileVfxRuid = "340e9a334e90478a9d40a0acdec8ed07", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
+            summersaultkick = { id = "summersaultkick", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, projectileVfxRuid = "3c5e92e92ef14b2a84ff5dbe3fc75746", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 너클 부스터는 엑셀에 없는 구 스킬이라 삭제(해적 1차는
             -- 대시+써머솔트킥 2공격, 버프 없음 - 유저 지시 그대로).
 
@@ -358,7 +358,7 @@ script SkillCatalog extends Logic
             -- 요소를 getResource로 직접 확인한 결과 내용물이 실제로는 "다크로드의 분신" 72x72
             -- 정사각 스프라이트로 완전히 무관(팩 이름만 일치, 리소스 검증 원칙 위반 사례) -
             -- 사용하지 않고 기존 범용 멀티히트 플레이스홀더 유지. 아이콘만 교체.
-            avenger = { id = "avenger", tier = 3, name = "어벤져", job = "도적", kind = "ranged_pierce", coef = 0.65, maxTargets = 4, cooldown = 4.5, mpCost = 14, projectileVfxRuid = "3ce232a66a3e467e87d0057b8e5d7ea0", iconRuid = "125deae83bb94cc9928a161bf12d1205", desc = "MP를 소모해 표창 세 개를 하나로 합쳐 던져, 관통하는 적 최대 4명에게 평타의 65% 피해를 입힙니다." },
+            avenger = { id = "avenger", tier = 3, name = "어벤져", job = "도적", kind = "ranged_pierce", coef = 0.65, maxTargets = 4, cooldown = 4.5, mpCost = 14, projectileVfxRuid = "0477b2c75e4b4fbcaf795e03bd8da11a", iconRuid = "125deae83bb94cc9928a161bf12d1205", desc = "MP를 소모해 표창 세 개를 하나로 합쳐 던져, 관통하는 적 최대 4명에게 평타의 65% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 배터리/스피드 인핸서는 엑셀에 없는 구 스킬이라 삭제
             -- (해적 3차는 옥토퍼스(버프)+호밍(공격) 2종 - 엑셀 그대로).
             -- "옥토퍼스"(해적 3차, 소환수). 유저 지시대로 버프 슬롯에
@@ -384,7 +384,7 @@ script SkillCatalog extends Logic
             -- 검증 완료"는 팩 소속 확인이었을 뿐, 실제 내용물은 hit/0(정지형 임팩트 플래시)이라
             -- doublestab/summersaultkick과 동일한 결함(투사체 모양이 아닌 걸 FireThrownDagger로
             -- 2연속 투척 - 깜빡임으로 보임). 같은 이유로 범용 표창 ball로 교체.
-            brandish = { id = "brandish", tier = 4, name = "브랜디쉬", job = "검사", kind = "multi_hit", coef = 1.35, hits = 2, cooldown = 5.0, mpCost = 18, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "2065d60928804e8c80dac9477fdcee53", desc = "적 여러 명을 두 번 연속 공격해 각 타격마다 평타의 135% 피해를 입힙니다." },
+            brandish = { id = "brandish", tier = 4, name = "브랜디쉬", job = "검사", kind = "multi_hit", coef = 1.35, hits = 2, cooldown = 5.0, mpCost = 18, projectileVfxRuid = "1c29e2f0793a48eb8aa40f697b93963d", iconRuid = "2065d60928804e8c80dac9477fdcee53", desc = "적 여러 명을 두 번 연속 공격해 각 타격마다 평타의 135% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 신규 - "어드밴스드 콤보 어택"(검사 4차 버프). 콤보 어택의 강화판 -
             -- 최대 스택 7(+2), 공격마다 37% 확률로 스택이 2개씩 충전. 기존 콤보 어택과는 독립된
             -- 별도 스킬(동시에 둘 다 소유해도 마지막으로 시전한 쪽만 활성 - StartCombo가 재시전 시
@@ -404,21 +404,21 @@ script SkillCatalog extends Logic
             -- "피어싱"(궁수 4차 공격, 신규) - "최대 공격력 320%, 최대 4마리, 뚫고 지날수록 강해짐".
             -- ranged_pierce + maxTargets(관통 캡) + scalingPerHit(ProjectileComponent 신설 필드)로
             -- 구현 - 1타 140%에서 타격마다 +60%p씩 누적, 4타째 320%(엑셀 수치와 정확히 일치)에 도달.
-            piercing = { id = "piercing", tier = 4, name = "피어싱", job = "궁수", kind = "ranged_pierce", coef = 1.4, maxTargets = 4, scalingPerHit = 0.6, cooldown = 5.5, mpCost = 19, projectileVfxRuid = "6c4cfae9a3434d15b1ccdc1c5d1e3bea", iconRuid = "d284cad2ebc04247a861e68ed3bafe69", desc = "적을 뚫고 지날수록 에너지를 받아 더욱 강해지는 화살을 쏩니다. 첫 타격은 평타의 140%, 관통할 때마다 데미지가 증가해 4번째 타격에서 최대 320%에 도달합니다(최대 4마리)." },
+            piercing = { id = "piercing", tier = 4, name = "피어싱", job = "궁수", kind = "ranged_pierce", coef = 1.4, maxTargets = 4, scalingPerHit = 0.6, cooldown = 5.5, mpCost = 19, projectileVfxRuid = "966a6d854fe540939a947e6d488a0bb4", iconRuid = "d284cad2ebc04247a861e68ed3bafe69", desc = "적을 뚫고 지날수록 에너지를 받아 더욱 강해지는 화살을 쏩니다. 첫 타격은 평타의 140%, 관통할 때마다 데미지가 증가해 4번째 타격에서 최대 320%에 도달합니다(최대 4마리)." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 샤프 아이즈는 엑셀상 궁수 4차 소속(기존 3차 배치 수정).
             sharpeyes = { id = "sharpeyes", tier = 4, name = "샤프 아이즈", job = "궁수", kind = "buff", duration = 10.0, testableEffect = "critchance", critChanceBonus = 0.05, atkBonusPercent2 = 0.2, cooldown = 22.0, mpCost = 16, auraType = "SpinField", auraColor = Color(1.0, 0.75, 0.2, 0.9), iconRuid = "71aff0dcad8647d2b8e28136a8ce07be", desc = "일정 시간 치명타 확률이 5% 증가하고 피해가 20% 증가합니다." },
             -- 2026-10-02 유저 엑셀 - "베놈"은 실제로는 4차(기존 3차 자리는 단발 160% 멜리로 잘못
             -- 들어가 있었음 - 스프레드시트엔 3차 도적에 베놈이 없고 4차에만 있음, 어벤져가 그 3차
             -- 공격 자리를 대신 채운다). 최대 3스택 독 DOT(Monster.ApplyPoison) - HP 1 밑으로는
             -- 떨어뜨리지 않음(직접 타격으로 마무리 필요).
-            venom = { id = "venom", tier = 4, name = "베놈", job = "도적", kind = "poison_apply", coef = 1.0, poisonTickDamage = 4, duration = 10.0, cooldown = 20.0, mpCost = 16, impactDelay = 0.1, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "23eaeb185d6446ec9c0d4e132f073047", desc = "표창에 독을 발라 공격합니다. 적이 중독되어 10초간 독 피해를 입으며, 최대 3회까지 중복됩니다. 중독으로는 적의 HP가 1 이하로 떨어지지 않습니다." },
+            venom = { id = "venom", tier = 4, name = "베놈", job = "도적", kind = "poison_apply", coef = 1.0, poisonTickDamage = 4, duration = 10.0, cooldown = 20.0, mpCost = 16, impactDelay = 0.1, hitVfxRuid = "84d958530a5a42ebb141a2239999ed1b", iconRuid = "23eaeb185d6446ec9c0d4e132f073047", desc = "표창에 독을 발라 공격합니다. 적이 중독되어 10초간 독 피해를 입으며, 최대 3회까지 중복됩니다. 중독으로는 적의 HP가 1 이하로 떨어지지 않습니다." },
             -- 2026-10-02 유저 엑셀 신규 - "쇼다운"(도적 4차 공격, 데미지 없는 위험부담형 디버프).
             -- 최대 6마리 도발 - 받는 피해 감소(방어력 상승 근사)와 동시에 그 적들의 경험치/드롭률을
             -- 실제로 상승시킨다(Monster.ApplyShowdown).
             -- 2026-10-04 주석 정리: 예전 "VFX 패스" 문구와 달리 쇼다운에는 VFX 필드가 없다. 후보 팩은
             -- "쇼다운 챌린지"(skill/412.img/skill/4121021)이며 아직 적용되지 않았다.
             showdown = { id = "showdown", tier = 4, name = "쇼다운", job = "도적", kind = "showdown", maxTargets = 6, weakenRadius = 4.0, defenseIncreasePercent = 0.2, rewardIncreasePercent = 0.2, duration = 15.0, cooldown = 22.0, mpCost = 18, iconRuid = "78df0d67d4934f59925bea16df4acc39", desc = "최대 6마리의 적을 도발합니다. 적의 방어력이 상승해 받는 피해가 줄지만, 그만큼 획득 경험치와 아이템 드롭률이 20% 상승합니다." },
-            rapidfire = { id = "rapidfire", particleType = "SmallExplosion", sfxRuid = "24961c1bc7f7437fabe44352a5ea4a24", tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 1.3, hits = 6, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "51d8c2d1339a45918a49169411283855", iconRuid = "3090201ab43d4420a598aa7355c53e33", desc = "아주 빠른 속도로 탄을 난사해 6연속 타격마다 평타의 130% 피해를 입힙니다." },
+            rapidfire = { id = "rapidfire", particleType = "SmallExplosion", sfxRuid = "24961c1bc7f7437fabe44352a5ea4a24", tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 1.3, hits = 6, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "af5115902b124a6db4fe549c582428d3", iconRuid = "3090201ab43d4420a598aa7355c53e33", desc = "아주 빠른 속도로 탄을 난사해 6연속 타격마다 평타의 130% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 배틀쉽은 엑셀에 없는 구 스킬이라 삭제.
             -- "서포트 옥토퍼스"(해적 4차, 옥토퍼스의 강화판). 독립된
             -- 소환체로 구현(어드밴스드 콤보 어택과 동일한 패턴 - 소유 여부 교차검사 없이 자체 강화
