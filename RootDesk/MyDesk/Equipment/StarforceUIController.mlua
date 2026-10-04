@@ -93,7 +93,7 @@ script StarforceUIController extends Logic
             if star >= 25 then
                 self.rateText.Text = "최고 성수 달성"
             else
-                self.rateText.Text = "성공 " .. tostring(rate.success / 10) .. "%   파괴 " .. tostring(rate.destroy / 10) .. "%"
+                self.rateText.Text = "성공 " .. string.format("%.2f", rate.success / 1000) .. "%   파괴 " .. string.format("%.2f", rate.destroy / 1000) .. "%"
             end
         end
         if isvalid(self.slotIcon) then
