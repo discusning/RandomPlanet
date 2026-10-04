@@ -233,9 +233,8 @@ script LobbyStageController extends Component
 
     @ExecSpace("ClientOnly")
     method void OnBlacksmithNpcTouched(TouchEvent event)
-        -- Opens the Blacksmith enhancement popup (2026-09-30, "장비 강화 UX 개선" - replaces the old
-        -- inventory-arm + equipment-slot-click scroll flow with a dedicated NPC popup).
-        _EnhancementUIController:Show()
+        -- 대장장이 NPC는 선택 팝업을 연다("주문서 강화" / "스타포스" 두 버튼). 각 창은 팝업에서 연다.
+        _BlacksmithChoiceUIController:Show()
     end
 
     @ExecSpace("ClientOnly")

@@ -1,0 +1,132 @@
+@Logic
+script StarforceUIController extends Logic
+    -- 대장장이 NPC의 "스타포스" 창. 강화 창과 같은 자리(900x700)에 뜨며 주문서를 쓰지 않는다.
+    -- 투명 무기 한 개만 대상으로, 별/성공률/파괴율을 보여주고 스타포스 1회를 시도한다.
+    -- 판정은 EquipmentLogic.StarforceAttempt가 맡고, 이 창은 표시와 로스터 저장만 한다.
+    property Entity starforceGroup = "c378dc34-915c-4b97-8166-07c544ff915b"
+    property Entity btnClose = "9a004941-75fd-4ff7-8f17-caf6fa70963e"
+    property Entity btnStarforce = "23abb41d-9daf-47e4-91ae-faabd61be577"
+    property SpriteGUIRendererComponent slotIcon = "53002efc-5003-4655-8f79-40f9f4b8350d"
+    property TextGUIRendererComponent starText = "7914c9d9-925d-4977-ae7b-a3e84955bcaa"
+    property TextGUIRendererComponent rateText = "7002a7b1-11c2-47e3-8e5f-2c40bae883f7"
+    property TextGUIRendererComponent statusText = "bc728b35-d690-44eb-9ea2-e05eb8b653c1"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- 창은 처음에 숨기고, 버튼 클릭 핸들러를 연결한다.
+        self._T.handlers = {}
+        self._T.inProgress = false
+        if isvalid(self.starforceGroup) then
+            self.starforceGroup.Enable = false
+        end
+        self:Bind(self.btnClose, function() self:Hide() end)
+        self:Bind(self.btnStarforce, function() self:OnStarforceClicked() end)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            if isvalid(rec.entity) then
+                rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Bind(Entity button, any callback)
+        -- 버튼 클릭 핸들러 연결 + OnEndPlay 해제용 기록 (EnhancementUIController와 동일 패턴).
+        if not isvalid(button) then return end
+        local h = button:ConnectEvent(ButtonClickEvent, callback)
+        table.insert(self._T.handlers, { entity = button, eventHandler = h })
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        -- 창을 열고 현재 투명 무기 상태를 다시 그린다.
+        if isvalid(self.starforceGroup) then
+            self.starforceGroup.Enable = true
+        end
+        self:SetStatus("")
+        self:RefreshDisplay()
+        log("StarforceUI: opened")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        if isvalid(self.starforceGroup) then
+            self.starforceGroup.Enable = false
+        end
+        log("StarforceUI: closed")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetStatus(string message)
+        if isvalid(self.statusText) then
+            self.statusText.Text = message
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetActiveCharacterData()
+        return _CharacterRosterLogic:GetRoster()[_CharacterRosterLogic:GetActiveIndex()]
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshDisplay()
+        -- 장착된 투명 무기의 별/성공률/파괴율/아이콘을 표시한다. 장착이 없으면 강화 버튼을 막는다.
+        local data = self:GetActiveCharacterData()
+        if data == nil or not _EquipmentLogic:IsStarforceItemInSlot(data, "weapon") then
+            if isvalid(self.starText) then self.starText.Text = "투명 무기를 장착하세요" end
+            if isvalid(self.rateText) then self.rateText.Text = "" end
+            if isvalid(self.btnStarforce) and isvalid(self.btnStarforce.ButtonComponent) then
+                self.btnStarforce.ButtonComponent.Enable = false
+            end
+            return
+        end
+        local inst = data.equipment.weapon
+        local star = inst.starLevel or 0
+        local rate = _EquipmentLogic:GetStarforceRate(star)
+        if isvalid(self.starText) then
+            self.starText.Text = star .. " / 25 성"
+        end
+        if isvalid(self.rateText) then
+            if star >= 25 then
+                self.rateText.Text = "최고 성수 달성"
+            else
+                self.rateText.Text = "성공 " .. tostring(rate.success / 10) .. "%   파괴 " .. tostring(rate.destroy / 10) .. "%"
+            end
+        end
+        if isvalid(self.slotIcon) then
+            local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
+            if tpl ~= nil and tpl.iconRuid ~= nil then
+                self.slotIcon.ImageRUID = DataRef("thumbnail://" .. tpl.iconRuid)
+            end
+        end
+        if isvalid(self.btnStarforce) and isvalid(self.btnStarforce.ButtonComponent) then
+            self.btnStarforce.ButtonComponent.Enable = star < 25
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnStarforceClicked()
+        -- 스타포스 1회. 연출 중에는 중복 클릭을 막고, 결과를 로스터에 저장한 뒤 표시를 갱신한다.
+        if self._T.inProgress then return end
+        local data = self:GetActiveCharacterData()
+        if data == nil or not _EquipmentLogic:IsStarforceItemInSlot(data, "weapon") then
+            self:SetStatus("투명 무기를 먼저 장착하세요.")
+            return
+        end
+        self._T.inProgress = true
+        local result = _EquipmentLogic:StarforceAttempt(data, "weapon")
+        self:SetStatus(result.message)
+        log("StarforceUI: outcome=" .. result.outcome .. " star=" .. tostring(result.star))
+        if result.applied then
+            _CharacterRosterLogic:RequestApplyEquipmentToPlayer(data.equipment,
+                _EquipmentLogic:GetEffectiveStat(data, "str"), _EquipmentLogic:GetEffectiveStat(data, "dex"),
+                _EquipmentLogic:GetEffectiveStat(data, "int"), _EquipmentLogic:GetEffectiveStat(data, "luk"))
+            _CharacterRosterLogic:SaveRoster()
+        end
+        self:RefreshDisplay()
+        self._T.inProgress = false
+    end
+end

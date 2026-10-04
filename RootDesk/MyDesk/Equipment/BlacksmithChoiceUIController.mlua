@@ -1,0 +1,66 @@
+@Logic
+script BlacksmithChoiceUIController extends Logic
+    -- 대장장이 NPC를 누르면 뜨는 선택 팝업. "주문서 강화"와 "스타포스" 두 버튼으로 각 창을 연다.
+    property Entity choiceGroup = "357c4a64-69ed-4398-990d-67635601d6ed"
+    property Entity btnClose = "acd97af9-6f3a-4b0e-85d3-a2f525d724e8"
+    property Entity btnScroll = "8a53cd87-f37b-46f3-8af8-9394148d4d18"
+    property Entity btnStarforce = "156b91c9-50d2-46e9-a1b9-3e121e51fb78"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- 선택 팝업은 처음에 숨기고, 세 버튼의 클릭 핸들러를 연결한다.
+        self._T.handlers = {}
+        if isvalid(self.choiceGroup) then
+            self.choiceGroup.Enable = false
+        end
+        self:Bind(self.btnClose, function() self:Hide() end)
+        self:Bind(self.btnScroll, function() self:OpenScrollEnhance() end)
+        self:Bind(self.btnStarforce, function() self:OpenStarforce() end)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for _, rec in ipairs(self._T.handlers) do
+            if isvalid(rec.entity) then
+                rec.entity:DisconnectEvent(ButtonClickEvent, rec.eventHandler)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Bind(Entity button, any callback)
+        -- 버튼 클릭 핸들러 연결 + OnEndPlay 해제용 기록 (강화 창들과 동일 패턴).
+        if not isvalid(button) then return end
+        local h = button:ConnectEvent(ButtonClickEvent, callback)
+        table.insert(self._T.handlers, { entity = button, eventHandler = h })
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show()
+        if isvalid(self.choiceGroup) then
+            self.choiceGroup.Enable = true
+        end
+        log("BlacksmithChoice: opened")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        if isvalid(self.choiceGroup) then
+            self.choiceGroup.Enable = false
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OpenScrollEnhance()
+        -- 주문서 강화 창을 연다. 선택 팝업은 닫는다.
+        self:Hide()
+        _EnhancementUIController:Show()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OpenStarforce()
+        -- 스타포스 창을 연다(강화 창과 같은 자리). 선택 팝업은 닫는다.
+        self:Hide()
+        _StarforceUIController:Show()
+    end
+end

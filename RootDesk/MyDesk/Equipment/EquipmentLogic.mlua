@@ -352,6 +352,20 @@ script EquipmentLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method table GetStarforceRate(integer star)
+        -- 현재 별에서의 성공/파괴 천분율. 12성 미만은 파괴율이 0이다(StarforceAttempt와 같은 규칙).
+        local rate = self._T.starRates[star + 1]
+        if rate == nil then
+            return { success = 0, destroy = 0 }
+        end
+        local destroy = rate.destroy
+        if star < self.StarforceSafeStar then
+            destroy = 0
+        end
+        return { success = rate.success, destroy = destroy }
+    end
+
+    @ExecSpace("ClientOnly")
     method table StarforceAttempt(table characterData, string slot)
         -- 스타포스 1회 시도. 주문서를 쓰지 않는다. 결과 outcome: success(별+1) / fail(변화 없음) / destroy(12성 회귀).
         -- 파괴되어도 아이템은 사라지지 않고 별만 12성으로 돌아간다(전승 없음). 25성에서는 더 강화하지 않는다.
