@@ -38,14 +38,6 @@ script Monster extends Component
     -- 2026-09-10 QA - 저주의 표식 링크("표식의 저주": 파티 공격이 적에게 표식 부여, 표식 대상
     -- 피해+8%) 전용. PlayerAttack.CalcDamage가 직접 읽고 쓴다.
     @HideFromInspector property number MarkedUntilElapsed = 0
-    -- 2026-10-02 유저 엑셀 - 해적 3차 "호밍"(개인 전용 표식+집중공격) 전용 채널. 위
-    -- MarkedUntilElapsed(저주의 표식 링크, 파티 전역+트레잇 게이트)와 섞이면 두 시스템이 서로
-    -- 덮어쓰는 충돌이 생기므로 완전히 별도 필드로 분리 - 누가(HomingMarkerName) 얼마나
-    -- (HomingMarkBonus) 표식을 걸었는지까지 이 몬스터 자신이 들고 있다가, 표식을 건 공격자 본인이
-    -- 때릴 때만 PlayerAttack.CalcDamage에서 소비한다.
-    @HideFromInspector property number HomingMarkedUntilElapsed = 0
-    @HideFromInspector property string HomingMarkerName = ""
-    @HideFromInspector property number HomingMarkBonus = 0
     -- 2026-10-02 유저 엑셀("샤우트"/"아이스 스트라이크" - 기절/빙결) - 실제 CC 구현. 이동속도를
     -- 0으로 만들고(MovementComponent), MonsterAttack.TryAttack에서 이 플래그를 확인해 공격도
     -- 멈춘다 - "스턴/빙결 상태인 동안 몬스터가 움직이지도, 때리지도 못한다"를 실제로 관측 가능하게.
@@ -343,15 +335,6 @@ script Monster extends Component
         end
         self.Hp = math.max(1, self.Hp - (self.PoisonTickDamage * self.PoisonStacks))
         log("Monster: 베놈 독 틱 - " .. self.Entity.Name .. " stacks=" .. self.PoisonStacks .. " hp=" .. tostring(self.Hp))
-    end
-
-    @ExecSpace("ServerOnly")
-    method void ApplyHomingMark(string markerName, number bonusPercent, number duration)
-        -- 호밍(해적 3차) 전용 - 표식을 건 공격자 이름을 함께 저장해, 그 공격자 본인의 타격에만
-        -- 가산 피해가 적용되도록 한다(파티 전체에 적용되는 "저주의 표식" 링크와의 혼선 방지).
-        self.HomingMarkerName = markerName
-        self.HomingMarkBonus = bonusPercent
-        self.HomingMarkedUntilElapsed = _UtilLogic.ElapsedSeconds + duration
     end
 
     @ExecSpace("ServerOnly")

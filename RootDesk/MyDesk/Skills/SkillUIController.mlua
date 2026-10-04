@@ -36,6 +36,38 @@ script SkillUIController extends Component
     property Entity btnEquipEntity = "9b709512-46db-4ef4-a093-aece0af5c4de"
     property Entity equippedBadgeEntity = "42859164-04c7-4658-b61e-2724b16871b1"
 
+    -- 2026-10-03 마스터 캐릭터 전용 다중 스킬 리스트 - GetOwnedForCurrentTier()는 카테고리당 1개만
+    -- 보여주는 구조적 한계가 있어(동일 틱어/카테고리에 여러 스킬을 "보유"하는 마스터 캐릭터는 마지막
+    -- 항목만 보임) 마스터일 때만 buffSlotEntity/atkSlotEntity 자리에 스크롤 리스트를 보여준다. 리스트는
+    -- InventoryUIController 방식(고정 슬롯 풀 + Enable 토글)을 따른다 - 틱어당 카테고리 최대 보유 수
+    -- (현재 최대 8개, 1틱어 공격)보다 넉넉한 10개 슬롯.
+    property Entity masterBuffListEntity = "f9469661-f6ac-4cd8-a588-47f6eca78500"
+    property Entity masterBuffItem1 = "c1c57fb4-661c-4930-867a-659e868b25a7"
+    property Entity masterBuffItem2 = "5d62e919-c8a4-4ce9-a60d-8a46cf94252a"
+    property Entity masterBuffItem3 = "13102c82-38ad-4610-906a-3829fe6b8351"
+    property Entity masterBuffItem4 = "59a518d3-6fd0-4c40-b7e2-ac85e8ec1e82"
+    property Entity masterBuffItem5 = "77cdd593-766a-4eab-86b2-14cec1bd8a5a"
+    property Entity masterBuffItem6 = "416c2a1f-5811-414f-85e0-1c3e09c67f73"
+    property Entity masterBuffItem7 = "b373694a-81b3-4b54-95c6-ea9363653b34"
+    property Entity masterBuffItem8 = "215681a7-4afa-4bef-a429-0c95de93ce8e"
+    property Entity masterBuffItem9 = "7aa253d9-b0e5-466b-af31-50f516016b00"
+    property Entity masterBuffItem10 = "88350f66-e789-455c-98dc-43066fe9d77b"
+    property Entity masterBuffPrevEntity = "1de2a6ec-8f0f-4ee7-9607-91b632e3504a"
+    property Entity masterBuffNextEntity = "11219119-0c59-43bc-8547-7914a8cc1ad6"
+    property Entity masterAtkPrevEntity = "a21bef32-7538-4285-814d-e82949b52b22"
+    property Entity masterAtkNextEntity = "f7ce479e-24f5-4105-86f8-e78b5a32f2e0"
+    property Entity masterAtkListEntity = "1bbeda53-eda5-49d5-88d4-6ad09483828e"
+    property Entity masterAtkItem1 = "a96d9b60-a79f-4eeb-b1d0-94e00837a32c"
+    property Entity masterAtkItem2 = "666563bd-8cf9-462a-a474-fc97864db83b"
+    property Entity masterAtkItem3 = "0ea5bd51-4162-4ba2-b7e4-83c80785ce40"
+    property Entity masterAtkItem4 = "905c7498-465e-4f63-bac7-eb9235a83a2e"
+    property Entity masterAtkItem5 = "0b51346e-6c11-4373-b763-38fe462d82b2"
+    property Entity masterAtkItem6 = "114e0f60-bf9e-4625-b13d-7d267da61985"
+    property Entity masterAtkItem7 = "e5bd79ef-7ad1-4686-b82c-b07035a464dc"
+    property Entity masterAtkItem8 = "0cfecdba-cdd8-476e-ad5e-0d9fa9cc04a9"
+    property Entity masterAtkItem9 = "09fcf54b-ad17-423e-a46f-b8dbcf0e9341"
+    property Entity masterAtkItem10 = "61cae0bd-2aa9-48a0-b82c-cb1e46e29ab2"
+
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         self._T.handlers = {}
@@ -94,7 +126,99 @@ script SkillUIController extends Component
             table.insert(self._T.handlers, { entity = ds.entity, eventType = UITouchEndDragEvent, eventHandler = hEnd })
         end
 
+        -- 2026-10-03 마스터 캐릭터 다중 스킬 리스트 - 고정 10슬롯 풀을 한 번만 와이어링(클릭/호버/드래그는
+        -- buffSlotEntity/atkSlotEntity와 완전히 같은 핸들러(OnSlotDrag/OnSlotEndDrag)를 재사용하고,
+        -- 클릭/호버만 인덱스 기반 전용 핸들러를 쓴다 - RefreshMasterList가 매번 새로 만들지 않고
+        -- Enable/아이콘/텍스트만 갈아치우므로 OnEndPlay에서 self._T.handlers 하나로 전부 해제된다.
+        self._T.masterBuffItems = {
+            self.masterBuffItem1, self.masterBuffItem2, self.masterBuffItem3, self.masterBuffItem4, self.masterBuffItem5,
+            self.masterBuffItem6, self.masterBuffItem7, self.masterBuffItem8, self.masterBuffItem9, self.masterBuffItem10,
+        }
+        self._T.masterAtkItems = {
+            self.masterAtkItem1, self.masterAtkItem2, self.masterAtkItem3, self.masterAtkItem4, self.masterAtkItem5,
+            self.masterAtkItem6, self.masterAtkItem7, self.masterAtkItem8, self.masterAtkItem9, self.masterAtkItem10,
+        }
+        self._T.masterBuffIcons = {}
+        self._T.masterAtkIcons = {}
+        for i, item in ipairs(self._T.masterBuffItems) do
+            self._T.masterBuffIcons[i] = item:GetChildByName("Icon")
+        end
+        for i, item in ipairs(self._T.masterAtkItems) do
+            self._T.masterAtkIcons[i] = item:GetChildByName("Icon")
+        end
+        self._T.masterBuffIds = {}
+        self._T.masterAtkIds = {}
+        self:WireMasterListItems(self._T.masterBuffItems, "buff")
+        self:WireMasterListItems(self._T.masterAtkItems, "attack")
+        self._T.masterBuffPage = 1
+        self._T.masterAtkPage = 1
+        local pagingButtons = {
+            { entity = self.masterBuffPrevEntity, fn = function() self:OnMasterPage("buff", -1) end },
+            { entity = self.masterBuffNextEntity, fn = function() self:OnMasterPage("buff", 1) end },
+            { entity = self.masterAtkPrevEntity, fn = function() self:OnMasterPage("attack", -1) end },
+            { entity = self.masterAtkNextEntity, fn = function() self:OnMasterPage("attack", 1) end },
+        }
+        for _, pb in ipairs(pagingButtons) do
+            if isvalid(pb.entity) then
+                local h = pb.entity:ConnectEvent(ButtonClickEvent, pb.fn)
+                table.insert(self._T.handlers, { entity = pb.entity, eventType = ButtonClickEvent, eventHandler = h })
+            end
+        end
+
         self.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void WireMasterListItems(table items, string category)
+        -- 고정 슬롯 풀 전체에 클릭/호버/드래그를 한 번만 연결한다(InventoryUIController의 고정 슬롯
+        -- 패턴과 동일) - 슬롯이 어떤 스킬을 보여줄지는 RefreshMasterList가 매 Refresh마다 갈아치운다.
+        for i, item in ipairs(items) do
+            local capturedIndex = i
+            local hClick = item:ConnectEvent(ButtonClickEvent, function() self:OnMasterItemClicked(category, capturedIndex) end)
+            table.insert(self._T.handlers, { entity = item, eventType = ButtonClickEvent, eventHandler = hClick })
+            local hHover = item:ConnectEvent(ButtonStateChangeEvent, function(event) self:OnMasterItemHoverStateChanged(category, capturedIndex, event) end)
+            table.insert(self._T.handlers, { entity = item, eventType = ButtonStateChangeEvent, eventHandler = hHover })
+            local hBegin = item:ConnectEvent(UITouchBeginDragEvent, function(event) self:OnMasterItemBeginDrag(category, capturedIndex, event) end)
+            table.insert(self._T.handlers, { entity = item, eventType = UITouchBeginDragEvent, eventHandler = hBegin })
+            local hMove = item:ConnectEvent(UITouchDragEvent, self.OnSlotDrag)
+            table.insert(self._T.handlers, { entity = item, eventType = UITouchDragEvent, eventHandler = hMove })
+            local hEnd = item:ConnectEvent(UITouchEndDragEvent, self.OnSlotEndDrag)
+            table.insert(self._T.handlers, { entity = item, eventType = UITouchEndDragEvent, eventHandler = hEnd })
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnMasterItemClicked(string category, integer index)
+        local ids = (category == "buff") and self._T.masterBuffIds or self._T.masterAtkIds
+        local skillId = ids[index]
+        if skillId == nil or skillId == "" then return end
+        self._T.selectedSkillId = skillId
+        self._T.selectedCategory = category
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnMasterItemHoverStateChanged(string category, integer index, ButtonStateChangeEvent event)
+        local ids = (category == "buff") and self._T.masterBuffIds or self._T.masterAtkIds
+        local skillId = ids[index]
+        if skillId == nil or skillId == "" then return end
+        if event.state == ButtonState.Hover then
+            self:PreviewSkill(skillId)
+        elseif event.state == ButtonState.Normal then
+            self:RefreshDetailText()
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnMasterItemBeginDrag(string category, integer index, UITouchBeginDragEvent event)
+        -- buffSlotEntity/atkSlotEntity의 OnSlotBeginDrag와 완전히 같은 드래그 시작 로직 - 카테고리당
+        -- 1개만 찾던 GetOwnedForCurrentTier() 대신 리스트의 인덱스별 스킬 id를 직접 쓴다는 점만 다르다.
+        local ids = (category == "buff") and self._T.masterBuffIds or self._T.masterAtkIds
+        local skillId = ids[index]
+        if skillId == nil or skillId == "" then return end
+        local def = _SkillCatalog:GetSkillDef(skillId)
+        if def == nil then return end
+        _HotkeyDragLogic:BeginDrag({ kind = "skill", id = skillId }, def.name, self:ColorForKind(def.kind), event.TouchPoint)
     end
 
     @ExecSpace("ClientOnly")
@@ -191,6 +315,8 @@ script SkillUIController extends Component
         self._T.selectedTier = tier
         self._T.selectedSkillId = ""
         self._T.selectedCategory = ""
+        self._T.masterBuffPage = 1
+        self._T.masterAtkPage = 1
         self:Refresh()
     end
 
@@ -271,6 +397,15 @@ script SkillUIController extends Component
         return result
     end
 
+    method boolean IsLocalPlayerMaster()
+        -- 2026-10-03 - 마스터 캐릭터(PlayerStatsComponent.IsMasterCharacter) 여부. 로컬 플레이어가
+        -- 없거나 컴포넌트가 없으면 false(일반 플레이어와 동일하게 단일 슬롯 UI를 그린다).
+        local localPlayer = _UserService.LocalPlayer
+        if not isvalid(localPlayer) then return false end
+        local stats = localPlayer:GetComponent("script.PlayerStatsComponent")
+        return isvalid(stats) and stats.IsMasterCharacter
+    end
+
     @ExecSpace("ClientOnly")
     method void Refresh()
         local tabEntities = { self.tab1Entity, self.tab2Entity, self.tab3Entity, self.tab4Entity }
@@ -283,18 +418,126 @@ script SkillUIController extends Component
             end
         end
 
-        local owned = self:GetOwnedForCurrentTier()
-        local tierUnlocked = (owned.buff ~= nil) or (owned.attack ~= nil)
-        self.lockedTextEntity.Enable = not tierUnlocked
-        self.buffSlotEntity.Enable = tierUnlocked
-        self.atkSlotEntity.Enable = tierUnlocked
+        -- 2026-10-03 마스터 캐릭터 분기 - GetOwnedForCurrentTier()가 카테고리당 1개만 돌려주는 구조적
+        -- 한계(SkillUIController 상단 주석 참고)를 마스터 모드에서는 스크롤 리스트로 우회한다. 일반
+        -- 플레이어 경로(else)는 기존 단일 슬롯 로직 그대로, 한 글자도 바꾸지 않았다.
+        if self:IsLocalPlayerMaster() then
+            self.lockedTextEntity.Enable = false
+            self.buffSlotEntity.Enable = false
+            self.atkSlotEntity.Enable = false
+            self:RefreshMasterList("buff", self.masterBuffListEntity, self._T.masterBuffItems, self._T.masterBuffIcons, self._T.masterBuffIds)
+            self:RefreshMasterList("attack", self.masterAtkListEntity, self._T.masterAtkItems, self._T.masterAtkIcons, self._T.masterAtkIds)
+        else
+            self.masterBuffListEntity.Enable = false
+            self.masterAtkListEntity.Enable = false
 
-        if tierUnlocked then
-            self:RefreshSlot(self.buffSlotSprite, self.buffSlotText, owned.buff)
-            self:RefreshSlot(self.atkSlotSprite, self.atkSlotText, owned.attack)
+            local owned = self:GetOwnedForCurrentTier()
+            local tierUnlocked = (owned.buff ~= nil) or (owned.attack ~= nil)
+            self.lockedTextEntity.Enable = not tierUnlocked
+            self.buffSlotEntity.Enable = tierUnlocked
+            self.atkSlotEntity.Enable = tierUnlocked
+
+            if tierUnlocked then
+                self:RefreshSlot(self.buffSlotSprite, self.buffSlotText, owned.buff)
+                self:RefreshSlot(self.atkSlotSprite, self.atkSlotText, owned.attack)
+            end
         end
 
         self:RefreshDetailText()
+    end
+
+    @ExecSpace("ClientOnly")
+    method table GetMasterPool(string category, integer tier)
+        -- 클라이언트에서 _SkillCatalog:GetSkillsByCategory를 직접 부르면 조용히 빈 결과가 나와서
+        -- (실측: 로그 없이 실패) GetAllSkillIds/GetSkillDef/IsBuffSkill(클라이언트 실측 정상)만으로
+        -- 같은 필터를 로컬에서 계산한다.
+        local out = {}
+        for _, id in ipairs(_SkillCatalog:GetAllSkillIds()) do
+            local def = _SkillCatalog:GetSkillDef(id)
+            if def ~= nil and def.tier == tier then
+                local isBuff = _SkillCatalog:IsBuffSkill(id)
+                if (category == "buff" and isBuff) or (category == "attack" and not isBuff) then
+                    table.insert(out, id)
+                end
+            end
+        end
+        return out
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnMasterPage(string category, integer delta)
+        -- 마스터 리스트는 한 번에 4개씩(MasterBuffList/MasterAtkList 마스크 높이 156px에 맞춤)만 보여
+        -- 주고, 화살표 버튼으로 페이지를 넘긴다. 실제 범위 클램프는 RefreshMasterList가 한다.
+        local pageKey = (category == "buff") and "masterBuffPage" or "masterAtkPage"
+        self._T[pageKey] = self._T[pageKey] + delta
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshMasterList(string category, Entity listEntity, table items, table icons, table idsOut)
+        -- 고정 10슬롯 풀을 현재 틱어의 카테고리 전체 스킬(_SkillCatalog:GetSkillsByCategory)로 채운다 -
+        -- 마스터는 해당 카테고리/틱어의 카탈로그 스킬을 전부 "보유"하므로(PlayerSkillComponent.
+        -- GetOwnedSkillIds) 이 쿼리 결과가 곧 마스터의 보유 목록과 같다. 남는 슬롯은 Enable=false.
+        for i = #idsOut, 1, -1 do
+            table.remove(idsOut, i)
+        end
+
+        local all = self:GetMasterPool(category, self._T.selectedTier)
+        local pageKey = (category == "buff") and "masterBuffPage" or "masterAtkPage"
+        local pageSize = 4
+        local pageCount = math.max(1, math.ceil(#all / pageSize))
+        if self._T[pageKey] > pageCount then self._T[pageKey] = pageCount end
+        if self._T[pageKey] < 1 then self._T[pageKey] = 1 end
+        local offset = (self._T[pageKey] - 1) * pageSize
+        local ids = {}
+        for i = 1, pageSize do
+            ids[i] = all[offset + i]
+        end
+        for i, item in ipairs(items) do
+            local skillId = ids[i]
+            if i > pageSize or skillId == nil then
+                item.Enable = false
+            else
+                idsOut[i] = skillId
+                item.Enable = true
+                local def = _SkillCatalog:GetSkillDef(skillId)
+                local key = _KeyBindingLogic:GetKeyForSkill(skillId)
+                local label = item.TextGUIRendererComponent
+                if isvalid(label) and def ~= nil then
+                    if key ~= nil then
+                        label.Text = def.name .. " [" .. _KeyBindingLogic:GetSymbol(key) .. "]"
+                    else
+                        label.Text = def.name
+                    end
+                end
+
+                local icon = icons[i]
+                if isvalid(icon) then
+                    local iconSprite = icon.SpriteGUIRendererComponent
+                    if isvalid(iconSprite) then
+                        if def ~= nil and def.iconRuid ~= nil then
+                            iconSprite.ImageRUID = DataRef(def.iconRuid)
+                        end
+                        if key ~= nil then
+                            iconSprite.Color = Color(1, 1, 1, 1)
+                        else
+                            iconSprite.Color = Color(0.55, 0.55, 0.55, 0.6)
+                        end
+                    end
+                end
+
+                local bg = item.SpriteGUIRendererComponent
+                if isvalid(bg) then
+                    if skillId == self._T.selectedSkillId then
+                        bg.Color = Color(0.85, 0.65, 0.18, 0.55)
+                    else
+                        bg.Color = Color(0.3, 0.26, 0.2, 0.35)
+                    end
+                end
+            end
+        end
+
+        listEntity.Enable = true
     end
 
     @ExecSpace("ClientOnly")
