@@ -1,6 +1,6 @@
 @Logic
 script SkillCatalog extends Logic
-    -- 스킬 카탈로그 (엑셀 기준 44종, 1~4차 각 차수 풀). 기획 근거: Docs/랜덤 플래닛 전체 기획서.md §04
+    -- 스킬 카탈로그 (엑셀 기준 43종, 1~4차 각 차수 풀). 기획 근거: Docs/랜덤 플래닛 전체 기획서.md §04
     -- "각 전직마다 메이플스토리 5차 이전 직업 스킬 3개 제시 → 1개 선택. 풀은 차수별 분리".
     -- 2026-10-04 주석 정리: 예전 머리말의 "5직업 x 2 = 10종"과 kind 목록(7종)은 실제와 달라 갱신함.
     -- kind별 필드:
@@ -38,7 +38,7 @@ script SkillCatalog extends Logic
             "doublestab", "haste",
             "flamethrower", "reload",
             -- 3차 (tier=3)
-            "shout", "comboattack",
+            "comboattack",
             "icestrike", "magicbooster",
             "mortalblow", "strafe",
             "shadowpartner", "avenger",
@@ -312,8 +312,6 @@ script SkillCatalog extends Logic
 
             -- ── 3차 (레벨 13) ──
             -- 2026-10-02 유저 엑셀 전체 반영 - 라이징 슬래시/아이언 윌은 엑셀에 없는 구 스킬이라 삭제.
-            -- "샤우트"(검사 3차 공격). AoE 데미지 + 확률 기절(실제 CC - Monster.ApplyStun).
-            shout = { id = "shout", tier = 3, name = "샤우트", job = "검사", kind = "melee_single", coef = 1.11, wide = true, stunChance = 0.52, stunDuration = 5.0, maxTargets = 6, cooldown = 6.0, mpCost = 16, impactDelay = 0.2, iconRuid = "e11214164df0417bacd92e769c3891c5", desc = "주변의 적에게 큰 소리를 질러 평타의 111% 피해를 줌과 동시에 52% 확률로 5초간 기절시킵니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
             -- 2026-10-02 유저 엑셀 신규 - "콤보 어택"(검사 3차 버프). 공격마다 스택 누적(최대 5),
             -- 스택당 공격력 20%씩 증가(만스택 +100%) - PlayerSkillComponent.StartCombo/OnComboHit.
             -- 2026-10-02 VFX 패스 - 실제 "콤보 어택"(skill/1111.img/skill/11111001) 팩 - 이름
@@ -373,7 +371,7 @@ script SkillCatalog extends Logic
             -- 2026-10-02 VFX 패스 - "앵무새 소환"(skill/800024.img/skill/80002409) 팩이
             -- 표식/앵무새 컨셉과 이름은 일치하나 애니메이션클립 없이 아이콘만 존재(에이전트 확인) -
             -- 아이콘만 교체, hitVfxRuid는 기존 값(대시 재사용) 유지.
-            homing = { id = "homing", tier = 3, name = "호밍", job = "해적", kind = "mark_homing", markBonusPercent = 0.48, duration = 8.0, cooldown = 10.0, mpCost = 14, projectileVfxRuid = "5f0f096d1aec4254a55ef554e21572b6", iconRuid = "a795d16a99bb458698e88cadb4edc9ab", desc = "적에게 표식을 찍을 앵무새를 보냅니다. 이후 표식이 걸린 적에게 주는 피해가 8초간 48% 증가합니다." },
+            homing = { id = "homing", tier = 3, name = "호밍", job = "해적", kind = "mark_homing", markBonusPercent = 0.48, duration = 8.0, cooldown = 10.0, mpCost = 14, projectileVfxRuid = "9e00eae33d2b45c5abf0fadf3d2656cf", iconRuid = "a795d16a99bb458698e88cadb4edc9ab", desc = "적에게 표식을 찍을 앵무새를 보냅니다. 이후 표식이 걸린 적에게 주는 피해가 8초간 48% 증가합니다." },
 
             -- ── 4차 (레벨 18, 각 직업 플래그십) ──
             -- 2026-10-02 유저 엑셀 전체 반영 - 블래스트/레이지는 엑셀에 없는 구 스킬이라 삭제.

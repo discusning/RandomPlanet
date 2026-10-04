@@ -606,7 +606,7 @@ script PlayerSkillComponent extends Component
         -- Returns { {id, tier, category}, ... } for every filled slot - the skill window's data
         -- source (see SkillUIController.Refresh).
         if self:IsMasterCharacter() then
-            -- 마스터 캐릭터는 8슬롯(AtkSkill1-4/BuffSkill1-4) 제한 없이 카탈로그 44종 전체를
+            -- 마스터 캐릭터는 8슬롯(AtkSkill1-4/BuffSkill1-4) 제한 없이 카탈로그 43종 전체를
             -- "보유"로 취급 - 스킬창에서 전부 확인 가능, IsSkillOwned가 이걸 그대로 쓰므로 아무
             -- 슬롯에나 자유롭게 배정도 가능해진다(RequestAssignSkillToSlot의 보유 검증 통과).
             local result = {}
