@@ -149,6 +149,23 @@ script PlayerAttack extends AttackComponent
             dmg = math.floor(dmg * targetMonster.DamageTakenMultiplier)
         end
 
+        -- 마크 오브 어쌔신(도적 3차, 패시브) - 장착 중일 때만 발동. 공격 시 40% 확률로 표식을 남기고,
+        -- 표식을 건 본인이 그 적을 다시 때리면 피해 +30% 후 표식을 소모한다(표창 투사체는 생략).
+        local skillComp = self.Entity:GetComponent("script.PlayerSkillComponent")
+        if isvalid(targetMonster) and isvalid(skillComp) and skillComp:HasEquippedSkill("markofassassin") then
+            local now = _UtilLogic.ElapsedSeconds
+            if now < targetMonster.AssassinMarkUntil and targetMonster.AssassinMarkerName == self.Entity.Name then
+                dmg = math.floor(dmg * 1.3)
+                targetMonster.AssassinMarkUntil = 0
+                targetMonster.AssassinMarkerName = ""
+                log("PlayerSkill: 마크 오브 어쌔신 발동 target=" .. targetMonster.Entity.Name)
+            elseif now >= targetMonster.AssassinMarkUntil and _UtilLogic:RandomDouble() < 0.4 then
+                targetMonster.AssassinMarkerName = self.Entity.Name
+                targetMonster.AssassinMarkUntil = now + 10.0
+                log("PlayerSkill: 마크 오브 어쌔신 표식 target=" .. targetMonster.Entity.Name)
+            end
+        end
+
         return dmg
     end
 

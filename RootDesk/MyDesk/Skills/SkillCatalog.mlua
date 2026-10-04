@@ -42,7 +42,7 @@ script SkillCatalog extends Logic
             "icestrike", "magicbooster",
             "mortalblow", "strafe",
             "shadowpartner", "avenger",
-            "octopus",
+            "markofassassin", "octopus",
             -- 4차 (tier=4) - 샤프 아이즈는 엑셀상 궁수 4차 소속이라 3차에서 이동, 피어싱 신규 추가
             "brandish", "advcomboattack",
             "meteorstrike", "infinity",
@@ -363,6 +363,8 @@ script SkillCatalog extends Logic
             -- 배정(kind="summon"도 IsBuffSkill이 버프로 취급) 
             -- SummonPetComponent가 고정 위치에서 주기 공격 + 자체 수명 관리.
             octopus = { id = "octopus", tier = 3, name = "옥토퍼스", job = "해적", kind = "summon", petAttackDamage = 84, petAttackInterval = 1.5, duration = 10.0, cooldown = 10.0, mpCost = 16, iconRuid = "1e1186d0c04d4ca5804333e219cf5ad9", desc = "공격을 도와주는 문어를 소환합니다. 소환된 문어는 움직이지 않고 10초간 주변의 적을 공격합니다(공격력 84)." },
+            -- 마크 오브 어쌔신(도적 3차, 패시브) - 키로 발동하지 않고 장착만으로 공격 계산에서 발동(PlayerAttack.CalcDamage).
+            markofassassin = { id = "markofassassin", tier = 3, name = "마크 오브 어쌔신", job = "도적", kind = "passive_mark", markChance = 0.4, markDuration = 10.0, procBonusPercent = 0.3, mpCost = 0, cooldown = 0, iconRuid = "4ff247d41f3a437d950265851dbb4956", desc = "적을 공격하면 40% 확률로 표식을 남깁니다. 표식이 걸린 적을 내가 다시 공격하면 그 공격의 피해가 30% 증가하고 표식이 사라집니다. (패시브)" },
 
             -- ── 4차 (레벨 18, 각 직업 플래그십) ──
             -- 2026-10-02 유저 엑셀 전체 반영 - 블래스트/레이지는 엑셀에 없는 구 스킬이라 삭제.

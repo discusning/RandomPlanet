@@ -548,6 +548,14 @@ script PlayerSkillComponent extends Component
         return ""
     end
 
+    method boolean HasEquippedSkill(string skillId)
+        -- 장착된 8개 슬롯 중 해당 스킬이 있는지 확인한다(패시브 스킬 발동 조건용).
+        for slot = 1, 8 do
+            if self:GetEquippedSkillId(slot) == skillId then return true end
+        end
+        return false
+    end
+
     method void SetEquippedSkillId(integer slot, string skillId)
         if slot == 1 then self.EquippedSkillId1 = skillId
         elseif slot == 2 then self.EquippedSkillId2 = skillId
@@ -662,6 +670,11 @@ script PlayerSkillComponent extends Component
         if equippedId == "" then return end
         local def = _SkillCatalog:GetSkillDef(equippedId)
         if def == nil then return end
+        -- 패시브 스킬(마크 오브 어쌔신)은 키로 발동하지 않는다. 공격 계산(PlayerAttack)에서 장착 여부로 발동.
+        if def.kind == "passive_mark" then
+            log("PlayerSkill: " .. def.name .. " is passive - no cast")
+            return
+        end
         local statsComp = self.Entity:GetComponent("script.PlayerStatsComponent")
         -- 2026-09-10 QA - SkillCooldownReduction(INT 파생 2차 스탯)이 지금까지 계산만 되고 소비처가
         -- 전혀 없던 "죽은 스탯"이었음을 발견(이 세션의 LUK/EvasionPercent, STR/KnockbackResistance에
