@@ -373,7 +373,7 @@ script SkillCatalog extends Logic
             -- 2026-10-02 VFX 패스 - "앵무새 소환"(skill/800024.img/skill/80002409) 팩이
             -- 표식/앵무새 컨셉과 이름은 일치하나 애니메이션클립 없이 아이콘만 존재(에이전트 확인) -
             -- 아이콘만 교체, hitVfxRuid는 기존 값(대시 재사용) 유지.
-            homing = { id = "homing", tier = 3, name = "호밍", job = "해적", kind = "mark_homing", markBonusPercent = 0.48, duration = 8.0, cooldown = 10.0, mpCost = 14,iconRuid = "a795d16a99bb458698e88cadb4edc9ab", desc = "적에게 표식을 찍을 앵무새를 보냅니다. 이후 표식이 걸린 적에게 주는 피해가 8초간 48% 증가합니다." },
+            homing = { id = "homing", tier = 3, name = "호밍", job = "해적", kind = "mark_homing", markBonusPercent = 0.48, duration = 8.0, cooldown = 10.0, mpCost = 14, projectileVfxRuid = "5f0f096d1aec4254a55ef554e21572b6", iconRuid = "a795d16a99bb458698e88cadb4edc9ab", desc = "적에게 표식을 찍을 앵무새를 보냅니다. 이후 표식이 걸린 적에게 주는 피해가 8초간 48% 증가합니다." },
 
             -- ── 4차 (레벨 18, 각 직업 플래그십) ──
             -- 2026-10-02 유저 엑셀 전체 반영 - 블래스트/레이지는 엑셀에 없는 구 스킬이라 삭제.
