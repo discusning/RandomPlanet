@@ -380,7 +380,7 @@ script EquipmentLogic extends Logic
     end
 
     @ExecSpace("ClientOnly")
-    method table StarforceAttempt(table characterData, string slot)
+    method table StarforceAttempt(table characterData, string slot, boolean safeMode)
         -- 스타포스 1회 시도. 주문서를 쓰지 않는다. 결과 outcome: success(별+1) / fail(변화 없음) / destroy(12성 회귀).
         -- 파괴되어도 아이템은 사라지지 않고 별만 12성으로 돌아간다(전승 없음). 25성에서는 더 강화하지 않는다.
         local inst = characterData.equipment and characterData.equipment[slot]
@@ -401,6 +401,10 @@ script EquipmentLogic extends Logic
             return { applied = true, success = true, outcome = "success", star = inst.starLevel, message = inst.starLevel .. "성 강화 성공!" }
         end
         if rate.destroy > 0 and roll <= rate.success + rate.destroy then
+            -- 세이프 모드: 15~17성(15->16, 16->17, 17->18)에서는 파괴 대신 현재 별을 유지한다. 비용은 호출부에서 차감.
+            if safeMode == true and star >= 15 and star <= 17 then
+                return { applied = true, success = false, outcome = "safe", star = star, message = "세이프 모드 - 파괴 방지, " .. star .. "성 유지" }
+            end
             inst.starLevel = self.StarforceSafeStar
             return { applied = true, success = false, outcome = "destroy", star = inst.starLevel, message = "파괴! " .. self.StarforceSafeStar .. "성으로 회귀합니다" }
         end

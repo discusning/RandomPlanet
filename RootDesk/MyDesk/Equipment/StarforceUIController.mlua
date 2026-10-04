@@ -10,6 +10,11 @@ script StarforceUIController extends Logic
     property TextGUIRendererComponent starText = "7914c9d9-925d-4977-ae7b-a3e84955bcaa"
     property TextGUIRendererComponent rateText = "7002a7b1-11c2-47e3-8e5f-2c40bae883f7"
     property TextGUIRendererComponent statusText = "bc728b35-d690-44eb-9ea2-e05eb8b653c1"
+    -- 세이프 모드 토글 버튼(버튼 엔티티 + 같은 버튼의 텍스트). 켜면 15~17성 파괴 대신 별을 유지한다.
+    property Entity btnSafe = "0b73f0c6-e12c-41b3-a6c0-4be5a3c1eddf"
+    property TextGUIRendererComponent safeText = "0b73f0c6-e12c-41b3-a6c0-4be5a3c1eddf"
+    -- 세이프 모드 1회 비용(재화). 토벌전장/카오스 게이트/보스에서 수급한다. 추정값이며 조정 대상.
+    property integer SafeModeCost = 1000
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -21,6 +26,27 @@ script StarforceUIController extends Logic
         end
         self:Bind(self.btnClose, function() self:Hide() end)
         self:Bind(self.btnStarforce, function() self:OnStarforceClicked() end)
+        self:Bind(self.btnSafe, function() self:ToggleSafeMode() end)
+        self._T.safeMode = false
+        self:RefreshSafeText()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ToggleSafeMode()
+        -- 세이프 모드를 켜고 끈다. 꺼진 상태에서는 파괴가 그대로 일어난다.
+        self._T.safeMode = not self._T.safeMode
+        self:RefreshSafeText()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshSafeText()
+        if isvalid(self.safeText) then
+            if self._T.safeMode then
+                self.safeText.Text = "세이프 모드 ON (" .. self.SafeModeCost .. "G)"
+            else
+                self.safeText.Text = "세이프 모드 OFF"
+            end
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -116,8 +142,15 @@ script StarforceUIController extends Logic
             self:SetStatus("투명 무기를 먼저 장착하세요.")
             return
         end
+        -- 세이프 모드는 15~17성에서만 비용이 든다. 재화가 부족하면 시도하지 않는다.
+        local star = data.equipment.weapon.starLevel or 0
+        local useSafe = self._T.safeMode == true and star >= 15 and star <= 17
+        if useSafe and not _CharacterRosterLogic:SpendGold(self.SafeModeCost) then
+            self:SetStatus("재화가 부족합니다. (세이프 모드 " .. self.SafeModeCost .. "G)")
+            return
+        end
         self._T.inProgress = true
-        local result = _EquipmentLogic:StarforceAttempt(data, "weapon")
+        local result = _EquipmentLogic:StarforceAttempt(data, "weapon", useSafe)
         self:SetStatus(result.message)
         log("StarforceUI: outcome=" .. result.outcome .. " star=" .. tostring(result.star))
         if result.applied then
