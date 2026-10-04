@@ -671,7 +671,7 @@ script PlayerSkillComponent extends Component
         local def = _SkillCatalog:GetSkillDef(equippedId)
         if def == nil then return end
         -- 패시브 스킬(마크 오브 어쌔신)은 키로 발동하지 않는다. 공격 계산(PlayerAttack)에서 장착 여부로 발동.
-        if def.kind == "passive_mark" then
+        if def.kind == "passive_mark" or def.kind == "passive_mortal" then
             log("PlayerSkill: " .. def.name .. " is passive - no cast")
             return
         end

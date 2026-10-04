@@ -166,6 +166,21 @@ script PlayerAttack extends AttackComponent
             end
         end
 
+        -- 모탈 블로우(궁수, 패시브 발동형) - 장착 중 공격마다 triggerChance 확률로 발동해 추가 타격(coef)을 준다.
+        -- 원작의 3연속 타격은 이 계산에서 추가 1타로 근사한다. 발동 시 체력 비율이 executeHpPercent 이하인
+        -- 대상은 executeInstakillChance 확률로 즉사한다. 발동 판정은 캐스터의 장착 여부로만 한다.
+        local mortalDef = _SkillCatalog:GetSkillDef("mortalblow")
+        if isvalid(targetMonster) and isvalid(skillComp) and mortalDef ~= nil and skillComp:HasEquippedSkill("mortalblow") then
+            if _UtilLogic:RandomDouble() < mortalDef.triggerChance then
+                dmg = dmg + math.floor(self.AttackDamage * mortalDef.coef)
+                log("PlayerSkill: 모탈 블로우 발동 target=" .. targetMonster.Entity.Name)
+                if targetMonster.Hp <= targetMonster.MaxHp * mortalDef.executeHpPercent and _UtilLogic:RandomDouble() < mortalDef.executeInstakillChance then
+                    dmg = math.max(dmg, targetMonster.Hp)
+                    log("PlayerSkill: 모탈 블로우 즉사 발동 target=" .. targetMonster.Entity.Name)
+                end
+            end
+        end
+
         return dmg
     end
 
