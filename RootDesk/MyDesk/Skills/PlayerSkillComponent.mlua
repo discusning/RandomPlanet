@@ -830,7 +830,7 @@ script PlayerSkillComponent extends Component
     @ExecSpace("Client")
     method void PlaySkillMotion(table def)
         -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
-        _PlayerSkillExecutionLogic:PlaySkillMotion(self, poseName)
+        _PlayerSkillExecutionLogic:PlaySkillMotion(self, def)
     end
 
     @ExecSpace("ServerOnly")
