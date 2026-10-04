@@ -777,8 +777,16 @@ script PlayerSkillComponent extends Component
         end
         if (doubleCastChance + linkDoubleCastChance) > 0 and _UtilLogic:RandomDouble() < (doubleCastChance + linkDoubleCastChance) then
             log("PlayerSkill: 느림보/산만함 링크 - 스킬 2연발 발동")
+            -- 2026-10-04 방어 코드: 0.15초 뒤 콜백은 pcall 밖에서 실행되므로, 그 사이 웨이브 리셋 등으로
+            -- 컴포넌트가 무효가 되면 nil 호출 오류가 날 수 있다(원인은 재현으로 확정하지 못함). 발동 시점에
+            -- 컴포넌트/엔티티가 살아있을 때만 재발동하고, 아니면 건너뛴다.
+            local comp = self
             _TimerService:SetTimerOnce(function()
-                if isvalid(self.Entity) then self:DispatchSkillEffect(def) end
+                if isvalid(comp) and isvalid(comp.Entity) then
+                    comp:DispatchSkillEffect(def)
+                else
+                    log("PlayerSkill: 느림보/산만함 2연발 건너뜀 - 대상 컴포넌트가 무효(리셋/교체됨)")
+                end
             end, 0.15)
         end
     end
