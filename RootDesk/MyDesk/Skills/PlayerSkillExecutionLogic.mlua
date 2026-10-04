@@ -42,6 +42,8 @@ script PlayerSkillExecutionLogic extends Logic
         -- 스킬은 캐스터 앞쪽에 엔진 기본 파티클(BasicParticleType)을 함께 재생한다. 없는 스킬은 기존 그대로.
         -- 레이어 결정: 스킬별 값(def.particleType 등)이 있으면 그것, 없으면 kind별 기본값(ResolveLayers).
         local layers = self:ResolveLayers(def)
+        -- 이번 발동의 타격음을 캐스터에 기록해 두면 PlayHitFx가 타격 시점에 재생한다(없으면 nil로 비움).
+        skill._T.hitSfx = def.hitSfxRuid
 
         if layers.particle ~= nil and isvalid(skill.Entity) then
             local tr = skill.Entity.TransformComponent
@@ -173,7 +175,13 @@ script PlayerSkillExecutionLogic extends Logic
         -- 스킬 이펙트 공통 재생. 모든 hitVfx가 여기로 모인다: 위치는 호출자가 캐릭터/대상의 월드 좌표에서
         -- 계산해 넘기고, 크기는 scale(월드 단위 배율)로 고정해 원본 클립 해상도(최대 422px)가 그대로
         -- 캐릭터보다 크게 그려지는 문제를 막는다. FlipX는 캐스터 바라보는 방향(dir>0 = 오른쪽)에 맞춘다.
-        return _EffectService:PlayEffect(ruid, caster, Vector3(x, y, z), 0, Vector3(scale, scale, 1), false, { FlipX = dir > 0 })
+        -- 스킬별 타격음(hitSfxRuid)은 발동 시 DispatchSkillEffect가 캐스터의 _T.hitSfx에 넣어 두고, 여기서 재생한다.
+        local fx = _EffectService:PlayEffect(ruid, caster, Vector3(x, y, z), 0, Vector3(scale, scale, 1), false, { FlipX = dir > 0 })
+        local sc = caster:GetComponent("script.PlayerSkillComponent")
+        if isvalid(sc) and sc._T.hitSfx ~= nil then
+            sc:PlaySkillSfx(sc._T.hitSfx)
+        end
+        return fx
     end
 
     @ExecSpace("ServerOnly")

@@ -202,7 +202,7 @@ script SkillCatalog extends Logic
             -- 기존 multi_hit 계열과 동일한 공용 리소스 재사용(이펙트 폴리싱은 추후 이미지 수령 후).
             -- 2026-10-02 VFX 패스 - 실제 "더블 샷"(skill/3300.img/skill/33001105) 팩 - 이름
             -- 완전 일치, 60x20 화살 스프라이트 검증 완료.
-            arrowblow = { id = "arrowblow", sfxRuid = "8faeed3b8ca64163a5121864db093e7a", tier = 1, name = "더블 샷", job = "궁수", kind = "multi_hit", coef = 0.6, hits = 2, cooldown = 2.5, mpCost = 9, projectileVfxRuid = "3ee73e25ce47428ca656d6bf0a04e603", iconRuid = "445596dea63444c98ddcec86f513bf06", desc = "화살 두 개를 소비해 연속으로 쏘아 총 평타의 120% 피해를 입힙니다(타격당 60%)." },
+            arrowblow = { id = "arrowblow", hitSfxRuid = "956ddfb53d7845ce972acab3e51b05e1", sfxRuid = "8faeed3b8ca64163a5121864db093e7a", tier = 1, name = "더블 샷", job = "궁수", kind = "multi_hit", coef = 0.6, hits = 2, cooldown = 2.5, mpCost = 9, projectileVfxRuid = "3ee73e25ce47428ca656d6bf0a04e603", iconRuid = "445596dea63444c98ddcec86f513bf06", desc = "화살 두 개를 소비해 연속으로 쏘아 총 평타의 120% 피해를 입힙니다(타격당 60%)." },
             focus = { id = "focus", tier = 1, name = "포커스", job = "궁수", kind = "buff", duration = 6.0, testableEffect = "accuracy", accuracyBonus = 30, evasionBonus = 0.10, cooldown = 12.0, mpCost = 12, auraType = "SpinField", auraColor = Color(1.0, 0.85, 0.3, 0.9), buffVfxRuid = "0d68db29ec2046f4bb2a64e6f03b745b", iconRuid = "05d5651551314ba88b63459f4f752cd8", desc = "일정 시간 명중률이 30 증가하고 회피율이 10% 증가합니다." },
             -- 럭키 세븐 (2026-08-17 메이플랜드/클래식 메이플스토리 자료 조사 후 확인 - 의도적 타협):
             -- 실제로는 도적 1차가 아니라 어쌔신(2차) 스킬 - 실제 도적 1차 스킬은 님블 바디/디스오더
@@ -229,7 +229,7 @@ script SkillCatalog extends Logic
             -- 회전하는 모습(39x24px, 프레임 크기 문제 없음).
             -- 2026-10-02 유저 엑셀 - 럭키 세븐 계수를 132%로 상향(기존 60%는 당시 DPS 밸런스 조정값,
             -- 유저가 직접 조사한 실제 수치로 교체).
-            luckyseven = { id = "luckyseven", sfxRuid = "a95d1bf786f14216abae27c52bafe749", tier = 1, name = "럭키 세븐", job = "도적", kind = "multi_hit", coef = 1.32, hits = 3, cooldown = 3.5, mpCost = 12, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "8835227b4b1644588eb4e2cbed2280a6", desc = "단검을 3연속으로 투척해 각 타격마다 평타의 132% 피해를 입힙니다." },
+            luckyseven = { id = "luckyseven", hitSfxRuid = "ca4c49b20de341d4bb9dea4c1c9c68fc", sfxRuid = "a95d1bf786f14216abae27c52bafe749", tier = 1, name = "럭키 세븐", job = "도적", kind = "multi_hit", coef = 1.32, hits = 3, cooldown = 3.5, mpCost = 12, projectileVfxRuid = "0af95ff09be14c389c1854f03c575e2e", iconRuid = "8835227b4b1644588eb4e2cbed2280a6", desc = "단검을 3연속으로 투척해 각 타격마다 평타의 132% 피해를 입힙니다." },
             -- 2026-10-02 - 실제 명칭은 "디스에이블"이 아니라 "디스오더"(유저 엑셀) - 효과(회피 감소)는
             -- 동일하게 유지, id는 하위호환을 위해 "disable" 그대로.
             disable = { id = "disable", tier = 1, name = "디스오더", job = "도적", kind = "debuff", evasionReduction = 40, duration = 8.0, cooldown = 10.0, mpCost = 10, hitVfxRuid = "06df52ffae254cf98de250a0071c86c5", iconRuid = "b6af1eda876d45fea522714761c186bc", desc = "전방의 적 하나의 회피율을 8초간 40 감소시킵니다." },
@@ -245,7 +245,7 @@ script SkillCatalog extends Logic
             -- 임팩트 플래시(팩에 ball 요소 없음, msw-search로 재확인)를 투사체로 재사용하던 것이라
             -- FireThrownDagger로 3연속 투척 시 같은 "깜빡임" 문제 발생 - doublestab과 동일한 근거로
             -- 범용 표창 ball(0af95ff09be14c389c1854f03c575e2e)로 교체.
-            summersaultkick = { id = "summersaultkick", sfxRuid = "85398b7f1a5340469034ff1f67e6b412", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, projectileVfxRuid = "3c5e92e92ef14b2a84ff5dbe3fc75746", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
+            summersaultkick = { id = "summersaultkick", hitSfxRuid = "1b54e03352ae4430ae39be54d2ee88f4", sfxRuid = "85398b7f1a5340469034ff1f67e6b412", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, projectileVfxRuid = "3c5e92e92ef14b2a84ff5dbe3fc75746", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 너클 부스터는 엑셀에 없는 구 스킬이라 삭제(해적 1차는
             -- 대시+써머솔트킥 2공격, 버프 없음 - 유저 지시 그대로).
 
@@ -286,7 +286,7 @@ script SkillCatalog extends Logic
             -- 2026-10-02 유저 엑셀 - 실제 명칭은 "더블 샷"이 아니라 "아이언 에로우"(수치/메커니즘은
             -- 기존과 완전히 동일 - multi_hit x2, 타격당 75%). "더블 샷"은 1차(위 arrowblow)로 이동.
             -- 2026-10-02 VFX 패스 - 실제 "아이언 애로우 강화"(skill/320.img/skill/3201005) 팩.
-            doubleshot = { id = "doubleshot", sfxRuid = "7d5ef2c392a34251990a9dc8b51deb12", tier = 2, name = "아이언 에로우", job = "궁수", kind = "multi_hit", coef = 0.75, hits = 2, cooldown = 3.0, mpCost = 10, projectileVfxRuid = "1e06841cc18a47c9975303520f3429d6", iconRuid = "813e87021d844a36b9b6b7479d2251b9", desc = "화살을 2연속으로 날려 각 타격마다 평타의 75% 피해를 입힙니다." },
+            doubleshot = { id = "doubleshot", hitSfxRuid = "eb49560ca2a84e0585e0e83cd61c9dc6", sfxRuid = "7d5ef2c392a34251990a9dc8b51deb12", tier = 2, name = "아이언 에로우", job = "궁수", kind = "multi_hit", coef = 0.75, hits = 2, cooldown = 3.0, mpCost = 10, projectileVfxRuid = "1e06841cc18a47c9975303520f3429d6", iconRuid = "813e87021d844a36b9b6b7479d2251b9", desc = "화살을 2연속으로 날려 각 타격마다 평타의 75% 피해를 입힙니다." },
             soularrow = { id = "soularrow", buffVfxRuid = "cdb798bdde784b08babd5ded224a9c6a", tier = 2, name = "소울 애로우", job = "궁수", kind = "buff", duration = 8.0, testableEffect = "atkspeed", cooldown = 18.0, mpCost = 12, auraType = "SpinField", auraColor = Color(0.85, 1.0, 0.6, 0.9), iconRuid = "d1a1eb513c394a76bb47df35df7a5155", desc = "일정 시간 공격 속도가 증가합니다." },
             -- 2026-10-02 유저 엑셀 - 실제 명칭/메커니즘은 "더블 스탭"(단발 150%)이 아니라 "새비지
             -- 블로우"(6연속 타격, 타격당 80%) - kind를 melee_single에서 multi_hit으로 교체.
@@ -303,7 +303,7 @@ script SkillCatalog extends Logic
             -- luckyseven/flamethrower/avenger의 범용 표창 ball(0af95ff09be14c389c1854f03c575e2e,
             -- 실제 "표창 던지기" 팩의 ball 요소 - 진짜 투사체 모양으로 검증됨)로 교체 - hit/0보다는
             -- 부정확해도(도적 단검질 느낌과는 맞음) 날아가는 모양 자체가 맞는 리소스를 우선.
-            doublestab = { id = "doublestab", sfxRuid = "4cc1f2f305ce46b69a8c45129e9d0432", tier = 2, name = "새비지 블로우", job = "도적", kind = "multi_hit", coef = 0.8, hits = 6, cooldown = 4.0, mpCost = 13, projectileVfxRuid = "895ac1e384ea42ca8dd084f54ff3346b", iconRuid = "801741bbc787448e9327589ab059e9e4", desc = "MP를 소비해 단검으로 적에게 6연속 공격을 가해 각 타격마다 평타의 80% 피해를 입힙니다." },
+            doublestab = { id = "doublestab", hitSfxRuid = "b77afdd614194637949c7df3d002fc54", sfxRuid = "4cc1f2f305ce46b69a8c45129e9d0432", tier = 2, name = "새비지 블로우", job = "도적", kind = "multi_hit", coef = 0.8, hits = 6, cooldown = 4.0, mpCost = 13, projectileVfxRuid = "895ac1e384ea42ca8dd084f54ff3346b", iconRuid = "801741bbc787448e9327589ab059e9e4", desc = "MP를 소비해 단검으로 적에게 6연속 공격을 가해 각 타격마다 평타의 80% 피해를 입힙니다." },
             haste = { id = "haste", sfxRuid = "64795afda95e4b7dbdbdfe731e7d405a", buffVfxRuid = "410e6a09f8ec471f87bd8d55c34cc48d",tier = 2, name = "헤이스트", job = "도적", kind = "buff", duration = 10.0, testableEffect = "movespeed", moveSpeedBonus = 2.0, cooldown = 20.0, mpCost = 12, auraType = "Buff", auraColor = Color(1.0, 0.9, 0.4, 0.9), iconRuid = "4e873e0f596c43169d9d1ab63b4b2fb5", desc = "10초간 이동 속도가 크게 증가합니다." },
             -- 2026-10-02 유저 엑셀 - 실제 명칭/메커니즘은 "플레임 스로어"(관통 110%)가 아니라
             -- "인비지블샷"(3연속 타격, 타격당 75%) - kind를 ranged_pierce에서 multi_hit으로 교체.
@@ -323,7 +323,7 @@ script SkillCatalog extends Logic
             -- 쪽 wide 박스를 그대로 써 근접형 AoE로 구현(기존 blizzard는 관통형이라 구분됨).
             -- 2026-10-02 VFX 패스 - 실제 "아이스 스트라이크"(skill/221.img/skill/2211002) 팩의
             -- hit/0 클립(124x156, 빙결 이펙트)으로 교체 - 이름 완전 일치, 검증 완료.
-            icestrike = { id = "icestrike", tier = 3, name = "아이스 스트라이크", job = "마법사", kind = "melee_single", coef = 0.9, wide = true, magic = true, stunChance = 1.0, stunDuration = 2.5, maxTargets = 6, cooldown = 5.0, mpCost = 17, impactDelay = 0.2, hitVfxRuid = "c821bdbd53004870b632ff2afcef75e9", iconRuid = "15f7be47a940490a87597871a7a7f796", desc = "날카로운 얼음 덩어리를 날려 여러 적에게 평타의 90% 마법 피해를 입히고, 명중한 적(냉기 속성 제외)을 2.5초간 얼어붙게 합니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
+            icestrike = { id = "icestrike", hitSfxRuid = "452571b69b534d91a993de876f3c7887", tier = 3, name = "아이스 스트라이크", job = "마법사", kind = "melee_single", coef = 0.9, wide = true, magic = true, stunChance = 1.0, stunDuration = 2.5, maxTargets = 6, cooldown = 5.0, mpCost = 17, impactDelay = 0.2, hitVfxRuid = "c821bdbd53004870b632ff2afcef75e9", iconRuid = "15f7be47a940490a87597871a7a7f796", desc = "날카로운 얼음 덩어리를 날려 여러 적에게 평타의 90% 마법 피해를 입히고, 명중한 적(냉기 속성 제외)을 2.5초간 얼어붙게 합니다. 한 번에 6마리 이상은 공격할 수 없습니다." },
             magicbooster = { id = "magicbooster", tier = 3, name = "매직 부스터", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "skilldmg", skillDmgBonus = 0.25, cooldown = 20.0, mpCost = 18, auraType = "Enchant", auraColor = Color(0.4, 0.9, 0.95, 0.9), iconRuid = "ab35abd6309f4f7f8f04587c2270ccbe", desc = "일정 시간 스킬 피해가 25% 증가합니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 애로우 레인은 엑셀에 없는 구 스킬이라 삭제(궁수 3차는
             -- 모탈블로우+스트레이프 2공격, 버프 없음 - 엑셀 그대로).
@@ -388,7 +388,7 @@ script SkillCatalog extends Logic
             -- 2026-10-02 VFX 패스 - 실제 "체인 라이트닝 강화"(skill/222.img/skill/2221006) 팩의
             -- 전기 번개 ball 클립으로 교체(기존 매직클로 재사용 주황 틴트 플레이스홀더 제거,
             -- tint 불필요).
-            meteorstrike = { id = "meteorstrike", sfxRuid = "3c837a89f39e4e038b0a3a378de9a377", tier = 4, name = "체인 라이트닝", job = "마법사", kind = "ranged_pierce", coef = 1.8, magic = true, maxTargets = 3, cooldown = 4.5, mpCost = 20, projectileVfxRuid = "f61027d6e78440378e24408f96503d3a", iconRuid = "1e4a1707f9ea49a181cf3e0ace802d0f", desc = "고압의 전류로 적을 공격하며, 맞은 적 주위에 다른 적이 있으면 전기가 옮겨붙어 최대 3명까지 평타의 180% 마법 피해를 입힙니다." },
+            meteorstrike = { id = "meteorstrike", hitSfxRuid = "36187759ab2f4bc293aeb035e4ea8d73", sfxRuid = "3c837a89f39e4e038b0a3a378de9a377", tier = 4, name = "체인 라이트닝", job = "마법사", kind = "ranged_pierce", coef = 1.8, magic = true, maxTargets = 3, cooldown = 4.5, mpCost = 20, projectileVfxRuid = "f61027d6e78440378e24408f96503d3a", iconRuid = "1e4a1707f9ea49a181cf3e0ace802d0f", desc = "고압의 전류로 적을 공격하며, 맞은 적 주위에 다른 적이 있으면 전기가 옮겨붙어 최대 3명까지 평타의 180% 마법 피해를 입힙니다." },
             infinity = { id = "infinity", buffVfxRuid = "1140322cfd5a4c40b1134e1159245059",tier = 4, name = "인피니티", job = "마법사", kind = "buff", duration = 10.0, testableEffect = "skilldmg", skillDmgBonus = 0.4, cooldown = 25.0, mpCost = 22, auraType = "Enchant", auraColor = Color(1.0, 0.95, 0.7, 0.95), iconRuid = "60d52e08abea43f4886fce4df7e6c63a", desc = "일정 시간 스킬 피해가 40% 증가합니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 허리케인/이글아이/아수라/마크 오브 어쌔신은 엑셀에
             -- 없는 구 스킬이라 삭제.
@@ -409,7 +409,7 @@ script SkillCatalog extends Logic
             -- 2026-10-04 주석 정리: 예전 "VFX 패스" 문구와 달리 쇼다운에는 VFX 필드가 없다. 후보 팩은
             -- "쇼다운 챌린지"(skill/412.img/skill/4121021)이며 아직 적용되지 않았다.
             showdown = { id = "showdown", hitVfxRuid = "5dbd9bf30819471b9375a5d8343ac780", tier = 4, name = "쇼다운", job = "도적", kind = "showdown", maxTargets = 6, weakenRadius = 4.0, defenseIncreasePercent = 0.2, rewardIncreasePercent = 0.2, duration = 15.0, cooldown = 22.0, mpCost = 18, iconRuid = "78df0d67d4934f59925bea16df4acc39", desc = "최대 6마리의 적을 도발합니다. 적의 방어력이 상승해 받는 피해가 줄지만, 그만큼 획득 경험치와 아이템 드롭률이 20% 상승합니다." },
-            rapidfire = { id = "rapidfire", sfxRuid = "b3b24a4ecd5a42a19f38aef1b988717b", tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 1.3, hits = 6, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "af5115902b124a6db4fe549c582428d3", iconRuid = "3090201ab43d4420a598aa7355c53e33", desc = "아주 빠른 속도로 탄을 난사해 6연속 타격마다 평타의 130% 피해를 입힙니다." },
+            rapidfire = { id = "rapidfire", hitSfxRuid = "83a7bbd854fc4bddaf79af3de916f7de", sfxRuid = "b3b24a4ecd5a42a19f38aef1b988717b", tier = 4, name = "라피드 파이어", job = "해적", kind = "multi_hit", coef = 1.3, hits = 6, cooldown = 4.5, mpCost = 17, projectileVfxRuid = "af5115902b124a6db4fe549c582428d3", iconRuid = "3090201ab43d4420a598aa7355c53e33", desc = "아주 빠른 속도로 탄을 난사해 6연속 타격마다 평타의 130% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 배틀쉽은 엑셀에 없는 구 스킬이라 삭제.
             -- "서포트 옥토퍼스"(해적 4차, 옥토퍼스의 강화판). 독립된
             -- 소환체로 구현(어드밴스드 콤보 어택과 동일한 패턴 - 소유 여부 교차검사 없이 자체 강화
