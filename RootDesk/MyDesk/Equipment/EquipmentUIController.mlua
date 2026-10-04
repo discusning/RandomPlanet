@@ -147,7 +147,7 @@ script EquipmentUIController extends Component
             if inst ~= nil then
                 local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
                 if tpl ~= nil and tpl.ruid ~= nil and tpl.ruid ~= "" then
-                    sprite.ImageRUID = DataRef("thumbnail://" .. tpl.ruid)
+                    sprite.ImageRUID = DataRef("thumbnail://" .. (tpl.iconRuid or tpl.ruid))
                     sprite.Color = self:_FilledColor()
                     text.Text = ""
                 else

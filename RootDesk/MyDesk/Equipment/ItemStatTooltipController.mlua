@@ -35,7 +35,7 @@ script ItemStatTooltipController extends Logic
         end
         self.nameText.Text = tpl.name or "?"
         if tpl.ruid ~= nil and tpl.ruid ~= "" then
-            self.iconSprite.ImageRUID = DataRef("thumbnail://" .. tpl.ruid)
+            self.iconSprite.ImageRUID = DataRef("thumbnail://" .. (tpl.iconRuid or tpl.ruid))
         end
 
         -- 0인 스탯 라인은 숨기고, 보이는 라인끼리는 빈 줄 없이 위로 당겨 붙인다(진짜 메이플스토리

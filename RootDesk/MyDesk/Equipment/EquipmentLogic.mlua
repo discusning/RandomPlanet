@@ -39,7 +39,7 @@ script EquipmentLogic extends Logic
         -- 투명 무기(스타포스 전용). 외형 RUID가 없어서 장착해도 아바타에 무기가 그려지지 않는다(기본 무장 없음).
         -- 주문서 강화 대신 스타포스로만 강화하며, 0~25성. 터지면 아이템은 남고 12성으로 되돌아간다.
         self._T.itemCatalog[self.TransparentWeaponId] = {
-            id = self.TransparentWeaponId, name = "투명 무기", slot = "weapon", ruid = "",
+            id = self.TransparentWeaponId, name = "투명 무기", slot = "weapon", ruid = "", iconRuid = "9edfb2ac8d4948ae9d6d789c99e0b966",
             bonusStr = 0, bonusDex = 0, bonusInt = 0, bonusLuk = 0, maxUpgradeSlots = 0, starforce = true,
         }
         -- 스타포스 확률표(천분율). index = 현재 별 + 1. success = 성공(별+1), destroy = 파괴(12성 회귀).
