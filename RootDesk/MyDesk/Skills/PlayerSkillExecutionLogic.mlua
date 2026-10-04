@@ -11,21 +11,10 @@ script PlayerSkillExecutionLogic extends Logic
         -- 있으면 우선하고, 없으면 kind별 기본값을 쓴다. 엔진 기본 파티클 이름과 효과음 후보는 이미
         -- 로그로 해석/재생을 확인한 것만 사용한다(SparkExplosion, SmallExplosion, FlameThrower,
         -- ed1d73ce…, 24961c1b…, 3fcb3c48…, bfd15cd4…). 강한 근접(coef>=1.5)만 카메라 흔들림.
-        local defaults = {
-            melee_single = { particle = "SparkExplosion", sfx = "ed1d73ce75a94e449f38ca8de6d89316" },
-            dash         = { particle = "DustExplosion",  sfx = "bfd15cd4936541569249452f2b794bb7" },
-            ranged_single = { particle = "SmallExplosion", sfx = "24961c1bc7f7437fabe44352a5ea4a24" },
-            ranged_pierce = { particle = "CircleBurst",    sfx = "24961c1bc7f7437fabe44352a5ea4a24" },
-            multi_hit    = { particle = "SmallExplosion", sfx = "3fcb3c4812714068909373a46dc9efd5" },
-            debuff       = { particle = "SparkRadialExplosion", sfx = "bfd15cd4936541569249452f2b794bb7" },
-            weaken       = { particle = "SparkLoop",      sfx = "bfd15cd4936541569249452f2b794bb7" },
-            poison_apply = { particle = "DustExplosion",  sfx = "bfd15cd4936541569249452f2b794bb7" },
-            showdown     = { particle = "PillarBurst",    sfx = "bfd15cd4936541569249452f2b794bb7" },
-            buff         = { particle = "Buff",           sfx = "3fcb3c4812714068909373a46dc9efd5" },
-            combo_buff   = { particle = "Buff",           sfx = "3fcb3c4812714068909373a46dc9efd5" },
-            summon       = { particle = "Enchant",        sfx = nil },
-        }
-        local base = defaults[def.kind] or {}
+        -- 2026-10-04 정리 - kind별 공용 파티클/효과음 기본값은 제거했다. 기본 파티클(Buff/CircleBurst/Enchant 등)은
+        -- 메이플에 없던 파란 원 이펙트였고, 공용 효과음은 여러 스킬이 같은 소리를 내서 삭제했다. 이제 파티클은
+        -- 스킬별 값만 쓰고, 효과음은 스킬 팩의 원본 오디오(_audio/Use)를 스킬별 sfxRuid로 배정한 것만 재생한다.
+        local base = {}
         local heavy = (def.kind == "melee_single" and (def.coef or 0) >= 1.5)
         local shake = def.shakeIntensity
         if shake == nil and heavy then shake = 0.5 end
