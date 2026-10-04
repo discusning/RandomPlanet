@@ -157,7 +157,7 @@ script SkillCatalog extends Logic
             -- 1:1 매치), 전용 이펙트가 없는 순수 버프 스킬(오라 색만 다르고 실제 effect 클립이 없던
             -- 14종)은 한때 범용 버프 아이콘(5d499002...)을 공유했다. 2026-10-04 주석 정리: 현재 모든
             -- 스킬이 각자 iconRuid를 쓰며 5d499002...는 어떤 정의에서도 참조하지 않는다(주석 잔재).
-            powerstrike = { id = "powerstrike", shakeIntensity = 0.6, shakeDuration = 0.15, tier = 1, name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "81de0e57a0784a9fb23389e4513ec9c2", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
+            powerstrike = { id = "powerstrike", motion = "swingO1", shakeIntensity = 0.6, shakeDuration = 0.15, tier = 1, name = "파워 스트라이크", job = "검사", kind = "melee_single", coef = 1.8, cooldown = 3.0, mpCost = 8, impactDelay = 0.15, hitVfxRuid = "dad03b3a528348bf98295b01edd621a4", iconRuid = "81de0e57a0784a9fb23389e4513ec9c2", desc = "전방의 적을 강하게 내리쳐 평타의 180% 피해를 입힙니다." },
             -- 2026-09-24 유저 리포트("슬래시 블래스터 스킬(추가 뎀 100%)이 기본 공격과 같은 데미지를
             -- 줌") - coef=1.0은 "평타의 100% 피해"(=평타와 완전히 동일)로 정확히 그 값대로 동작하고
             -- 있었다(런타임 버그 아님). 하지만 위 2026-08-25 DPS계수(coef/cooldown) 방법론으로 보면
@@ -166,7 +166,7 @@ script SkillCatalog extends Logic
             -- 낮음). 광역기 특성(다수 적 동시 타격)을 감안해 단일 표적 최고계수(powerstrike 1.8)보다는
             -- 낮게, 그러나 평타보다는 확실히 세게 1.5로 상향(비율 0.375) - 첫 시도 값이라 추후 실플레이
             -- 피드백에 따라 재조정 가능.
-            slashblast = { id = "slashblast", tier = 1, name = "슬래시 블러스트", job = "검사", kind = "melee_single", coef = 1.5, wide = true, cooldown = 4.0, mpCost = 10, impactDelay = 0.2, hitVfxRuid = "84e78b6a57994330a5166e308648335d", iconRuid = "10f3bea783054f9085fcfdc92b06d9e8", desc = "전방 넓은 범위의 적에게 평타의 150% 피해를 입힙니다." },
+            slashblast = { id = "slashblast", motion = "swingT1", tier = 1, name = "슬래시 블러스트", job = "검사", kind = "melee_single", coef = 1.5, wide = true, cooldown = 4.0, mpCost = 10, impactDelay = 0.2, hitVfxRuid = "84e78b6a57994330a5166e308648335d", iconRuid = "10f3bea783054f9085fcfdc92b06d9e8", desc = "전방 넓은 범위의 적에게 평타의 150% 피해를 입힙니다." },
             -- 아이언 바디 (2026-08-19 전 스킬 이펙트 일괄 재검증 - 이번엔 GIF를 프레임 단위로 직접
             -- 열어서 확인): 이전 buffVfxRuid("1838b57c...", "파워 가드" affected 클립)는 실제로는
             -- 12프레임 중 겨우 3프레임에만 내용이 있고 그마저도 거의 흰색에 가까운 연한 살구색이라
@@ -188,7 +188,7 @@ script SkillCatalog extends Logic
             -- 미태깅)의 hit/0 요소가 실제 발톱으로 할퀸 3갈래 자국 형태와 정확히 일치(유저 확인),
             -- 다만 원본 색이 주황 계열이라 유저 요청대로 SpriteRendererComponent.Color 틴트로
             -- 초록/노랑 계열로 보정(PlayerSkillComponent.DoRanged가 projectileTintColor를 적용).
-            magicclaw = { id = "magicclaw", tier = 1, name = "매직 클로", job = "마법사", kind = "ranged_single", coef = 1.3, magic = true, cooldown = 2.5, mpCost = 10, projectileVfxRuid = "2a0d72e836fb4862aae83087035f3d2a", iconRuid = "2db08dc925e74b769c400671d00e09c0", projectileTintColor = Color(0.55, 1.0, 0.25, 1.0), desc = "마법 발톱을 날려 평타의 130% 마법 피해를 입힙니다." },
+            magicclaw = { id = "magicclaw", magic = true, tier = 1, name = "매직 클로", job = "마법사", kind = "ranged_single", coef = 1.3, magic = true, cooldown = 2.5, mpCost = 10, projectileVfxRuid = "2a0d72e836fb4862aae83087035f3d2a", iconRuid = "2db08dc925e74b769c400671d00e09c0", projectileTintColor = Color(0.55, 1.0, 0.25, 1.0), desc = "마법 발톱을 날려 평타의 130% 마법 피해를 입힙니다." },
             -- 매직 가드 (2026-08-17 이미지 재검증 후 수정): "매직 가드" 팩(skill/1200.img/
             -- skill/12001001)의 effect 클립을 실제로 열어보니 방패/보호막이 아니라 지팡이를 든
             -- 작은 요정 캐릭터 그림이었다(팩 이름은 정확히 일치했지만 내용물이 무관함 - 아이언
@@ -245,7 +245,7 @@ script SkillCatalog extends Logic
             -- 임팩트 플래시(팩에 ball 요소 없음, msw-search로 재확인)를 투사체로 재사용하던 것이라
             -- FireThrownDagger로 3연속 투척 시 같은 "깜빡임" 문제 발생 - doublestab과 동일한 근거로
             -- 범용 표창 ball(0af95ff09be14c389c1854f03c575e2e)로 교체.
-            summersaultkick = { id = "summersaultkick", hitSfxRuid = "1b54e03352ae4430ae39be54d2ee88f4", sfxRuid = "85398b7f1a5340469034ff1f67e6b412", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, melee = true, maxTargets = 6, hitVfxRuid = "3c5e92e92ef14b2a84ff5dbe3fc75746", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
+            summersaultkick = { id = "summersaultkick", motion = "jump", hitSfxRuid = "1b54e03352ae4430ae39be54d2ee88f4", sfxRuid = "85398b7f1a5340469034ff1f67e6b412", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, melee = true, maxTargets = 6, hitVfxRuid = "3c5e92e92ef14b2a84ff5dbe3fc75746", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 너클 부스터는 엑셀에 없는 구 스킬이라 삭제(해적 1차는
             -- 대시+써머솔트킥 2공격, 버프 없음 - 유저 지시 그대로).
 
@@ -281,7 +281,7 @@ script SkillCatalog extends Logic
             -- "초승달 발톱" 모양과 뚜렷이 구분되는 가로형 파란/하얀 섬광 클립(animationclip-662899,
             -- 143x67, 5프레임)으로 교체 - DoRanged가 FlipX로만 좌우를 뒤집으므로(회전 없음) 세로로
             -- 긴 낙뢰형 클립은 옆으로 날아갈 때 이상하게 보여 제외하고, 가로로 넓은 섬광형을 선택.
-            thunderbolt = { id = "thunderbolt", tier = 2, name = "썬더 볼트", job = "마법사", kind = "ranged_single", coef = 1.4, magic = true, cooldown = 3.0, mpCost = 12, projectileVfxRuid = "7b1fbc817b9a478e9f5c384dfc1a7176", iconRuid = "900201b321254d259bc709a670619f67", projectileTintColor = Color(0.5, 0.5, 1.0, 1.0), desc = "전방으로 번개를 날려 평타의 140% 마법 피해를 입힙니다." },
+            thunderbolt = { id = "thunderbolt", magic = true, tier = 2, name = "썬더 볼트", job = "마법사", kind = "ranged_single", coef = 1.4, magic = true, cooldown = 3.0, mpCost = 12, projectileVfxRuid = "7b1fbc817b9a478e9f5c384dfc1a7176", iconRuid = "900201b321254d259bc709a670619f67", projectileTintColor = Color(0.5, 0.5, 1.0, 1.0), desc = "전방으로 번개를 날려 평타의 140% 마법 피해를 입힙니다." },
             meditation = { id = "meditation", sfxRuid = "3fa020cfd70f495c89c39fd3a3dd480a", buffVfxRuid = "02ccb499bbe441ffbc40961905dc7f03", tier = 2, name = "메디테이션", job = "마법사", kind = "buff", duration = 8.0, testableEffect = "skilldmg", skillDmgBonus = 0.2, cooldown = 18.0, mpCost = 16, auraType = "SpinField", auraColor = Color(0.7, 0.4, 1.0, 0.9), iconRuid = "7ce1fce802be444284e63057114a9128", desc = "일정 시간 스킬 피해가 20% 증가합니다." },
             -- 2026-10-02 유저 엑셀 - 실제 명칭은 "더블 샷"이 아니라 "아이언 에로우"(수치/메커니즘은
             -- 기존과 완전히 동일 - multi_hit x2, 타격당 75%). "더블 샷"은 1차(위 arrowblow)로 이동.
@@ -303,7 +303,7 @@ script SkillCatalog extends Logic
             -- luckyseven/flamethrower/avenger의 범용 표창 ball(0af95ff09be14c389c1854f03c575e2e,
             -- 실제 "표창 던지기" 팩의 ball 요소 - 진짜 투사체 모양으로 검증됨)로 교체 - hit/0보다는
             -- 부정확해도(도적 단검질 느낌과는 맞음) 날아가는 모양 자체가 맞는 리소스를 우선.
-            doublestab = { id = "doublestab", hitSfxRuid = "b77afdd614194637949c7df3d002fc54", sfxRuid = "4cc1f2f305ce46b69a8c45129e9d0432", tier = 2, name = "새비지 블로우", job = "도적", kind = "multi_hit", coef = 0.8, hits = 6, cooldown = 4.0, mpCost = 13, melee = true, maxTargets = 1, hitVfxRuid = "895ac1e384ea42ca8dd084f54ff3346b", iconRuid = "801741bbc787448e9327589ab059e9e4", desc = "MP를 소비해 단검으로 적에게 6연속 공격을 가해 각 타격마다 평타의 80% 피해를 입힙니다." },
+            doublestab = { id = "doublestab", motion = "stabO1", hitSfxRuid = "b77afdd614194637949c7df3d002fc54", sfxRuid = "4cc1f2f305ce46b69a8c45129e9d0432", tier = 2, name = "새비지 블로우", job = "도적", kind = "multi_hit", coef = 0.8, hits = 6, cooldown = 4.0, mpCost = 13, melee = true, maxTargets = 1, hitVfxRuid = "895ac1e384ea42ca8dd084f54ff3346b", iconRuid = "801741bbc787448e9327589ab059e9e4", desc = "MP를 소비해 단검으로 적에게 6연속 공격을 가해 각 타격마다 평타의 80% 피해를 입힙니다." },
             haste = { id = "haste", sfxRuid = "64795afda95e4b7dbdbdfe731e7d405a", buffVfxRuid = "410e6a09f8ec471f87bd8d55c34cc48d",tier = 2, name = "헤이스트", job = "도적", kind = "buff", duration = 10.0, testableEffect = "movespeed", moveSpeedBonus = 2.0, cooldown = 20.0, mpCost = 12, auraType = "Buff", auraColor = Color(1.0, 0.9, 0.4, 0.9), iconRuid = "4e873e0f596c43169d9d1ab63b4b2fb5", desc = "10초간 이동 속도가 크게 증가합니다." },
             -- 2026-10-02 유저 엑셀 - 실제 명칭/메커니즘은 "플레임 스로어"(관통 110%)가 아니라
             -- "인비지블샷"(3연속 타격, 타격당 75%) - kind를 ranged_pierce에서 multi_hit으로 교체.
@@ -375,7 +375,7 @@ script SkillCatalog extends Logic
             -- 검증 완료"는 팩 소속 확인이었을 뿐, 실제 내용물은 hit/0(정지형 임팩트 플래시)이라
             -- doublestab/summersaultkick과 동일한 결함(투사체 모양이 아닌 걸 FireThrownDagger로
             -- 2연속 투척 - 깜빡임으로 보임). 같은 이유로 범용 표창 ball로 교체.
-            brandish = { id = "brandish", tier = 4, name = "브랜디쉬", job = "검사", kind = "multi_hit", coef = 1.35, hits = 2, cooldown = 5.0, mpCost = 18, melee = true, hitVfxRuid = "1c29e2f0793a48eb8aa40f697b93963d", iconRuid = "2065d60928804e8c80dac9477fdcee53", desc = "적 여러 명을 두 번 연속 공격해 각 타격마다 평타의 135% 피해를 입힙니다." },
+            brandish = { id = "brandish", motion = "swingO2", tier = 4, name = "브랜디쉬", job = "검사", kind = "multi_hit", coef = 1.35, hits = 2, cooldown = 5.0, mpCost = 18, melee = true, hitVfxRuid = "1c29e2f0793a48eb8aa40f697b93963d", iconRuid = "2065d60928804e8c80dac9477fdcee53", desc = "적 여러 명을 두 번 연속 공격해 각 타격마다 평타의 135% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 신규 - "어드밴스드 콤보 어택"(검사 4차 버프). 콤보 어택의 강화판 -
             -- 최대 스택 7(+2), 공격마다 37% 확률로 스택이 2개씩 충전. 기존 콤보 어택과는 독립된
             -- 별도 스킬(동시에 둘 다 소유해도 마지막으로 시전한 쪽만 활성 - StartCombo가 재시전 시
@@ -388,7 +388,7 @@ script SkillCatalog extends Logic
             -- 2026-10-02 VFX 패스 - 실제 "체인 라이트닝 강화"(skill/222.img/skill/2221006) 팩의
             -- 전기 번개 ball 클립으로 교체(기존 매직클로 재사용 주황 틴트 플레이스홀더 제거,
             -- tint 불필요).
-            meteorstrike = { id = "meteorstrike", hitSfxRuid = "36187759ab2f4bc293aeb035e4ea8d73", sfxRuid = "3c837a89f39e4e038b0a3a378de9a377", tier = 4, name = "체인 라이트닝", job = "마법사", kind = "ranged_pierce", coef = 1.8, magic = true, maxTargets = 3, cooldown = 4.5, mpCost = 20, projectileVfxRuid = "f61027d6e78440378e24408f96503d3a", iconRuid = "1e4a1707f9ea49a181cf3e0ace802d0f", desc = "고압의 전류로 적을 공격하며, 맞은 적 주위에 다른 적이 있으면 전기가 옮겨붙어 최대 3명까지 평타의 180% 마법 피해를 입힙니다." },
+            meteorstrike = { id = "meteorstrike", magic = true, hitSfxRuid = "36187759ab2f4bc293aeb035e4ea8d73", sfxRuid = "3c837a89f39e4e038b0a3a378de9a377", tier = 4, name = "체인 라이트닝", job = "마법사", kind = "ranged_pierce", coef = 1.8, magic = true, maxTargets = 3, cooldown = 4.5, mpCost = 20, projectileVfxRuid = "f61027d6e78440378e24408f96503d3a", iconRuid = "1e4a1707f9ea49a181cf3e0ace802d0f", desc = "고압의 전류로 적을 공격하며, 맞은 적 주위에 다른 적이 있으면 전기가 옮겨붙어 최대 3명까지 평타의 180% 마법 피해를 입힙니다." },
             infinity = { id = "infinity", buffVfxRuid = "1140322cfd5a4c40b1134e1159245059",tier = 4, name = "인피니티", job = "마법사", kind = "buff", duration = 10.0, testableEffect = "skilldmg", skillDmgBonus = 0.4, cooldown = 25.0, mpCost = 22, auraType = "Enchant", auraColor = Color(1.0, 0.95, 0.7, 0.95), iconRuid = "60d52e08abea43f4886fce4df7e6c63a", desc = "일정 시간 스킬 피해가 40% 증가합니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 허리케인/이글아이/아수라/마크 오브 어쌔신은 엑셀에
             -- 없는 구 스킬이라 삭제.

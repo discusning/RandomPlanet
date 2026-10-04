@@ -770,9 +770,7 @@ script PlayerSkillComponent extends Component
         -- body pose here since the "Skill"(Q) action isn't part of PlayerControllerComponent's
         -- auto-state set (only "Attack"/LeftControl is - see msw-avatar SKILL.md), so without this
         -- the character would stand idle while only the VFX/damage happen.
-        if def.kind ~= "dash" then
-            self:PlaySkillMotion(def.kind == "buff" and "Heal" or "Attack")
-        end
+        self:PlaySkillMotion(def)
 
         self:DispatchSkillEffect(def)
 
@@ -830,7 +828,7 @@ script PlayerSkillComponent extends Component
     end
 
     @ExecSpace("Client")
-    method void PlaySkillMotion(string poseName)
+    method void PlaySkillMotion(table def)
         -- 2026-09-15 코드 구조화 4/9 - 위임 래퍼, 본체는 Skills/PlayerSkillExecutionLogic.mlua.
         _PlayerSkillExecutionLogic:PlaySkillMotion(self, poseName)
     end

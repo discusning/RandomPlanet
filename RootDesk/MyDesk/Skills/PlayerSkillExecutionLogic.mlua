@@ -154,21 +154,39 @@ script PlayerSkillExecutionLogic extends Logic
     end
 
     @ExecSpace("Client")
-    method void PlaySkillMotion(PlayerSkillComponent skill, string poseName)
-        -- Replays a built-in avatar body pose (Attack swing / Heal self-cast) via a fresh
-        -- BodyActionStateChangeEvent instead of StateComponent:ChangeState("ATTACK") - the latter
-        -- gets silently stomped because PlayerControllerComponent re-evaluates real held keys every
-        -- tick and would immediately transition back to IDLE/MOVE since Q isn't in its own action
-        -- set (see msw-avatar SKILL.md "14 states vs custom actions" + its ChangeState pitfall).
-        -- Called with no target from ServerOnly code, so it's a broadcast RPC every nearby client sees.
-        local actionState = MapleAvatarBodyActionState.Attack
-        if poseName == "Heal" then
-            actionState = MapleAvatarBodyActionState.Heal
+    method void PlaySkillMotion(PlayerSkillComponent skill, table def)
+        -- 스킬별 캐릭터 동작을 한 번 재생한다. 동작 이름은 SkillMotionAction이 정한다(msw-avatar 문서의 사용자 지정 동작).
+        -- 바디 엔티티에 ActionStateChangedEvent를 보내야 재생된다(root 엔티티에 보내면 재생되지 않음).
+        local action = self:SkillMotionAction(def)
+        if action == nil then return end
+        local avatar = skill.Entity.AvatarRendererComponent
+        if not isvalid(avatar) then return end
+        local body = avatar:GetBodyEntity()
+        if not isvalid(body) then return end
+        body:SendEvent(ActionStateChangedEvent(action, action, 1, SpriteAnimClipPlayType.Onetime, 0, 2147483647))
+        log("PlayerSkill: " .. def.name .. " motion=" .. action)
+    end
+
+    method string SkillMotionAction(table def)
+        -- 카탈로그의 motion 지정이 우선. 없으면 종류별 기본 동작. nil이면 동작 없음(대시는 돌진 자체가 동작).
+        if def.motion ~= nil then return def.motion end
+        local kind = def.kind
+        if kind == "dash" then return nil end
+        if kind == "buff" or kind == "debuff" or kind == "weaken" or kind == "showdown" or kind == "poison_apply" or kind == "summon" then
+            return "alert"
         end
-        local event = BodyActionStateChangeEvent()
-        event.ActionState = actionState
-        event.needResetAction = true
-        skill.Entity:SendEvent(event)
+        if kind == "combo_buff" then return "swingO3" end
+        if def.magic == true then return "swingO2" end
+        if kind == "ranged_single" or kind == "ranged_pierce" then return "shoot1" end
+        if kind == "multi_hit" then
+            if def.melee == true then return "swingO1" end
+            return "shoot1"
+        end
+        if kind == "melee_single" then
+            if def.wide == true then return "swingT1" end
+            return "swingO1"
+        end
+        return "alert"
     end
 
     method integer PlayHitFx(string ruid, Entity caster, number x, number y, number z, number dir, number scale)
