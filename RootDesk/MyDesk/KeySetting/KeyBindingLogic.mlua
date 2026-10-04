@@ -559,15 +559,26 @@ script KeyBindingLogic extends Logic
             self._T.slotSkill[slot] = ""
             self._T.currentKeys[self:SlotActionName(slot)] = KeyboardKey.None
         end
+        local droppedStale = false
         for slot = 1, 8 do
             local rec = layout[tostring(slot)]
             if rec ~= nil and rec.skill ~= nil and rec.skill ~= "" and rec.key ~= nil then
-                local key = KeyboardKey.CastFrom(rec.key)
-                if key ~= nil and self:IsValidRebindKey(key) and self:GetActionForKey(key) == nil then
-                    self._T.slotSkill[slot] = rec.skill
-                    self._T.currentKeys[self:SlotActionName(slot)] = key
+                -- 카탈로그에서 삭제된 스킬(예: 호밍 제거)이 저장된 배치에 남아 있으면 버린다.
+                if _SkillCatalog:GetSkillDef(rec.skill) == nil then
+                    droppedStale = true
+                    log("KeyBinding: stale skill dropped slot=" .. slot .. " skill=" .. tostring(rec.skill))
+                else
+                    local key = KeyboardKey.CastFrom(rec.key)
+                    if key ~= nil and self:IsValidRebindKey(key) and self:GetActionForKey(key) == nil then
+                        self._T.slotSkill[slot] = rec.skill
+                        self._T.currentKeys[self:SlotActionName(slot)] = key
+                    end
                 end
             end
+        end
+        if droppedStale then
+            -- 정리된 배치를 로스터에 되써서, 다음 진입 때 삭제된 스킬이 다시 나타나지 않게 한다.
+            self:PersistSkillLayout()
         end
         for slot = 1, 8 do
             self:ApplyControllerBindingForAction(self:SlotActionName(slot))
