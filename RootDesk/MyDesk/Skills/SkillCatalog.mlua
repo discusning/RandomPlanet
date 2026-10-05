@@ -245,7 +245,7 @@ script SkillCatalog extends Logic
             -- 임팩트 플래시(팩에 ball 요소 없음, msw-search로 재확인)를 투사체로 재사용하던 것이라
             -- FireThrownDagger로 3연속 투척 시 같은 "깜빡임" 문제 발생 - doublestab과 동일한 근거로
             -- 범용 표창 ball(0af95ff09be14c389c1854f03c575e2e)로 교체.
-            summersaultkick = { id = "summersaultkick", motion = "jump", hitSfxRuid = "1b54e03352ae4430ae39be54d2ee88f4", sfxRuid = "85398b7f1a5340469034ff1f67e6b412", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, melee = true, maxTargets = 6, hitVfxRuid = "3c5e92e92ef14b2a84ff5dbe3fc75746", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
+            summersaultkick = { id = "summersaultkick", hitSfxRuid = "1b54e03352ae4430ae39be54d2ee88f4", sfxRuid = "85398b7f1a5340469034ff1f67e6b412", tier = 1, name = "써머솔트 킥", job = "해적", kind = "multi_hit", coef = 1.22, hits = 3, cooldown = 4.0, mpCost = 10, melee = true, maxTargets = 6, hitVfxRuid = "3c5e92e92ef14b2a84ff5dbe3fc75746", iconRuid = "09ff02798de24b43b4de0f5446d936d0", desc = "도약해 뒤로 회전하며 근접한 다수의 적에게 다리로 일격을 가해 각 타격마다 평타의 122% 피해를 입힙니다." },
             -- 2026-10-02 유저 엑셀 전체 반영 - 너클 부스터는 엑셀에 없는 구 스킬이라 삭제(해적 1차는
             -- 대시+써머솔트킥 2공격, 버프 없음 - 유저 지시 그대로).
 
