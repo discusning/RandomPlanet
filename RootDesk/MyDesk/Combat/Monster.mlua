@@ -25,6 +25,8 @@ script Monster extends Component
     property integer MesoDropChance = 70
     -- 필드에 스폰할 메소 드랍 모델(RootDesk/MyDesk/Models/MapObjects/MesoDrop.model)의 EntryKey.
     property string MesoDropModelId = "mesodrop"
+    -- 랜덤 스탯 구슬 드랍 모델(RootDesk/MyDesk/Models/MapObjects/StatOrb.model)의 EntryKey/Id.
+    property string StatOrbModelId = "d93656be-0ea3-4f2e-9215-c5a88708bb0b"
     -- Countered by the attacker's DEX-driven Accuracy stat (PlayerAttack.IsAttackTarget) - see
     -- Docs/랜덤 플래닛 전체 기획서.md §2-2 (민첩 -> 명중). 0 for a basic monster like this test slime;
     -- future tougher/evasive monster types can raise it.
@@ -469,6 +471,35 @@ script Monster extends Component
         end
         self:TryDropMeso(attacker)
         self:TryDropPotion(attacker)
+        self:TryDropStatOrb(attacker)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TryDropStatOrb(Entity attacker)
+        -- 랜덤 스탯 구슬 드랍(2026-10-05). 전장/카오스 게이트 맵에만 있는 FieldWaveSpawner의 난이도/게이트
+        -- 상태로 확률을 정한다(일반 맵/마을에는 스포너가 없어 드랍 없음). 확률 계산은 StatOrbLogic 참고.
+        if not isvalid(attacker) or not isvalid(attacker.PlayerComponent) then return end
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then return end
+        local spawner = map:GetComponent("script.FieldWaveSpawner")
+        if not isvalid(spawner) then return end
+        local chance = _StatOrbLogic:GetDropChancePercent(spawner.IsGateMode, spawner.DifficultyTier)
+        if _UtilLogic:RandomDouble() * 100 >= chance then return end
+
+        local deathPos = self.Entity.TransformComponent.WorldPosition
+        local jitterX = (_UtilLogic:RandomDouble() - 0.5) * 0.6
+        local dropPos = Vector3(deathPos.x + jitterX, deathPos.y + 0.3, 0)
+        local orb = _SpawnService:SpawnByModelId(self.StatOrbModelId, "StatOrb", dropPos, map)
+        if orb == nil then
+            log_error("Monster: TryDropStatOrb SpawnByModelId returned nil for modelId=" .. self.StatOrbModelId)
+            return
+        end
+        local orbComp = orb:GetComponent("script.StatOrbItem")
+        if isvalid(orbComp) then
+            orbComp.Stat = _StatOrbLogic:RollOrbStat()
+            orbComp.Amount = _StatOrbLogic:RollOrbAmount()
+        end
+        log("Monster: stat orb dropped chance=" .. string.format("%.2f", chance) .. "%")
     end
 
     @ExecSpace("ServerOnly")

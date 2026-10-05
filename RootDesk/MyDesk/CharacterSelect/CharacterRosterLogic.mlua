@@ -527,6 +527,19 @@ script CharacterRosterLogic extends Logic
         self:RefreshInventoryWindowIfOpen()
     end
 
+    @ExecSpace("Client")
+    method void GrantStatOrbGain(string stat, integer amount)
+        -- 랜덤 스탯 구슬 흡수 누적치(색상 "+N" 표시용). 실제 스탯 증가는 서버(StatOrbLogic.ApplyPickupGain)가
+        -- 런 중 실시간 스탯에 이미 반영했고, 기본값 저장은 UpdateActiveBaseStat 경로가 담당한다. 이 RPC는
+        -- 힘/럭/인트/덱스별로 얼마나 올랐는지만 로스터에 누적해 캐릭터 카드/정보창이 색으로 보여줄 수 있게 한다.
+        local data = self:GetActiveCharacterData()
+        if data == nil then return end
+        data.orbGain = data.orbGain or {}
+        data.orbGain[stat] = (data.orbGain[stat] or 0) + amount
+        self:SaveRoster()
+        log("CharacterRoster: orb gain " .. stat .. " +" .. amount .. " total=" .. data.orbGain[stat])
+    end
+
     @ExecSpace("ClientOnly")
     method integer GetGold()
         -- 골드 (2026-09-20 유저 요청 "정수와 인게임 골드는 구별") - 캐릭터가 전장에서 벌어 물약 등을

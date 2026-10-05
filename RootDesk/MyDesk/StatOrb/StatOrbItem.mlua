@@ -1,0 +1,81 @@
+@Component
+script StatOrbItem extends Component
+    -- 랜덤 스탯 구슬 엔티티(2026-10-05). 몬스터가 처치 시 확률로 떨어뜨리며(Monster.TryDropStatOrb), 근처에
+    -- 있는 플레이어를 자석처럼 끌어당겨 가까워지면 자동으로 흡수한다(줍기 키 불필요).
+    -- 자석 판정은 서버 타이머(0.1초 간격)로 맵 내 플레이어 위치만 훑는다 - 구슬이 몇 개 안 쌓이므로 충분.
+
+    -- 종류(Str/Dex/Intel/Luk)와 수치. @Sync라 클라이언트가 같은 색을 그릴 수 있다.
+    @Sync @HideFromInspector property string Stat = ""
+    @Sync @HideFromInspector property integer Amount = 1
+    -- 자석이 작동하는 반경(월드 단위, 1 unit = 100px)과 끌려가는 속도.
+    property number MagnetRadius = 1.8
+    property number MagnetSpeed = 6.0
+    -- 이 거리 안으로 들어오면 흡수.
+    property number PickupRadius = 0.4
+    -- 방치 시 자동 소멸(초) - 메소와 같은 기준.
+    property number DespawnSeconds = 25
+    @HideFromInspector property any tickTimerId = nil
+    @HideFromInspector property any despawnTimerId = nil
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- 0.1초마다 자석 판정. 소멸 타이머는 방치된 구슬을 정리한다.
+        self.tickTimerId = _TimerService:SetTimerRepeat(function() self:Tick() end, 0.1)
+        self.despawnTimerId = _TimerService:SetTimerOnce(function()
+            if isvalid(self.Entity) then
+                _EntityService:Destroy(self.Entity)
+            end
+        end, self.DespawnSeconds)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        if self.tickTimerId then _TimerService:ClearTimer(self.tickTimerId) end
+        if self.despawnTimerId then _TimerService:ClearTimer(self.despawnTimerId) end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Tick()
+        -- 같은 맵의 플레이어 중 가장 가까운 한 명을 고른다. 자석 반경 안이면 그쪽으로 이동하고,
+        -- 흡수 반경 안이면 흡수 처리 후 자신을 제거한다.
+        if not isvalid(self.Entity) or self.Stat == "" then return end
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then return end
+        local users = _UserService:GetUsersByMapComponent(map.MapComponent)
+        if users == nil then return end
+        local myPos = self.Entity.TransformComponent.WorldPosition
+        local bestUser = nil
+        local bestDist = self.MagnetRadius
+        for _, user in ipairs(users) do
+            local p = user.TransformComponent.WorldPosition
+            local dx = p.x - myPos.x
+            local dy = p.y - myPos.y
+            local d = math.sqrt(dx * dx + dy * dy)
+            if d <= bestDist then
+                bestDist = d
+                bestUser = user
+            end
+        end
+        if bestUser == nil then return end
+        local target = bestUser.TransformComponent.WorldPosition
+        if bestDist <= self.PickupRadius then
+            _StatOrbLogic:ApplyPickupGain(bestUser, self.Stat, self.Amount)
+            _EntityService:Destroy(self.Entity)
+            return
+        end
+        -- 한 틱(0.1초) 동안 이동할 거리만큼 목표 쪽으로 이동한다(목표를 넘지 않게 클램프).
+        local step = math.min(bestDist, self.MagnetSpeed * 0.1)
+        local nx = myPos.x + (target.x - myPos.x) / bestDist * step
+        local ny = myPos.y + (target.y - myPos.y) / bestDist * step
+        self.Entity.TransformComponent.WorldPosition = Vector3(nx, ny, myPos.z)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSyncProperty(string name, any value)
+        -- 종류가 동기화되면 그 종류의 색을 구슬 스프라이트에 입힌다(힘 빨강/럭 노랑/인트 파랑/덱스 초록).
+        if name == "Stat" and isvalid(self.Entity.SpriteRendererComponent) then
+            self.Entity.SpriteRendererComponent.Color = _StatOrbLogic:GetOrbColor(value)
+        end
+    end
+
+end
