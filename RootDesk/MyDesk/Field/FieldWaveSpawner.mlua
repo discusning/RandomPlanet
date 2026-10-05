@@ -70,6 +70,10 @@ script FieldWaveSpawner extends Component
     -- FieldTravelLogic에서 이 값을 다시 끈다.
     @Sync @HideFromInspector property boolean IsBossRaid = false
     @Sync @HideFromInspector property integer BossRaidTier = 0
+    -- 2026-10-05 - 레이드 보스는 한 마리라 킬당 확률이 의미가 없어, 클리어 시 스탯 구슬을 확정 드랍한다
+    -- (개수만 조정 가능). 구슬 모델은 Monster.StatOrbModelId와 같은 StatOrb.model.
+    property integer RaidStatOrbCount = 1
+    property string StatOrbModelId = "d93656be-0ea3-4f2e-9215-c5a88708bb0b"
 
     @HideFromInspector property integer TimerId = 0
     -- 카오스 던전 참고 - "웨이브 N" + "작전 진행도"(처치수/목표) 두 값 모두 클라이언트 HUD가
@@ -319,6 +323,19 @@ script FieldWaveSpawner extends Component
         for _, user in ipairs(users) do
             _BossRaidLogic:GrantRaidClear(user, self.BossRaidTier)
         end
+        -- 확정 드랍: 보스가 있던 자리(소환 위치)에 구슬을 RaidStatOrbCount개 떨어뜨린다. 종류/수치는 일반 구슬과 같은 추첨.
+        local pos = Vector3((self.LeftSpawnX + self.RightSpawnX) / 2, self.SpawnY + 0.3, 0)
+        for i = 1, self.RaidStatOrbCount do
+            local orb = _SpawnService:SpawnByModelId(self.StatOrbModelId, "StatOrb", Vector3(pos.x + (i - 1) * 0.4, pos.y, 0), map)
+            if orb ~= nil then
+                local orbComp = orb:GetComponent("script.StatOrbItem")
+                if isvalid(orbComp) then
+                    orbComp.Stat = _StatOrbLogic:RollOrbStat()
+                    orbComp.Amount = _StatOrbLogic:RollOrbAmount()
+                end
+            end
+        end
+        log("FieldWaveSpawner: raid clear dropped " .. self.RaidStatOrbCount .. " stat orb(s)")
     end
 
     @ExecSpace("ServerOnly")
