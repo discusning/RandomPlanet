@@ -77,6 +77,8 @@ script Monster extends Component
     -- M2 Phase B 2단계(2026-09-06) - 동전 던지기 사형집행인(onCritExecuteChance)의 "보스 제외" 규칙용.
     -- 기본값 false, 미니보스 개체(FieldMiniBoss)만 true로 오버라이드된다.
     property boolean IsBoss = false
+    -- 2026-10-05 레벨 차이 데미지 보정(PlayerAttack.GetLevelDamageMultiplier)의 기준 레벨. 맵 스포너가 설정한다.
+    property integer Level = 1
 
     method void OnBeginPlay()
         -- Initializes HP and wires the defender-side damage skin id.

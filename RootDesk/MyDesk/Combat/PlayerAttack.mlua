@@ -105,6 +105,16 @@ script PlayerAttack extends AttackComponent
         self:AttackFast(self.Shape, "melee.basic", CollisionGroups.Monster)
     end
 
+    method number GetLevelDamageMultiplier(integer playerLevel, integer monsterLevel)
+        -- 레벨 차이 데미지 배율(캐릭터 레벨 - 대상 레벨). 차이 10 이상 150%, 5~9 120%(메이플 기준), 1~4는 차이에
+        -- 비례해 100~116%, 동일/낮은 적은 100%. 몬스터가 더 높은 레벨일 때 감소는 두지 않는다(유저 룰).
+        local diff = playerLevel - monsterLevel
+        if diff >= 10 then return 1.5 end
+        if diff >= 5 then return 1.2 end
+        if diff >= 1 then return 1.0 + 0.04 * diff end
+        return 1.0
+    end
+
     method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
         -- 신중함(firstHitBonus) - 웨이브가 바뀐 뒤 첫 타격에만 데미지% 보너스. 집중(firstHitCritOnWaveStart)
         -- 의 LastCritWaveNumber와 동일한 웨이브-추적 패턴, 대상만 크리 확정 대신 데미지 배율.
@@ -147,6 +157,12 @@ script PlayerAttack extends AttackComponent
         local targetMonster = defender:GetComponent("script.Monster")
         if isvalid(targetMonster) and targetMonster.DamageTakenMultiplier ~= 1.0 then
             dmg = math.floor(dmg * targetMonster.DamageTakenMultiplier)
+        end
+
+        -- 2026-10-05 레벨 차이 데미지 보정 - 캐릭터가 대상보다 높은 레벨일수록 준 피해가 커진다(메이플 룰 참고:
+        -- 5레벨 이상 높으면 120%). 유저 기준으로 차이가 크면 150%, 동일/낮은 적은 100%.
+        if isvalid(statsComp) and isvalid(targetMonster) then
+            dmg = math.floor(dmg * self:GetLevelDamageMultiplier(statsComp.Level, targetMonster.Level))
         end
 
         -- 마크 오브 어쌔신(도적 3차, 패시브) - 장착 중일 때만 발동. 공격 시 40% 확률로 표식을 남기고,

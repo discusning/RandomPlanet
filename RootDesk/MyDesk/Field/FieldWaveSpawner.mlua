@@ -23,6 +23,8 @@ script FieldWaveSpawner extends Component
     -- 일반 웨이브 대신 미니보스를 소환한다(SpawnMiniBoss) - 전장은 미니보스를 처치해야 비로소
     -- 클리어된다(GDD §3 core loop "미니보스 처치 → 클리어" 원안 반영, Phase 4).
     property integer MaxWaveNumber = 5
+    -- 2026-10-05 필드 몬스터의 기준 레벨(레벨 차이 데미지 보정용). 맵별로 조정한다 - 기본 1.
+    property integer MonsterLevel = 1
 
     -- M2 Phase E(2026-09-06) - 몬스터 게이트(전체 기획서 §5-2). 이 컴포넌트가 붙은 전장(토벌전장3)을
     -- "게이트 모드"로 전환하는 플래그 - 전용 맵을 새로 만들지 않고 기존 MapleTile 전장을 재사용한다
@@ -571,6 +573,11 @@ script FieldWaveSpawner extends Component
             if isvalid(monsterAttack) then
                 monsterAttack.AttackDamage = monsterAttack.AttackDamage * statMult
             end
+        end
+        -- 2026-10-05 레벨 차이 데미지 보정의 기준 레벨을 몬스터에 설정한다(PlayerAttack.GetLevelDamageMultiplier).
+        local spawnedMonster = e:GetComponent("script.Monster")
+        if isvalid(spawnedMonster) then
+            spawnedMonster.Level = self.MonsterLevel
         end
         table.insert(self._T.tracked, e)
     end
