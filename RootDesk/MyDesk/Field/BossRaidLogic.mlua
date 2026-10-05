@@ -18,13 +18,15 @@ script BossRaidLogic extends Logic
 
     method table GetTierStats(integer tier)
         -- 단계별 보스 수치. 정의되지 않은 단계(nil)는 "준비 중"으로 취급해 입장 불가.
-        -- 체력/공격력은 2~3차 전직 캐릭터 기준 초기 추정치 - 인게임 측정 후 조정한다.
+        -- 2026-10-05 측정 - 런 시작 캐릭터 기본 공격력 11.5, 공격 간격 약 0.6초(약 20 DPS). 체력 3000이면
+        -- 150초라 비현실적이고, 보스 공격 20은 기본 최대 체력 60을 3번에 날리므로 체력 900(약 45초)·공격 6으로
+        -- 낮췄다. 2~3차 캐릭터 기준 실제 교전으로 한 번 더 확인해 조정한다.
         if tier == 1 then
             return {
                 name = "주니어 발록",
                 modelId = "f137bdcd-fc32-4ea4-9b11-5346580c1b61",
-                hp = 3000,
-                attack = 20,
+                hp = 900,
+                attack = 6,
                 xp = 600,
                 inputSpeed = 1.0,
             }
