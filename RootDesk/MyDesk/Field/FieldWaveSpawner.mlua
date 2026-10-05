@@ -65,6 +65,12 @@ script FieldWaveSpawner extends Component
     -- "방금 스폰됐다"를 감지 - RPC/이벤트 브로드캐스트 없이 기존 폴링 인프라 그대로 재사용).
     @Sync @HideFromInspector property integer MiniBossSpawnSerial = 0
 
+    -- 보스 레이드(2026-10-05) - BossRaidLogic.RequestEnterBossRaid가 텔레포트 직전에 켠다. 켜진 동안은
+    -- 일반 웨이브 스폰을 막고 해당 단계 보스 1마리만 소환한다(TickBossRaid). 일반 전장 입장이
+    -- FieldTravelLogic에서 이 값을 다시 끈다.
+    @Sync @HideFromInspector property boolean IsBossRaid = false
+    @Sync @HideFromInspector property integer BossRaidTier = 0
+
     @HideFromInspector property integer TimerId = 0
     -- 카오스 던전 참고 - "웨이브 N" + "작전 진행도"(처치수/목표) 두 값 모두 클라이언트 HUD가
     -- 읽어야 하므로 @Sync. 목표치를 채우면 남은 시간과 무관하게 즉시 다음 웨이브로 넘어간다
@@ -119,6 +125,10 @@ script FieldWaveSpawner extends Component
         end
         self.IsFieldEmpty = false
         if self.FieldCleared then return end
+        if self.IsBossRaid then
+            self:TickBossRaid()
+            return
+        end
         if self.MiniBossActive then
             self:TickMiniBoss()
             return
@@ -241,6 +251,77 @@ script FieldWaveSpawner extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void TickBossRaid()
+        -- 보스 레이드 진행 - 아직 소환 전이면 보스를 소환하고, 소환 후에는 일반 미니보스 추적(TickMiniBoss)을
+        -- 그대로 써서 처치 시 ClearField가 호출되게 한다.
+        if not self.MiniBossSpawned then
+            self:SpawnRaidBoss()
+            return
+        end
+        if self.MiniBossActive then
+            self:TickMiniBoss()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SpawnRaidBoss()
+        -- 레이드 보스 소환 - 수치는 BossRaidLogic.GetTierStats(단계)에서 가져온다(일반 전장 미니보스 배율과 무관).
+        self.MiniBossSpawned = true
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then
+            self.MiniBossSpawned = false
+            return
+        end
+        local stats = _BossRaidLogic:GetTierStats(self.BossRaidTier)
+        if stats == nil then
+            log_error("FieldWaveSpawner: no raid stats for tier=" .. tostring(self.BossRaidTier))
+            self.MiniBossSpawned = false
+            return
+        end
+        local pos = Vector3((self.LeftSpawnX + self.RightSpawnX) / 2, self.SpawnY, 0)
+        local e = _SpawnService:SpawnByModelId(stats.modelId, stats.name, pos, map)
+        if e == nil then
+            log_error("FieldWaveSpawner: SpawnByModelId returned nil for raid modelId=" .. stats.modelId)
+            self.MiniBossSpawned = false
+            return
+        end
+        local monster = e:GetComponent("script.Monster")
+        if isvalid(monster) then
+            monster.MaxHp = stats.hp
+            monster.Hp = stats.hp
+            monster.XpReward = stats.xp
+            -- 보스 분기(전직 퀘스트 기록/보스 처치 연출)는 일반 미니보스와 같이 탄다.
+            monster.IsBoss = true
+        end
+        local attack = e:GetComponent("script.MonsterAttack")
+        if isvalid(attack) then
+            attack.AttackDamage = stats.attack
+        end
+        local move = e.MovementComponent
+        if isvalid(move) then
+            move.InputSpeed = stats.inputSpeed
+        end
+        self._T.miniBossEntity = e
+        self.MiniBossName = stats.name
+        self.MiniBossActive = true
+        self.MiniBossHp = stats.hp
+        self.MiniBossSpawnSerial = self.MiniBossSpawnSerial + 1
+        log("FieldWaveSpawner: raid boss spawned name=" .. stats.name .. " tier=" .. self.BossRaidTier .. " hp=" .. stats.hp)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantBossRaidClears()
+        -- 레이드 클리어 - 현장에 있던 모든 플레이어에게 해당 단계 해금 진행도를 기록한다.
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then return end
+        local users = _UserService:GetUsersByMapComponent(map.MapComponent)
+        if users == nil then return end
+        for _, user in ipairs(users) do
+            _BossRaidLogic:GrantRaidClear(user, self.BossRaidTier)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
     method void TickMiniBoss()
         -- 미니보스 생존 중엔 매 프레임 Hp를 미러링(HUD 게이지용), 죽어서 엔티티가 사라지면(script.
         -- Monster.Dead의 DestroyDelay 이후 Destroy) 그 순간 전장을 클리어 처리한다.
@@ -264,7 +345,9 @@ script FieldWaveSpawner extends Component
             _TimerService:ClearTimer(self.TimerId)
             self.TimerId = 0
         end
-        if self.IsGateMode then
+        if self.IsBossRaid then
+            self:GrantBossRaidClears()
+        elseif self.IsGateMode then
             self:GrantGateClearRewards()
         else
             self:RollGateTicketDrop()
@@ -411,6 +494,8 @@ script FieldWaveSpawner extends Component
         -- is reached.
         -- 2026-09-22 타임 스톱 - 이능/스킬 선택 중엔 새 몬스터를 스폰하지 않는다.
         if _TimeStopLogic.Stopped then return end
+        -- 보스 레이드 중에는 일반 웨이브 몬스터를 스폰하지 않는다(보스 1마리만 - TickBossRaid).
+        if self.IsBossRaid then return end
         local map = self.Entity.CurrentMap
         if not isvalid(map) then
             return

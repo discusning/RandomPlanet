@@ -49,6 +49,8 @@ script FieldTravelLogic extends Logic
             local spawner = targetMap:GetComponent("script.FieldWaveSpawner")
             if isvalid(spawner) then
                 spawner.DifficultyTier = tier
+                -- 보스 레이드(BossRaidLogic)는 같은 토벌전장3 맵을 쓰므로, 일반 전장 입장이면 레이드 모드를 끈다.
+                spawner.IsBossRaid = false
             end
         end
         log("CharacterRoster: RequestEnterBattlefield fieldIndex=" .. fieldIndex .. " tier=" .. tier .. " rewardBonus=" .. tostring(rewardBonus))

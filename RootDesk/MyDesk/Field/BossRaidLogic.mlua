@@ -1,0 +1,155 @@
+@Logic
+script BossRaidLogic extends Logic
+    -- 보스 레이드(2026-10-05) - 3층 보스 포탈. 단계별 보스를 순서대로 처치해야 다음 단계가 열린다.
+    -- 1단계(주니어 발록)만 기본 개방, N단계는 (N-1)단계 보스 처치 후 해금. 해금 진행도는 계정(ProfileCode)
+    -- 단위로 로스터와 별도 DataStorage 키에 저장한다(로스터 JSON 구조를 건드리지 않기 위해).
+    -- 레이드 장소는 토벌전장3 맵을 재사용하고, FieldWaveSpawner의 IsBossRaid 모드로 웨이브 대신 보스만 소환한다.
+
+    property string ProgressStorageName = "BossRaidProgress"
+    property string RaidMapName = "토벌전장3"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- 로드 전에는 0(아무 단계도 안 깸)으로 두고, 서버 응답(OnBossProgressLoaded)으로 갱신한다.
+        self._T.clearedTier = 0
+        self._T.loadComplete = false
+        self:RequestLoadBossProgress()
+    end
+
+    method table GetTierStats(integer tier)
+        -- 단계별 보스 수치. 정의되지 않은 단계(nil)는 "준비 중"으로 취급해 입장 불가.
+        -- 체력/공격력은 2~3차 전직 캐릭터 기준 초기 추정치 - 인게임 측정 후 조정한다.
+        if tier == 1 then
+            return {
+                name = "주니어 발록",
+                modelId = "f137bdcd-fc32-4ea4-9b11-5346580c1b61",
+                hp = 3000,
+                attack = 20,
+                xp = 600,
+                inputSpeed = 1.0,
+            }
+        end
+        return nil
+    end
+
+    method boolean IsTierUnlockedFor(integer clearedTier, integer tier)
+        -- 정의된 단계이고, 바로 아래 단계를 깼거나(1단계는 항상 개방) 이미 깬 단계보다 아래면 열림.
+        if self:GetTierStats(tier) == nil then
+            return false
+        end
+        if tier == 1 then
+            return true
+        end
+        return clearedTier >= tier - 1
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer GetClearedTier()
+        return self._T.clearedTier or 0
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsProgressLoaded()
+        return self._T.loadComplete == true
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsTierUnlocked(integer tier)
+        -- 클라이언트 표시/사전 확인용. 실제 입장 허용 여부는 RequestEnterBossRaid가 서버에서 다시 판정한다.
+        return self:IsTierUnlockedFor(self:GetClearedTier(), tier)
+    end
+
+    @ExecSpace("Server")
+    method void RequestLoadBossProgress()
+        -- 접속자 본인의 해금 진행도를 읽어 이 클라이언트에 돌려준다.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local cleared = self:ReadClearedTier(player.PlayerComponent.ProfileCode)
+        if cleared == nil then
+            log_error("BossRaid: progress read failed, keeping locked state")
+            return
+        end
+        self:OnBossProgressLoaded(cleared, senderUserId)
+    end
+
+    @ExecSpace("Client")
+    method void OnBossProgressLoaded(integer clearedTier)
+        -- 서버가 읽은 값을 로컬 미러에 반영한다. 팝업은 열릴 때마다 RefreshBossRows로 다시 그리므로 여기선 갱신만 한다.
+        self._T.clearedTier = clearedTier
+        self._T.loadComplete = true
+        log("BossRaid: progress loaded clearedTier=" .. clearedTier)
+    end
+
+    @ExecSpace("ServerOnly")
+    method integer ReadClearedTier(string profileCode)
+        -- 깬 최고 단계 번호(없으면 0). 읽기 자체가 실패하면 nil - 호출부는 nil이면 잠긴 상태로 취급한다
+        -- (실패 시 저장값을 덮어쓰지 않도록 하기 위함).
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local errorCode, raw = storage:GetAndWait(self.ProgressStorageName)
+        if errorCode == 1000002 then
+            return 0
+        end
+        if errorCode ~= 0 then
+            return nil
+        end
+        if raw == nil or raw == "" then
+            return 0
+        end
+        local decoded = _HttpService:JSONDecode(raw)
+        return tonumber(decoded.clearedTier) or 0
+    end
+
+    @ExecSpace("Server")
+    method void RequestEnterBossRaid(integer tier)
+        -- 입장 요청 - 클라이언트 표시와 무관하게 서버에서 해금 여부를 다시 확인한 뒤에만 보낸다.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then
+            return
+        end
+        local cleared = self:ReadClearedTier(player.PlayerComponent.ProfileCode)
+        if cleared == nil or not self:IsTierUnlockedFor(cleared, tier) then
+            log_warning("BossRaid: enter denied tier=" .. tostring(tier) .. " cleared=" .. tostring(cleared))
+            return
+        end
+        local map = _EntityService:GetEntityByPath("/maps/" .. self.RaidMapName)
+        if not isvalid(map) then
+            log_error("BossRaid: raid map not found")
+            return
+        end
+        local spawner = map:GetComponent("script.FieldWaveSpawner")
+        if not isvalid(spawner) then
+            log_error("BossRaid: spawner missing on raid map")
+            return
+        end
+        -- 레이드 모드를 켠 뒤 텔레포트한다. 일반 전장 입장(FieldTravelLogic)은 이 플래그를 다시 끈다.
+        spawner.BossRaidTier = tier
+        spawner.IsBossRaid = true
+        log("BossRaid: enter tier=" .. tier .. " cleared=" .. cleared)
+        _TeleportService:TeleportToMapPosition(player, Vector3(0, 5.34, 0), self.RaidMapName)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantRaidClear(Entity player, integer tier)
+        -- 보스 처치 시 호출(FieldWaveSpawner.ClearField). 더 높은 단계로만 갱신한다.
+        local profileCode = player.PlayerComponent.ProfileCode
+        local cleared = self:ReadClearedTier(profileCode)
+        if cleared == nil then
+            log_error("BossRaid: GrantRaidClear skipped, progress read failed")
+            return
+        end
+        if tier <= cleared then
+            return
+        end
+        local storage = _DataStorageService:GetUserDataStorage(profileCode)
+        local json = _HttpService:JSONEncode({ clearedTier = tier })
+        storage:SetAsync(self.ProgressStorageName, json, function(errorCode, key)
+            if errorCode ~= 0 then
+                log_error("BossRaid: GrantRaidClear SetAsync failed, errorCode=" .. tostring(errorCode))
+            end
+        end)
+        log("BossRaid: cleared tier=" .. tier .. " (was " .. cleared .. ")")
+    end
+
+end
