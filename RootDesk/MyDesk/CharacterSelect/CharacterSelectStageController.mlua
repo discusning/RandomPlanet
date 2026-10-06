@@ -22,7 +22,17 @@ script CharacterSelectStageController extends Component
         self._T.lastTouchIndex = nil
         self._T.lastTouchTime = -1
         self._T.pendingOpenCard = false
+        self._T.pendingCreates = {}
         self:InitRandomPools()
+
+        -- Warm the skill pools off the click path. The first GetSkillsByCategoryLocal call per session takes
+        -- 8-15 s; when it ran inside CreateCharacter the click handler was observed to stall there and never
+        -- reach the roster write / currency request. Warmed here, the creation itself runs in well under 1 s.
+        _TimerService:SetTimerOnce(function()
+            if isvalid(self.Entity) then
+                self:WarmSkillPools()
+            end
+        end, 2)
 
         -- Standee clicks go through ScreenTouchEvent + world-position hit testing (OnScreenTouched),
         -- not per-standee TouchReceiveComponent/TouchEvent - see OnScreenTouched for why.
@@ -222,7 +232,16 @@ script CharacterSelectStageController extends Component
         -- M2 Phase B(2026-09-06) - 축소 풀(6종)에서 전체 특성 풀(115종, TraitRollLogic의 5풀
         -- 가중치+천장)로 교체. M2 Phase G(2026-09-06) - 계정 영구 강화("좋은 특성 가중치 상승")
         -- 레벨을 여기서 넘긴다(캐릭터 생성 시점에만 적용, TraitRollLogic.RollTrait 주석 참고).
-        local trait = _TraitRollLogic:RollTrait(_AccountCurrencyLogic:GetUpgradeLevel())
+        -- 정수 500 이상이면 생성 시 500을 소모해 좋은 특성(히든 좋음 풀, "hg")을 뽑는다. 아니면 기존 추첨.
+        -- 정수는 캐릭터 1회 생성마다 +100 적립되며, 소모/적립은 서버가 처리한다(AccountCurrencyLogic.RequestCreationCurrency).
+        local boostCost = _AccountCurrencyLogic:GetCreationBoostCost()
+        local consumeBoost = _AccountCurrencyLogic:GetCurrency() >= boostCost
+        local trait
+        if consumeBoost then
+            trait = _TraitRollLogic:PickFromPool("hg")
+        else
+            trait = _TraitRollLogic:RollTrait(_AccountCurrencyLogic:GetUpgradeLevel())
+        end
         local look = {
             body = self._T.bodyPool[_UtilLogic:RandomIntegerRange(1, #self._T.bodyPool)],
             hair = self._T.hairPool[_UtilLogic:RandomIntegerRange(1, #self._T.hairPool)],
@@ -245,13 +264,57 @@ script CharacterSelectStageController extends Component
         _EquipmentLogic:GrantStarterKit(roster[idx])
         -- 2026-09-14 QA - 위 게이트 비활성화로 QA 중엔 6회를 넘겨도 계속 생성 가능해진 만큼, 카운터가
         -- 음수로 표시되는 것만 막아둔다(0 하한) - 게이트를 다시 켜면 이 clamp는 그대로 둬도 무해.
-        _CharacterRosterLogic:SetDailyRemaining(math.max(0, _CharacterRosterLogic:GetDailyRemaining() - 1))
+        local dailyBefore = _CharacterRosterLogic:GetDailyRemaining()
+        _CharacterRosterLogic:SetDailyRemaining(math.max(0, dailyBefore - 1))
         self._T.justCreatedIndex = idx
+
+        -- Root cause of "creation does not persist": the new slot was written into the in-memory roster
+        -- and nothing saved it explicitly. The only save on this path was the implicit one inside
+        -- SetDailyRemaining, which is an accident of that setter, not a guarantee. Save the roster here
+        -- deliberately so the slot survives a reload regardless of what that setter does.
+        _CharacterRosterLogic:SaveRoster()
 
         -- roster[idx].equipment is nil at this point (nothing equipped yet, everything just
         -- landed in inventory) - ApplyLookToStandee/EquipmentLogic handle a nil equipment table.
         _CharacterRosterLogic:ApplyLookToStandee(self._T.standees[idx], look, roster[idx].equipment)
+        -- 캐릭터가 실제로 만들어진 뒤에만 정수를 적립/소모한다(생성 실패 시 정수가 빠지지 않도록).
+        -- The result comes back asynchronously (AccountCurrencyLogic.OnCreationCurrencyResult ->
+        -- OnCreationResult). If the server refuses, OnCreationResult removes this slot again, so a
+        -- consumed boost trait never stands without the 500 being paid.
+        table.insert(self._T.pendingCreates, { idx = idx, data = roster[idx], dailyBefore = dailyBefore })
+        _AccountCurrencyLogic:RequestCreationCurrency(consumeBoost)
         log("CharacterSelectStage: created character in slot " .. idx .. " trait=" .. trait)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void WarmSkillPools()
+        -- Builds the attack/buff pools once so later CreateCharacter calls hit the cache (see OnBeginPlay).
+        local atkPool = _SkillCatalog:GetSkillsByCategoryLocal("attack", 1)
+        local buffPool = _SkillCatalog:GetSkillsByCategoryLocal("buff", 1)
+        log("CharacterSelectStage: skill pools warmed attack=" .. #atkPool .. " buff=" .. #buffPool)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnCreationResult(boolean success)
+        -- Server answer for the oldest outstanding creation (requests are answered in order). On refusal
+        -- or storage failure the slot is undone: the creation never happened from the player's point of view,
+        -- so no boost trait may remain on it and the daily counter is given back.
+        local pending = self._T.pendingCreates
+        if pending == nil or #pending == 0 then
+            return
+        end
+        local entry = table.remove(pending, 1)
+        if success then
+            return
+        end
+        local roster = _CharacterRosterLogic:GetRoster()
+        if roster[entry.idx] == entry.data then
+            roster[entry.idx] = nil
+            _CharacterRosterLogic:SetDailyRemaining(_CharacterRosterLogic:GetDailyRemaining() + 1)
+            self._T.justCreatedIndex = nil
+            log("CharacterSelectStage: creation in slot " .. entry.idx .. " rolled back (server refused currency)")
+            self:RefreshStage()
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -368,10 +431,7 @@ script CharacterSelectStageController extends Component
         end
         self._T.pendingOpenCard = false
 
-        -- M2 Phase G(2026-09-06) - 계정 재화(정수) 표시 추가. 로드 전이면 "..."로 표시(짧은 순간이라
-        -- 별도 폴링 없이 다음 RefreshStage 호출(생성/삭제/선택 등)에서 자연히 갱신됨).
-        local currencyStr = _AccountCurrencyLogic:IsLoadComplete() and tostring(_AccountCurrencyLogic:GetCurrency()) or "..."
-        self.countText.TextRendererComponent.Text = "오늘 생성 가능: " .. _CharacterRosterLogic:GetDailyRemaining() .. "/6  |  정수: " .. currencyStr
+        self.countText.TextRendererComponent.Text = "오늘 생성 가능: " .. _CharacterRosterLogic:GetDailyRemaining() .. "/6"
     end
 
     @ExecSpace("Server")

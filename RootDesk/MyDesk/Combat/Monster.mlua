@@ -474,6 +474,7 @@ script Monster extends Component
         self:TryDropMeso(attacker)
         self:TryDropPotion(attacker)
         self:TryDropStatOrb(attacker)
+        self:TryDropFieldItems(attacker)
     end
 
     @ExecSpace("ServerOnly")
@@ -502,6 +503,74 @@ script Monster extends Component
             orbComp.Amount = _StatOrbLogic:RollOrbAmount()
         end
         log("Monster: stat orb dropped chance=" .. string.format("%.2f", chance) .. "%")
+    end
+
+    method table GetFieldDropData()
+        -- 토벌 전장/카오스 게이트 전용 드랍 데이터(2026-10-06). rates = 출처별 { 아이템ID = 킬당 확률(%) }.
+        -- 출처 키: battlefield1/2/3(토벌 전장 번호, 맵 이름으로 판정), gate(카오스 게이트 - 티어와 무관하게
+        -- 동일 확률). 표에 없는 아이템은 0%. 입장권은 인벤토리 아이템이 아니라 계정 GateTicket 카운트로 지급된다.
+        return {
+            rates = {
+                battlefield1 = { chaos_gate_ticket = 4.5, scroll_str = 4, scroll_dex = 4, scroll_int = 4, scroll_luk = 4 },
+                battlefield2 = { chaos_gate_ticket = 4.5, scroll_str = 5, scroll_dex = 5, scroll_int = 5, scroll_luk = 5 },
+                battlefield3 = { chaos_gate_ticket = 4.5, scroll_str = 6, scroll_dex = 6, scroll_int = 6, scroll_luk = 6 },
+                gate = { scroll_str = 10, scroll_dex = 10, scroll_int = 10, scroll_luk = 10 },
+            },
+            ticket = {
+                id = "chaos_gate_ticket",
+                name = "카오스게이트 입장권",
+                -- 'Entry Ticket' 아이콘(msw-search 확보, 32x28, 썸네일 육안 확인 - 빨간 띠가 있는 입장 티켓 모양).
+                ruid = "a2b8b33a7a834a729bc8fcaa6fd2d7e6",
+                desc = "카오스 게이트에 입장할 때 사용하는 티켓. 토벌 전장에서 드랍된다.",
+            },
+        }
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TryDropFieldItems(Entity attacker)
+        -- 토벌 전장/카오스 게이트 전용 아이템 드랍(입장권 1종 + 주문서 4종). 출처는 맵 이름(토벌전장1/2/3)과
+        -- FieldWaveSpawner.IsGateMode로 판정한다(일반 맵/마을은 스포너가 없어 드랍 없음). 보스 레이드(IsBossRaid)는
+        -- 대상이 아니다 - 레이드 클리어 시 구슬 확정 드랍(FieldWaveSpawner)만 그대로 유지한다.
+        -- 확률은 DropRateMultiplier(상인 등)를 메소/물약과 동일하게 곱한다.
+        if not isvalid(attacker) or not isvalid(attacker.PlayerComponent) then return end
+        local map = self.Entity.CurrentMap
+        if not isvalid(map) then return end
+        local spawner = map:GetComponent("script.FieldWaveSpawner")
+        if not isvalid(spawner) then return end
+        if spawner.IsBossRaid then return end
+        local sourceKey = nil
+        if spawner.IsGateMode then
+            sourceKey = "gate"
+        else
+            local tierNo = string.match(map.Name, "^토벌전장(%d)$")
+            if tierNo ~= nil then
+                sourceKey = "battlefield" .. tierNo
+            end
+        end
+        if sourceKey == nil then return end
+
+        local data = self:GetFieldDropData()
+        local rates = data.rates[sourceKey]
+        if rates == nil then return end
+
+        local statsComp = attacker:GetComponent("script.PlayerStatsComponent")
+        local dropMult = 1.0
+        if isvalid(statsComp) then
+            dropMult = math.max(0, 1 + statsComp.DropRateMultiplier)
+        end
+        local userId = attacker.PlayerComponent.UserId
+        local profileCode = attacker.PlayerComponent.ProfileCode
+        for itemId, pct in pairs(rates) do
+            local effectiveChance = math.min(100, pct * dropMult)
+            if _UtilLogic:RandomDouble() * 100 < effectiveChance then
+                if itemId == data.ticket.id then
+                    _GateTicketLogic:GrantTicket(profileCode, 1, tostring(userId))
+                else
+                    _CharacterRosterLogic:GrantScrollDrop(itemId, userId)
+                end
+                log("Monster: field item drop " .. itemId .. " source=" .. sourceKey .. " userId=" .. tostring(userId))
+            end
+        end
     end
 
     @ExecSpace("ServerOnly")

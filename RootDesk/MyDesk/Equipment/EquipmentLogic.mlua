@@ -92,6 +92,8 @@ script EquipmentLogic extends Logic
                 amount = tonumber(row:GetItem("amount")) or 0,
                 successRate = tonumber(row:GetItem("successRate")) or 0,
                 ruid = row:GetItem("ruid"),
+                -- 2026-10-06 - 1줄 설명(툴팁용). 아이콘은 ruid(공용 클래식 주문서 아이콘, 스탯 색 틴트로 구분).
+                desc = row:GetItem("desc"),
             }
         end
         log("EquipmentLogic: catalogs loaded, items=" .. #self:ListItemTemplates() .. " scrolls=" .. #self:ListScrollTemplates())

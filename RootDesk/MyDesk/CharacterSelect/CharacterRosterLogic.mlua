@@ -539,6 +539,24 @@ script CharacterRosterLogic extends Logic
     end
 
     @ExecSpace("Client")
+    method void GrantScrollDrop(string scrollId)
+        -- 주문서 드랍(2026-10-06, 토벌 전장/카오스 게이트 처치). GrantPotionDrop과 동일하게 서버
+        -- (Monster.TryDropFieldItems, ServerOnly)가 처치자의 UserId를 targetUserId로 지정해 호출하는
+        -- Client RPC. 주문서는 인스턴스 1개 = 1장({ scrollId = id })이라(GrantStarterKit과 동일 구조)
+        -- 같은 종류라도 항상 새 인스턴스를 추가한다 - 물약처럼 count를 합치지 않는다.
+        local idx = self:GetActiveIndex()
+        if idx == nil then return end
+        local roster = self:GetRoster()
+        local data = roster[idx]
+        if data == nil then return end
+        data.inventory = data.inventory or {}
+        table.insert(data.inventory, { scrollId = scrollId })
+        self:SaveRoster()
+        log("CharacterRoster: GrantScrollDrop scrollId=" .. scrollId)
+        self:RefreshInventoryWindowIfOpen()
+    end
+
+    @ExecSpace("Client")
     method void GrantStatOrbGain(string stat, integer amount)
         -- 랜덤 스탯 구슬 흡수 누적치(색상 "+N" 표시용). 실제 스탯 증가는 서버(StatOrbLogic.ApplyPickupGain)가
         -- 런 중 실시간 스탯에 이미 반영했고, 기본값 저장은 UpdateActiveBaseStat 경로가 담당한다. 이 RPC는

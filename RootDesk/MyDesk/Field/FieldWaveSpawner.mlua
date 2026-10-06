@@ -38,7 +38,6 @@ script FieldWaveSpawner extends Component
     -- "종료 지점에 게이트 보스 등장" - 마지막 웨이브의 미니보스 스폰 로직(SpawnMiniBoss)을 그대로
     -- 재사용하되 게이트 모드일 때만 스탯 배율을 곱한다(별도 보스 모델 불필요).
     -- "보상: 이능 재선택권, 고급 스탯 구슬" - GrantGateClearRewards가 처리.
-    property number GateTicketDropChance = 0.2
 
     -- M2 Phase F(2026-09-06) - 난이도 4단계 스케일(전체 기획서 §5-1). 1=하급/2=중급/3=상급/4=최상급.
     -- 게이트 모드가 아닌 일반 전장 입장에만 적용된다(게이트는 자체 3배/2배 스케일을 따로 가짐).
@@ -368,8 +367,6 @@ script FieldWaveSpawner extends Component
             self:GrantBossRaidClears()
         elseif self.IsGateMode then
             self:GrantGateClearRewards()
-        else
-            self:RollGateTicketDrop()
         end
         log("FieldWaveSpawner(" .. self.ModelId .. "): field cleared at wave " .. self.WaveNumber .. " gateMode=" .. tostring(self.IsGateMode))
     end
@@ -391,29 +388,6 @@ script FieldWaveSpawner extends Component
         log("FieldWaveSpawner(" .. self.ModelId .. "): gate clear rewards granted")
     end
 
-    @ExecSpace("ServerOnly")
-    method void RollGateTicketDrop()
-        -- 일반 전장 클리어(미니보스 처치) 보상 - "낮은 확률로 몬스터 게이트 입장권 지급" (§5-1/§6-1).
-        local map = self.Entity.CurrentMap
-        if not isvalid(map) then return end
-        local users = _UserService:GetUsersByMapComponent(map.MapComponent)
-        if users == nil then return end
-        for _, user in ipairs(users) do
-            -- 2026-09-08 QA - 빈손 링크("통행증": 게이트 입장권 획득 확률 증가)가 그동안 linkEffect
-            -- 필드 자체가 없어 "선행 필요"로 미구현이었던 것을 신규 연결 - 판정 확률에 더해서 읽는다.
-            local chance = self.GateTicketDropChance
-            local statsComp = user:GetComponent("script.PlayerStatsComponent")
-            if isvalid(statsComp) then
-                chance = chance + statsComp.GateTicketChanceBonus
-            end
-            if _UtilLogic:RandomDouble() < chance then
-                local profileCode = user.PlayerComponent.ProfileCode
-                local userId = tostring(user.PlayerComponent.UserId)
-                _GateTicketLogic:GrantTicket(profileCode, 1, userId)
-                log("FieldWaveSpawner(" .. self.ModelId .. "): gate ticket dropped for profileCode=" .. profileCode)
-            end
-        end
-    end
 
     @ExecSpace("ServerOnly")
     method boolean IsFieldCurrentlyEmpty()

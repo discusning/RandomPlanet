@@ -8,6 +8,9 @@ script AccountCurrencyLogic extends Logic
     property string StorageName = "AccountCurrency"
     property integer MaxUpgradeLevel = 10
     property integer UpgradeBaseCost = 50
+    -- 캐릭터 1회 생성 시 정수 적립량 / 좋은 특성 추첨에 소모하는 정수(정수 칸 설명과 같은 값).
+    property integer CreationGain = 100
+    property integer CreationBoostCost = 500
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -50,26 +53,57 @@ script AccountCurrencyLogic extends Logic
 
     @ExecSpace("ServerOnly")
     method table LoadState(string profileCode)
+        -- ok=false means the stored balance could NOT be read (network/storage error, not "never saved").
+        -- Callers must abort the write in that case: treating it as 0 and saving value+delta would wipe the account.
         local storage = _DataStorageService:GetUserDataStorage(profileCode)
         local errorCode, raw = storage:GetAndWait(self.StorageName)
         local value, level = 0, 0
+        local ok = (errorCode == 0 or errorCode == 1000002)   -- 1000002 = NotFound: brand-new account, 0 is correct
         if errorCode == 0 and raw ~= nil and raw ~= "" then
             local decoded = _HttpService:JSONDecode(raw)
             value = decoded.value or 0
             level = decoded.upgradeLevel or 0
         end
-        return { value = value, upgradeLevel = level }
+        return { value = value, upgradeLevel = level, ok = ok }
     end
 
     @ExecSpace("ServerOnly")
-    method void SaveState(string profileCode, number value, integer level)
+    method boolean SaveState(string profileCode, number value, integer level)
+        -- Synchronous write (SetAndWait) so the caller can hold the profile lock across the whole
+        -- read-modify-write. The previous fire-and-forget SetAsync let the next request read the old value
+        -- before the write landed. Returns false if the write failed (caller must not report success).
         local storage = _DataStorageService:GetUserDataStorage(profileCode)
         local json = _HttpService:JSONEncode({ value = value, upgradeLevel = level })
-        storage:SetAsync(self.StorageName, json, function(errorCode, key)
-            if errorCode ~= 0 then
-                log_error("AccountCurrency: SetAsync failed, errorCode=" .. tostring(errorCode))
-            end
-        end)
+        local errorCode = storage:SetAndWait(self.StorageName, json)
+        if errorCode ~= nil and errorCode ~= 0 then
+            log_error("AccountCurrency: SetAndWait failed, errorCode=" .. tostring(errorCode))
+            return false
+        end
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void LockProfile(string profileCode)
+        -- Serializes every read-modify-write of one account's currency (creation, grant, upgrade).
+        -- Root cause of the lost updates: each request does LoadState (GetAndWait, yields) -> SaveState, so
+        -- back-to-back requests all read the same old balance and the last save overwrites the others
+        -- (observed: 4 calls each logged total=1929). A per-profile busy flag makes later requests wait
+        -- until the earlier save has completed. Per server instance, which is the only writer here.
+        if self._T.busy == nil then
+            self._T.busy = {}
+        end
+        while self._T.busy[profileCode] == true do
+            wait(0.05)
+        end
+        self._T.busy[profileCode] = true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void UnlockProfile(string profileCode)
+        -- Must be called on every path after LockProfile (including early returns).
+        if self._T.busy ~= nil then
+            self._T.busy[profileCode] = nil
+        end
     end
 
     @ExecSpace("Client")
@@ -79,10 +113,7 @@ script AccountCurrencyLogic extends Logic
         self._T.loadComplete = true
         log("AccountCurrency: loaded value=" .. value .. " upgradeLevel=" .. level)
         _AccountUpgradeUIController:RefreshDisplay()
-        -- 2026-09-10 QA - choice_map의 "정수: ..." 표시가 currency load 완료 후에도 영원히 갱신되지
-        -- 않던 버그 수정. CharacterSelectStageController.RefreshStage는 로스터 로드(OnRosterLoaded)나
-        -- 유저 조작 시에만 재호출됐는데, 통화 로드는 그와 별개의 비동기 왕복이라 그 사이 타이밍에
-        -- 완료되면 아무도 다시 그려주지 않았다(둘 다 로드 중일 때만 우연히 맞아떨어지던 케이스).
+        -- 통화 로드가 로스터 로드와 다른 타이밍에 끝나도 로비 텍스트가 갱신되도록 스테이지를 다시 그린다.
         local mapEntity = _EntityService:GetEntityByPath("/maps/choice_map")
         if isvalid(mapEntity) then
             local controller = mapEntity:GetComponent("script.CharacterSelectStageController")
@@ -98,9 +129,17 @@ script AccountCurrencyLogic extends Logic
         -- 서버 자체 판단으로 트리거되므로(사망 이벤트) senderUserId가 없어, 알려야 할 클라이언트를
         -- 직접 targetUserId로 지정해야 한다(OnCurrencyGranted 호출부 참고).
         if amount <= 0 then return end
+        self:LockProfile(profileCode)
         local state = self:LoadState(profileCode)
+        if not state.ok then
+            self:UnlockProfile(profileCode)
+            log_error("AccountCurrency: grant aborted, balance unreadable profileCode=" .. profileCode)
+            return
+        end
         local newValue = state.value + amount
-        self:SaveState(profileCode, newValue, state.upgradeLevel)
+        local saved = self:SaveState(profileCode, newValue, state.upgradeLevel)
+        self:UnlockProfile(profileCode)
+        if not saved then return end
         log("AccountCurrency: granted " .. amount .. " to profileCode=" .. profileCode .. " -> total=" .. newValue)
         self:OnCurrencyGranted(amount, newValue, userId)
     end
@@ -119,19 +158,27 @@ script AccountCurrencyLogic extends Logic
         local player = _UserService:GetUserEntityByUserId(senderUserId)
         if not isvalid(player) then return end
         local profileCode = player.PlayerComponent.ProfileCode
+        self:LockProfile(profileCode)
         local state = self:LoadState(profileCode)
-        if state.upgradeLevel >= self.MaxUpgradeLevel then
+        if not state.ok or state.upgradeLevel >= self.MaxUpgradeLevel then
+            self:UnlockProfile(profileCode)
             self:OnUpgradeResult(false, state.value, state.upgradeLevel)
             return
         end
         local cost = self:ComputeNextCost(state.upgradeLevel)
         if state.value < cost then
+            self:UnlockProfile(profileCode)
             self:OnUpgradeResult(false, state.value, state.upgradeLevel)
             return
         end
         local newValue = state.value - cost
         local newLevel = state.upgradeLevel + 1
-        self:SaveState(profileCode, newValue, newLevel)
+        local saved = self:SaveState(profileCode, newValue, newLevel)
+        self:UnlockProfile(profileCode)
+        if not saved then
+            self:OnUpgradeResult(false, state.value, state.upgradeLevel)
+            return
+        end
         log("AccountCurrency: purchased upgrade level=" .. newLevel .. " cost=" .. cost .. " remaining=" .. newValue)
         self:OnUpgradeResult(true, newValue, newLevel)
     end
@@ -146,6 +193,66 @@ script AccountCurrencyLogic extends Logic
             self._T.upgradeLevel = newLevel
         end
         _AccountUpgradeUIController:OnPurchaseResult(success)
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer GetCreationBoostCost()
+        -- 캐릭터 생성 시 소모하는 정수(좋은 특성 추첨권). 로비 정수 칸 설명에도 같은 값을 쓴다.
+        return self.CreationBoostCost
+    end
+
+    @ExecSpace("Server")
+    method void RequestCreationCurrency(boolean consume)
+        -- 캐릭터 1회 생성: 정수 +CreationGain. consume이면 CreationBoostCost를 소모한다(서버가 잔액을 다시 검증).
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) then return end
+        local profileCode = player.PlayerComponent.ProfileCode
+        -- Decision on a refused consume: the server is authoritative. A refused (or unreadable) request
+        -- charges nothing and grants no +100; the client then rolls back the just-created slot
+        -- (CharacterSelectStageController.OnCreationResult), so the free-boost trait never stands without payment.
+        self:LockProfile(profileCode)
+        local state = self:LoadState(profileCode)
+        if not state.ok then
+            self:UnlockProfile(profileCode)
+            log_error("AccountCurrency: creation aborted, balance unreadable profileCode=" .. profileCode)
+            self:OnCreationCurrencyResult(false, -1)
+            return
+        end
+        local spend = 0
+        if consume then
+            if state.value < self.CreationBoostCost then
+                self:UnlockProfile(profileCode)
+                self:OnCreationCurrencyResult(false, state.value)
+                return
+            end
+            spend = self.CreationBoostCost
+        end
+        local newValue = state.value + self.CreationGain - spend
+        local saved = self:SaveState(profileCode, newValue, state.upgradeLevel)
+        self:UnlockProfile(profileCode)
+        if not saved then
+            self:OnCreationCurrencyResult(false, -1)
+            return
+        end
+        log("AccountCurrency: creation gain=" .. self.CreationGain .. " spent=" .. spend .. " total=" .. newValue)
+        self:OnCreationCurrencyResult(true, newValue)
+    end
+
+    @ExecSpace("Client")
+    method void OnCreationCurrencyResult(boolean success, number newValue)
+        -- Server answer to RequestCreationCurrency. newValue < 0 means "balance unknown" (storage error),
+        -- in which case the local value is kept. On failure the stage must undo the pending creation.
+        if newValue >= 0 then
+            self._T.value = newValue
+        end
+        log("AccountCurrency: creation result success=" .. tostring(success) .. " value=" .. newValue)
+        local mapEntity = _EntityService:GetEntityByPath("/maps/choice_map")
+        if isvalid(mapEntity) then
+            local controller = mapEntity:GetComponent("script.CharacterSelectStageController")
+            if isvalid(controller) then
+                controller:OnCreationResult(success)
+            end
+        end
     end
 
 end

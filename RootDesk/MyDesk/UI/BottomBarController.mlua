@@ -9,8 +9,6 @@ script BottomBarController extends Component
     property Entity btnEquipment = "40dbcbd6-cbc0-426d-9a0a-a58d5937dcbe"
     property Entity btnSettings = "53330b64-ec9c-4a55-b746-fa331a9ab80c"
     property Entity btnSkill = "0a2fbdde-e798-46a7-bf34-a49214449f9e"
-    -- 2026-09-10 QA(유저 피드백) - 계정 강화 진입점을 choice_map 월드 버튼에서 이곳으로 이전.
-    property Entity btnUpgrade = "7420ba46-084b-4525-b153-774b3e722797"
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -26,10 +24,6 @@ script BottomBarController extends Component
         if isvalid(self.btnSkill) then
             local hK = self.btnSkill:ConnectEvent(ButtonClickEvent, self.OnSkillClicked)
             table.insert(self._T.handlers, { entity = self.btnSkill, eventHandler = hK })
-        end
-        if isvalid(self.btnUpgrade) then
-            local hU = self.btnUpgrade:ConnectEvent(ButtonClickEvent, self.OnUpgradeClicked)
-            table.insert(self._T.handlers, { entity = self.btnUpgrade, eventHandler = hU })
         end
         self.Entity.Enable = false
     end
@@ -198,11 +192,5 @@ script BottomBarController extends Component
     method void OnSkillClicked()
         self:CloseOtherWindows("/ui/SkillGroup")
         self:ToggleWindow("/ui/SkillGroup", "script.SkillUIController")
-    end
-
-    @ExecSpace("ClientOnly")
-    method void OnUpgradeClicked()
-        self:CloseOtherWindows("/ui/AccountUpgradeGroup")
-        self:ToggleWindow("/ui/AccountUpgradeGroup", "script.AccountUpgradeUIController")
     end
 end
