@@ -440,12 +440,12 @@ script EquipmentLogic extends Logic
 
     @ExecSpace("ClientOnly")
     method table GetStarforceRate(integer star)
-        -- 현재 별에서의 성공/파괴 천분율. 12성 미만은 파괴율이 0이다(StarforceAttempt와 같은 규칙).
+        -- 현재 별에서의 성공/하락/파괴 천분율(1/100000 단위). StarforceAttempt와 같은 표를 쓴다.
         local rate = self._T.starRates[star + 1]
         if rate == nil then
-            return { success = 0, destroy = 0 }
+            return { success = 0, drop = 0, destroy = 0 }
         end
-        return { success = rate.success, destroy = rate.destroy }
+        return { success = rate.success, drop = rate.drop, destroy = rate.destroy }
     end
 
     @ExecSpace("ClientOnly")
