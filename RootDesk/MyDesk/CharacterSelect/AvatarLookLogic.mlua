@@ -59,7 +59,7 @@ script AvatarLookLogic extends Logic
         -- PlayerStatsComponent에 반영해 공격력/명중 등 파생 스탯도 함께 갱신한다.
         local statsComp = player:GetComponent("script.PlayerStatsComponent")
         if isvalid(statsComp) then
-            statsComp:RefreshEquipmentStats(str, dex, intel, luk)
+            statsComp:RefreshEquipmentStats(str, dex, intel, luk, _EquipmentLogic:GetWeaponAttackBonus(equipment))
         end
     end
 

@@ -436,6 +436,29 @@ script SkillCatalog extends Logic
         return def ~= nil and (def.kind == "buff" or def.kind == "summon")
     end
 
+    method table GetSkillsByCategoryLocal(string category, integer tier)
+        -- 클라이언트(캐릭터 생성 등)에서 쓰는 동일 필터. GetSkillsByCategory는 클라이언트에서 정의가 없는 id를
+        -- 만나면 조용히 멈추므로(캐릭터 생성 실측), nil 정의를 건너뛰고 같은 조건(tier/attack·buff)으로 거른다.
+        -- GetSkillDef는 호출마다 큰 테이블을 새로 만들어 느리다 - 결과를 세션 동안 캐시하고, 스킬당 한 번만 조회한다.
+        self._T.localPoolCache = self._T.localPoolCache or {}
+        local key = category .. "|" .. tostring(tier)
+        if self._T.localPoolCache[key] ~= nil then
+            return self._T.localPoolCache[key]
+        end
+        local result = {}
+        for _, id in ipairs(self:GetAllSkillIds()) do
+            local def = self:GetSkillDef(id)
+            if def ~= nil and def.tier == tier then
+                local isBuff = def.kind == "buff" or def.kind == "summon"
+                if (category == "buff" and isBuff) or (category == "attack" and not isBuff) then
+                    table.insert(result, id)
+                end
+            end
+        end
+        self._T.localPoolCache[key] = result
+        return result
+    end
+
     method table GetSkillsByCategory(string category, integer tier)
         -- category = "buff" | "attack". tier = 1|2|3|4 (M2 Phase D, 2026-09-06 - each tier now has
         -- its own 5-per-category pool; without this filter a tier-2+ roll would draw from every

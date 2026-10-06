@@ -7,6 +7,8 @@ script EquipmentLogic extends Logic
     property string DefaultWeaponId = "bamboo_sword"
     property integer StarforceMaxStar = 25
     property integer StarforceSafeStar = 12
+    -- 강화 1단계당 추가 공격력(무기 강화로만 얻는다). 25성이면 +12.5.
+    property number StarforceAttackPerStar = 0.5
 
     method void OnBeginPlay()
         -- Unannotated (not ClientOnly) so both the client process's instance AND the server
@@ -220,6 +222,16 @@ script EquipmentLogic extends Logic
         if star >= 17 then return base * 3 end
         if star >= 12 then return base * 2 end
         return base
+    end
+
+    method number GetWeaponAttackBonus(table equipment)
+        -- 무기 강화(스타포스)로 얻는 추가 공격력. 스타포스 장비를 무기 슬롯에 끼웠을 때만, 강화 단계 x StarforceAttackPerStar.
+        -- 공격력 계산(PlayerStatsComponent.RecalculateDerived)에서 기본 공격력에 더해지므로 특성/버프 배율이 그대로 곱해진다.
+        local inst = equipment and equipment.weapon or nil
+        if inst == nil then return 0 end
+        local tpl = self._T.itemCatalog[inst.itemId]
+        if tpl == nil or tpl.starforce ~= true then return 0 end
+        return (inst.starLevel or 0) * self.StarforceAttackPerStar
     end
 
     @ExecSpace("ClientOnly")

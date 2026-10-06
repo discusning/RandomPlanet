@@ -194,6 +194,8 @@ script LobbyStageController extends Component
             dex = _EquipmentLogic:GetEffectiveStat(data, "dex"),
             intel = _EquipmentLogic:GetEffectiveStat(data, "int"),
             luk = _EquipmentLogic:GetEffectiveStat(data, "luk"),
+            -- 무기 강화(스타포스) 추가 공격력 - 장비 기준으로 계산해 함께 넘긴다.
+            weaponAttackBonus = _EquipmentLogic:GetWeaponAttackBonus(data.equipment),
             level = data.level,
             trait = data.trait,
             -- 2026-10-03 유저 요청("마스터 캐릭터") - 캐릭터 교체(스왑) 경로도 동일하게 전달.

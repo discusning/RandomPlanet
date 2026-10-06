@@ -212,6 +212,8 @@ script CharacterCardController extends Component
                 -- 읽어서 넘긴다(캐릭터 생성 시점이 아니라 입장 시점 값 - 이후 계정을 더 강화하면
                 -- 기존 캐릭터도 곧바로 더 높은 만렙 혜택을 받는다).
                 upgradeLevel = _AccountCurrencyLogic:GetUpgradeLevel(),
+                -- 무기 강화(스타포스) 추가 공격력 - 장비 기준으로 계산해 함께 넘긴다.
+                weaponAttackBonus = _EquipmentLogic:GetWeaponAttackBonus(self._T.characterData.equipment),
                 -- 2026-10-03 유저 요청("마스터 캐릭터") - 로스터 슬롯에 isMaster=true가 저장돼 있으면
                 -- 그대로 넘긴다(PlayerStatsComponent.ApplyStats가 받아서 적용).
                 isMaster = self._T.characterData.isMaster or false,
