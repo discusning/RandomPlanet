@@ -309,9 +309,15 @@ script TraitCatalog extends Logic
     end
 
     method table GetPoolNames(string pool)
+        -- 효과가 전혀 적용되지 않는 특성은 추첨 풀에서 제외한다(정의는 남겨 기존 캐릭터 조회는 유지).
+        -- 제외 기준: 본인·링크 효과가 모두 없고 설명상 선행 시스템이 필요한 특성(2026-10-06 감사).
+        local excluded = {
+            ["진화의 손길"] = true, ["메아리치는 발걸음"] = true,
+            ["카지노"] = true, ["양날의 축복"] = true, ["기생하는 대가"] = true,
+        }
         local names = {}
         for k, v in pairs(self.Defs) do
-            if v.pool == pool then table.insert(names, k) end
+            if v.pool == pool and not excluded[k] then table.insert(names, k) end
         end
         return names
     end
