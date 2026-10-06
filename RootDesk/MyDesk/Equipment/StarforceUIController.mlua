@@ -10,11 +10,13 @@ script StarforceUIController extends Logic
     property TextGUIRendererComponent starText = "7914c9d9-925d-4977-ae7b-a3e84955bcaa"
     property TextGUIRendererComponent rateText = "7002a7b1-11c2-47e3-8e5f-2c40bae883f7"
     property TextGUIRendererComponent statusText = "bc728b35-d690-44eb-9ea2-e05eb8b653c1"
-    -- 세이프 모드 토글 버튼(버튼 엔티티 + 같은 버튼의 텍스트). 켜면 15~17성 파괴 대신 별을 유지한다.
+    -- 필요 골드 / 보유 골드 줄. 성공·파괴율 줄과 분리해 골드 소비가 한눈에 보이게 한다.
+    property TextGUIRendererComponent goldText = "df6e04dc-719c-47a6-b2c9-c27853e441c4"
+    -- 세이프 모드 토글 버튼(버튼 엔티티 + 같은 버튼의 텍스트). 켜면 12성 이상 파괴 대신 별을 유지한다.
     property Entity btnSafe = "0b73f0c6-e12c-41b3-a6c0-4be5a3c1eddf"
     property TextGUIRendererComponent safeText = "0b73f0c6-e12c-41b3-a6c0-4be5a3c1eddf"
-    -- 세이프 모드 1회 비용(재화). 토벌전장/카오스 게이트/보스에서 수급한다. 추정값이며 조정 대상.
-    property integer SafeModeCost = 1000
+    -- 세이프 모드 1회 추가 비용(재화). 전장3 1판 수입의 약 1/4 수준(추정). 파괴 확률이 있는 12성 이상에서만 든다.
+    property integer SafeModeCost = 300
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -119,14 +121,20 @@ script StarforceUIController extends Logic
             if star >= 25 then
                 self.rateText.Text = "최고 성수 달성"
             else
-                self.rateText.Text = "성공 " .. string.format("%.2f", rate.success / 1000) .. "%   파괴 " .. string.format("%.2f", rate.destroy / 1000) .. "%   비용 " .. _EquipmentLogic:GetStarforceCost(star) .. "G"
+                self.rateText.Text = "성공 " .. string.format("%.2f", rate.success / 1000) .. "%   하락 " .. string.format("%.2f", rate.drop / 1000) .. "%   파괴 " .. string.format("%.2f", rate.destroy / 1000) .. "%"
+            end
+        end
+        if isvalid(self.goldText) then
+            -- 다음 시도 비용과 현재 보유 골드를 함께 보여준다. 최고 성수에서는 비용 줄을 비운다.
+            if star >= 25 then
+                self.goldText.Text = "보유 " .. _CharacterRosterLogic:GetGold() .. "G"
+            else
+                self.goldText.Text = "필요 " .. _EquipmentLogic:GetStarforceCost(star) .. "G   /   보유 " .. _CharacterRosterLogic:GetGold() .. "G"
             end
         end
         if isvalid(self.slotIcon) then
-            local tpl = _EquipmentLogic:GetItemTemplate(inst.itemId)
-            if tpl ~= nil and tpl.iconRuid ~= nil then
-                self.slotIcon.ImageRUID = DataRef("thumbnail://" .. tpl.iconRuid)
-            end
+            -- 강화 단계마다 다른 검 그림을 쓴다(0~25성 = 26장).
+            self.slotIcon.ImageRUID = DataRef("thumbnail://" .. _EquipmentLogic:GetStarforceIconRuid(star))
         end
         if isvalid(self.btnStarforce) and isvalid(self.btnStarforce.ButtonComponent) then
             self.btnStarforce.ButtonComponent.Enable = star < 25
@@ -149,8 +157,8 @@ script StarforceUIController extends Logic
             self:SetStatus("골드가 부족합니다. (필요 " .. cost .. "G)")
             return
         end
-        -- 세이프 모드는 15~17성에서만 추가 비용이 든다.
-        local useSafe = self._T.safeMode == true and star >= 15 and star <= 17
+        -- 세이프 모드는 파괴가 가능한 12성 이상에서만 추가 비용이 든다.
+        local useSafe = self._T.safeMode == true and star >= 12 and star < 25
         if useSafe and not _CharacterRosterLogic:SpendGold(self.SafeModeCost) then
             _CharacterRosterLogic:GrantGold(cost)
             self:SetStatus("골드가 부족합니다. (세이프 모드 " .. self.SafeModeCost .. "G)")

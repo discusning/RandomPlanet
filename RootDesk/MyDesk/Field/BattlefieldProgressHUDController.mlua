@@ -38,8 +38,9 @@ script BattlefieldProgressHUDController extends Logic
     -- 재검색해 "MonsterBattleWin"(sound/game.img) 서브패스의 밝고 경쾌한 알림음으로 교체 - 태그가
     -- bright/celebration/notification/success/upbeat뿐이고 dramatic/orchestral/brass가 없어 더 가볍다.
     -- 길이(3.19초)도 팝인+유지 타이밍(0.6+2.4=3.0초)과 거의 맞아떨어진다.
-    -- 2026-10-06 유저 요청 - 클리어 효과음은 기존 음원을 유지하되 음량을 낮춰 너무 크지 않게 한다(0.25).
-    property string clearSoundRuid = "401ca227c0c844569422a53bd21ab647"
+    -- 2026-10-06 유저 요청 - 클리어 연출은 유지하고 효과음은 없앤다. 음원 RUID를 비우면 PlayClearFx가 재생을 건너뛴다.
+    -- (음원을 다시 넣으려면 RUID를 채우고 clearSoundVolume으로 음량을 조절한다.)
+    property string clearSoundRuid = ""
     property number clearSoundVolume = 0.25
     property number clearEffectYOffset = 1.4
     property integer clearPopEndFrame = 5
