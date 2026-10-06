@@ -166,6 +166,17 @@ script CharacterRosterLogic extends Logic
         self._T.lastResetDate = lastResetDate
         self._T.loadComplete = true
         log("CharacterRoster: OnRosterLoaded, dailyRemaining=" .. dailyRemaining .. " activeIndex=" .. tostring(activeIndex) .. " lastResetDate=" .. lastResetDate)
+        -- 2026-10-06 기본 무기 제거 마이그레이션 - 기존 캐릭터의 무기(검 등)를 투명 무기로 바꾼다. 슬롯 3은 건드리지 않는다.
+        local weaponChanged = false
+        for idx, charData in pairs(data) do
+            if idx ~= 3 and _EquipmentLogic:ApplyTransparentWeaponDefault(charData) then
+                weaponChanged = true
+                log("CharacterRoster: weapon migrated to transparent slot=" .. tostring(idx))
+            end
+        end
+        if weaponChanged then
+            self:SaveRoster()
+        end
 
         local mapEntity = _EntityService:GetEntityByPath("/maps/choice_map")
         if isvalid(mapEntity) then

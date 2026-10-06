@@ -207,16 +207,57 @@ script EquipmentLogic extends Logic
         return out
     end
 
+    method integer GetStarforceCost(integer star)
+        -- 2026-10-06 스타포스 1회 골드 비용. 현재 성(star) -> 다음 성 시도 기준.
+        -- 1~12성(다음 성 기준): 기본 80 + 3 x 현재 성 - 토벌 전장 한 판으로 1~2회 시도할 수 있는 수준.
+        -- 13~17성: 기본의 2배 / 18성 이상: 기본의 3배. 밸런스는 실제 전장 골드 획득량을 보고 조정한다.
+        local base = 80 + 3 * star
+        if star >= 17 then return base * 3 end
+        if star >= 12 then return base * 2 end
+        return base
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean ApplyTransparentWeaponDefault(table characterData)
+        -- 2026-10-06 기본 무기 제거 - 모든 캐릭터는 무기 슬롯에 투명 무기가 항상 장착돼 있다. 일반 무기(검 등)는
+        -- 인벤토리와 무기 슬롯 모두에서 없어진다. 직업 스킬의 무기 모션은 투명 무기를 잠깐 바꿔 쓰는 방식이다.
+        -- 바뀌었으면 true를 돌려준다(호출부가 저장 여부를 판단).
+        local tw = self.TransparentWeaponId
+        local changed = false
+        characterData.inventory = characterData.inventory or {}
+        local kept = {}
+        for _, inst in ipairs(characterData.inventory) do
+            local tpl = inst.itemId ~= nil and self._T.itemCatalog[inst.itemId] or nil
+            if tpl ~= nil and tpl.slot == "weapon" and inst.itemId ~= tw then
+                changed = true
+            else
+                table.insert(kept, inst)
+            end
+        end
+        characterData.inventory = kept
+        characterData.equipment = characterData.equipment or {}
+        local cur = characterData.equipment.weapon
+        if cur == nil or cur.itemId ~= tw then
+            characterData.equipment.weapon = { itemId = tw, upgradesUsed = 0, bonusStr = 0, bonusDex = 0, bonusInt = 0, bonusLuk = 0 }
+            changed = true
+        end
+        return changed
+    end
+
     @ExecSpace("ClientOnly")
     method void GrantStarterKit(table characterData)
         -- One of every catalog item (unequipped) + 2 of every scroll. This is the only item
         -- source for now - there's no shop/loot/drop-table system yet (Phase 3+ territory per
         -- the GDD), so granting the full catalog at creation is what makes the equip/scroll
         -- flow testable end-to-end without building that infrastructure early.
+        -- 2026-10-06 - 무기 슬롯 템플릿(검 등)은 지급하지 않는다. 투명 무기는 생성 시 무기 슬롯에 장착된다.
         characterData.inventory = characterData.inventory or {}
         for _, tpl in ipairs(self:ListItemTemplates()) do
-            table.insert(characterData.inventory, { itemId = tpl.id, upgradesUsed = 0, bonusStr = 0, bonusDex = 0, bonusInt = 0, bonusLuk = 0 })
+            if tpl.slot ~= "weapon" then
+                table.insert(characterData.inventory, { itemId = tpl.id, upgradesUsed = 0, bonusStr = 0, bonusDex = 0, bonusInt = 0, bonusLuk = 0 })
+            end
         end
+        self:ApplyTransparentWeaponDefault(characterData)
         for _, tpl in ipairs(self:ListScrollTemplates()) do
             table.insert(characterData.inventory, { scrollId = tpl.id })
             table.insert(characterData.inventory, { scrollId = tpl.id })

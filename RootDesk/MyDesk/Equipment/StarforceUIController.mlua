@@ -101,8 +101,8 @@ script StarforceUIController extends Logic
     method void RefreshDisplay()
         -- 장착된 투명 무기의 별/성공률/파괴율/아이콘을 표시한다. 장착이 없으면 강화 버튼을 막는다.
         local data = self:GetActiveCharacterData()
+        -- 투명 무기는 캐릭터 생성 시부터 무기 슬롯에 항상 장착돼 있으므로 안내 문구는 띄우지 않는다.
         if data == nil or not _EquipmentLogic:IsStarforceItemInSlot(data, "weapon") then
-            if isvalid(self.starText) then self.starText.Text = "투명 무기를 장착하세요" end
             if isvalid(self.rateText) then self.rateText.Text = "" end
             if isvalid(self.btnStarforce) and isvalid(self.btnStarforce.ButtonComponent) then
                 self.btnStarforce.ButtonComponent.Enable = false
@@ -119,7 +119,7 @@ script StarforceUIController extends Logic
             if star >= 25 then
                 self.rateText.Text = "최고 성수 달성"
             else
-                self.rateText.Text = "성공 " .. string.format("%.2f", rate.success / 1000) .. "%   파괴 " .. string.format("%.2f", rate.destroy / 1000) .. "%"
+                self.rateText.Text = "성공 " .. string.format("%.2f", rate.success / 1000) .. "%   파괴 " .. string.format("%.2f", rate.destroy / 1000) .. "%   비용 " .. _EquipmentLogic:GetStarforceCost(star) .. "G"
             end
         end
         if isvalid(self.slotIcon) then
@@ -138,15 +138,22 @@ script StarforceUIController extends Logic
         -- 스타포스 1회. 연출 중에는 중복 클릭을 막고, 결과를 로스터에 저장한 뒤 표시를 갱신한다.
         if self._T.inProgress then return end
         local data = self:GetActiveCharacterData()
+        -- 투명 무기는 항상 장착돼 있다(생성/마이그레이션 시 보장). 장착 안내 문구는 띄우지 않는다.
         if data == nil or not _EquipmentLogic:IsStarforceItemInSlot(data, "weapon") then
-            self:SetStatus("투명 무기를 먼저 장착하세요.")
             return
         end
-        -- 세이프 모드는 15~17성에서만 비용이 든다. 재화가 부족하면 시도하지 않는다.
+        -- 시도 비용(단계별 골드)을 먼저 차감한다. 골드가 부족하면 시도하지 않는다.
         local star = data.equipment.weapon.starLevel or 0
+        local cost = _EquipmentLogic:GetStarforceCost(star)
+        if not _CharacterRosterLogic:SpendGold(cost) then
+            self:SetStatus("골드가 부족합니다. (필요 " .. cost .. "G)")
+            return
+        end
+        -- 세이프 모드는 15~17성에서만 추가 비용이 든다.
         local useSafe = self._T.safeMode == true and star >= 15 and star <= 17
         if useSafe and not _CharacterRosterLogic:SpendGold(self.SafeModeCost) then
-            self:SetStatus("재화가 부족합니다. (세이프 모드 " .. self.SafeModeCost .. "G)")
+            _CharacterRosterLogic:GrantGold(cost)
+            self:SetStatus("골드가 부족합니다. (세이프 모드 " .. self.SafeModeCost .. "G)")
             return
         end
         self._T.inProgress = true
