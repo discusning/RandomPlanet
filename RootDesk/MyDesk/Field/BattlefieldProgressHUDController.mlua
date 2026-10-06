@@ -38,7 +38,9 @@ script BattlefieldProgressHUDController extends Logic
     -- 재검색해 "MonsterBattleWin"(sound/game.img) 서브패스의 밝고 경쾌한 알림음으로 교체 - 태그가
     -- bright/celebration/notification/success/upbeat뿐이고 dramatic/orchestral/brass가 없어 더 가볍다.
     -- 길이(3.19초)도 팝인+유지 타이밍(0.6+2.4=3.0초)과 거의 맞아떨어진다.
-    property string clearSoundRuid = ""
+    -- 2026-10-06 유저 요청 - 클리어 효과음은 기존 음원을 유지하되 음량을 낮춰 너무 크지 않게 한다(0.25).
+    property string clearSoundRuid = "401ca227c0c844569422a53bd21ab647"
+    property number clearSoundVolume = 0.25
     property number clearEffectYOffset = 1.4
     property integer clearPopEndFrame = 5
     property number clearPopSeconds = 0.6
@@ -204,13 +206,12 @@ script BattlefieldProgressHUDController extends Logic
         local player = _UserService.LocalPlayer
         if not isvalid(player) then return end
         log("BattlefieldProgressHUD: PlayClearFx triggered gate=" .. tostring(isGate))
-        -- 2026-10-06 유저 요청 - 기존 클리어 효과음 제거. 새 효과음은 후보를 들어 보고 확정한 뒤 clearSoundRuid에 넣는다
-        -- (비어 있으면 재생하지 않는다).
+        -- 클리어 효과음(음량은 clearSoundVolume으로 낮춤). 비어 있으면 재생하지 않는다.
         if self.clearSoundRuid ~= "" then
             if _SoundSettingsLogic ~= nil then
-                _SoundSettingsLogic:PlaySfx(self.clearSoundRuid, 1.0)
+                _SoundSettingsLogic:PlaySfx(self.clearSoundRuid, self.clearSoundVolume)
             else
-                _SoundService:PlaySound(self.clearSoundRuid, 1.0)
+                _SoundService:PlaySound(self.clearSoundRuid, self.clearSoundVolume)
             end
         end
         local cam = _CameraService:GetCurrentCameraComponent()

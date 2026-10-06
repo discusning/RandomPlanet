@@ -228,7 +228,8 @@ script EquipmentLogic extends Logic
         local kept = {}
         for _, inst in ipairs(characterData.inventory) do
             local tpl = inst.itemId ~= nil and self._T.itemCatalog[inst.itemId] or nil
-            if tpl ~= nil and tpl.slot == "weapon" and inst.itemId ~= tw then
+            -- 검(weapon_sword)은 2026-10-06 카탈로그에서 삭제됐으므로 잔존 인스턴스도 함께 지운다.
+            if inst.itemId == "weapon_sword" or (tpl ~= nil and tpl.slot == "weapon" and inst.itemId ~= tw) then
                 changed = true
             else
                 table.insert(kept, inst)
