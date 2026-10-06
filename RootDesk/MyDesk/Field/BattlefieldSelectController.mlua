@@ -151,7 +151,7 @@ script BattlefieldSelectController extends Component
         self.gateTier2Btn.Enable = isGate
         self.gateTier3Btn.Enable = isGate
         self.gateTier4Btn.Enable = isGate
-        self.gateTicketLabel.Enable = isGate
+        if isvalid(self.gateTicketLabel) then self.gateTicketLabel.Enable = isGate end
         if isvalid(self._T.gateNote) then self._T.gateNote.Enable = isGate end
         if isvalid(self._T.gateRule) then self._T.gateRule.Enable = isGate end
 
@@ -181,6 +181,7 @@ script BattlefieldSelectController extends Component
         -- M2 Phase E - GateTicketLogic(계정 단위)이 로드/갱신될 때마다도 호출된다(OnLoaded/OnTicketGranted/
         -- OnEnterGateResult). 팝업이 닫혀있어도 텍스트 갱신 자체는 가볍기 때문에 Tick의 Enable 가드와
         -- 달리 무조건 갱신 - 다음에 열릴 때 바로 최신값이 보이게 함.
+        if not isvalid(self.gateTicketLabel) then return end
         local count = _GateTicketLogic:GetCount()
         self.gateTicketLabel.Text = "입장권 보유 " .. tostring(count)
     end
